@@ -1,0 +1,791 @@
+// Comprehensive Gujarat Sports Infrastructure Database
+// Tailored for Sports, Youth & Cultural Activities Department, Govt. of Gujarat & SAG
+
+export const GUJARAT_DISTRICTS = [
+  "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch",
+  "Bhavnagar", "Botad", "Chhotaudepur", "Dahod", "Dang", "Devbhumi Dwarka",
+  "Gandhinagar", "Gir Somnath", "Jamnagar", "Junagadh", "Kheda", "Kutch",
+  "Mahisagar", "Mehsana", "Morbi", "Narmada", "Navsari", "Panchmahal",
+  "Patan", "Porbandar", "Rajkot", "Sabarkantha", "Surat", "Surendranagar",
+  "Tapi", "Vadodara", "Valsad"
+];
+
+export const SPORTS_LIST = [
+  { id: "sp_badminton", name: "Badminton", category: "Racquet Sports", icon: "🏸" },
+  { id: "sp_cricket", name: "Cricket", category: "Field Sports", icon: "🏏" },
+  { id: "sp_football", name: "Football", category: "Field Sports", icon: "⚽" },
+  { id: "sp_athletics", name: "Athletics & Track", category: "Track & Field", icon: "🏃" },
+  { id: "sp_swimming", name: "Swimming", category: "Aquatics", icon: "🏊" },
+  { id: "sp_tabletennis", name: "Table Tennis", category: "Indoor Sports", icon: "🏓" },
+  { id: "sp_kabaddi", name: "Kabaddi", category: "Traditional / Combat", icon: "🤼" },
+  { id: "sp_tennis", name: "Lawn Tennis", category: "Court Sports", icon: "🎾" },
+  { id: "sp_basketball", name: "Basketball", category: "Court Sports", icon: "🏀" },
+  { id: "sp_volleyball", name: "Volleyball", category: "Court Sports", icon: "🏐" },
+  { id: "sp_wrestling", name: "Wrestling (Kushti)", category: "Combat Sports", icon: "🤼‍♂️" },
+  { id: "sp_archery", name: "Archery", category: "Precision Sports", icon: "🏹" }
+];
+
+export const GUJARAT_FACILITIES = [
+  {
+    id: "fac_khokhra_01",
+    name: "SAG Khokhra Sports Complex",
+    district: "Ahmedabad",
+    taluka: "Maninagar",
+    location: "Khokhra, Near Anupam Cinema, Ahmedabad, Gujarat 380008",
+    latitude: 23.0035,
+    longitude: 72.6105,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2016",
+    areaAcres: 14.5,
+    contactPerson: "Rajesh Vaghela (Facility Manager)",
+    contactPhone: "+91 79 2216 4800",
+    contactEmail: "manager.khokhra@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "09:00 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: true
+    },
+    condition: {
+      grade: "Grade A (Excellent)",
+      score: 92,
+      lastInspectionDate: "2026-10-14",
+      inspector: "DSO Ahmedabad (SAG Quality Cell)",
+      turfStatus: "International Synthetic & Polyurethane Flooring",
+      lightingStatus: "High-Lux LED Floodlights (450 Lux)",
+      safetyStatus: "Compliant - Full Fire & Emergency Clearance",
+      sanitationScore: 94,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Track resurfaced recently for Khel Mahakumbh. All indoor courts in top condition."
+    },
+    utilisation: {
+      capacityDaily: 450,
+      currentDailyFootfall: 360,
+      utilizationRate: 80,
+      peakHours: "06:00 AM - 09:30 AM & 05:00 PM - 08:30 PM",
+      offPeakHours: "11:00 AM - 03:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Badminton", courts: 6, feePerHour: "₹150", surface: "Wooden Spring Floor", rating: 4.8 },
+      { name: "Table Tennis", tables: 8, feePerHour: "₹80", surface: "Stag Olympic Mat", rating: 4.7 },
+      { name: "Athletics & Track", lanes: 8, feePerHour: "₹50", surface: "Synthetic 400m Track", rating: 4.9 },
+      { name: "Swimming", pools: 1, feePerHour: "₹120", surface: "Olympic 50m Heated", rating: 4.6 }
+    ]
+  },
+  {
+    id: "fac_sama_02",
+    name: "Sama Indoor Sports Complex",
+    district: "Vadodara",
+    taluka: "Vadodara Urban",
+    location: "Sama-Savli Road, Near Swaminarayan Temple, Vadodara, Gujarat 390024",
+    latitude: 22.3275,
+    longitude: 73.1942,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2018",
+    areaAcres: 18.2,
+    contactPerson: "Mehul Choksi (Complex Supervisor)",
+    contactPhone: "+91 265 278 9120",
+    contactEmail: "manager.sama@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "05:30 AM", closingTime: "09:30 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: true
+    },
+    condition: {
+      grade: "Grade A (Excellent)",
+      score: 89,
+      lastInspectionDate: "2026-09-22",
+      inspector: "DSO Vadodara",
+      turfStatus: "Maple Wood Indoor & FIFA-Standard Artificial Turf",
+      lightingStatus: "Digital Dimmable Arena Floodlights (500 Lux)",
+      safetyStatus: "Compliant - First Aid Center Onsite",
+      sanitationScore: 88,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Excellent maintenance. Air conditioning in badminton hall fully functional."
+    },
+    utilisation: {
+      capacityDaily: 500,
+      currentDailyFootfall: 410,
+      utilizationRate: 82,
+      peakHours: "06:00 AM - 09:00 AM & 05:30 PM - 09:00 PM",
+      offPeakHours: "12:00 PM - 04:00 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Badminton", courts: 8, feePerHour: "₹180", surface: "BWF Approved Teakwood", rating: 4.9 },
+      { name: "Basketball", courts: 2, feePerHour: "₹120", surface: "FIBA Acrylic", rating: 4.8 },
+      { name: "Lawn Tennis", courts: 4, feePerHour: "₹200", surface: "DecoTurf Hard Court", rating: 4.7 },
+      { name: "Table Tennis", tables: 6, feePerHour: "₹90", surface: "Anti-Skid Mat", rating: 4.6 }
+    ]
+  },
+  {
+    id: "fac_sgsu_03",
+    name: "Swarnim Gujarat Sports University Arena",
+    district: "Gandhinagar",
+    taluka: "Gandhinagar",
+    location: "Sector 15, Near G-Road, Gandhinagar, Gujarat 382016",
+    latitude: 23.2156,
+    longitude: 72.6369,
+    category: "University / Institutional Ground",
+    ownership: "Sports Authority of Gujarat (SAG) / SGSU",
+    operationalSince: "2015",
+    areaAcres: 35.0,
+    contactPerson: "Dr. K. N. Trivedi (Dean of Sports)",
+    contactPhone: "+91 79 2328 7411",
+    contactEmail: "nsc-sag@gujrat.gov.in",
+    picture: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "05:00 AM", closingTime: "10:00 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: true
+    },
+    condition: {
+      grade: "Grade A (Excellent)",
+      score: 96,
+      lastInspectionDate: "2026-10-28",
+      inspector: "State Director SAG Inspection Panel",
+      turfStatus: "Olympic Standard Synthetic Tracks & Natural Bermuda Grass",
+      lightingStatus: "International Broadcast Standard (1200 Lux)",
+      safetyStatus: "Compliant - Full Medical Staff & Sports Physiotherapy Wing",
+      sanitationScore: 98,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Premier sports hub for Gujarat elite training and coaching certifications."
+    },
+    utilisation: {
+      capacityDaily: 800,
+      currentDailyFootfall: 680,
+      utilizationRate: 85,
+      peakHours: "05:30 AM - 10:00 AM & 04:30 PM - 09:30 PM",
+      offPeakHours: "11:30 AM - 03:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Athletics & Track", lanes: 8, feePerHour: "₹60", surface: "IAAF Certified Synthetic", rating: 5.0 },
+      { name: "Football", courts: 2, feePerHour: "₹250", surface: "Natural Bermuda Grass", rating: 4.9 },
+      { name: "Archery", courts: 1, feePerHour: "₹100", surface: "70m Outdoor Range", rating: 4.9 },
+      { name: "Wrestling (Kushti)", mats: 4, feePerHour: "₹80", surface: "UWW Approved Wrestling Mats", rating: 4.8 },
+      { name: "Swimming", pools: 2, feePerHour: "₹150", surface: "Olympic 50m + Diving Well", rating: 4.9 }
+    ]
+  },
+  {
+    id: "fac_surat_04",
+    name: "Veer Narmad South Gujarat Sports Hub",
+    district: "Surat",
+    taluka: "Choryasi",
+    location: "Udhna-Magdalla Road, Surat, Gujarat 395007",
+    latitude: 21.1702,
+    longitude: 72.8311,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2019",
+    areaAcres: 16.0,
+    contactPerson: "Dharmesh Parekh",
+    contactPhone: "+91 261 225 6112",
+    contactEmail: "manager.surat@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1519766304817-4f37bda74a29?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "09:00 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 78,
+      lastInspectionDate: "2026-08-19",
+      inspector: "DSO Surat",
+      turfStatus: "Good condition, slight wear on outdoor volleyball court",
+      lightingStatus: "Functional LED floodlights, 2 replacement bulbs needed on south tower",
+      safetyStatus: "Compliant",
+      sanitationScore: 82,
+      maintenanceUrgency: "Minor Attention Required",
+      notes: "High citizen footfall. Recommended to install additional water cooler on east pavilion."
+    },
+    utilisation: {
+      capacityDaily: 400,
+      currentDailyFootfall: 290,
+      utilizationRate: 72,
+      peakHours: "06:00 AM - 09:00 AM & 05:00 PM - 08:30 PM",
+      offPeakHours: "10:30 AM - 04:00 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Badminton", courts: 4, feePerHour: "₹140", surface: "Vinyl Court Mat", rating: 4.5 },
+      { name: "Volleyball", courts: 2, feePerHour: "₹70", surface: "Compacted Clay / Sand", rating: 4.2 },
+      { name: "Kabaddi", courts: 2, feePerHour: "₹50", surface: "Pro-Kabaddi Mats", rating: 4.7 },
+      { name: "Cricket", nets: 4, feePerHour: "₹100", surface: "Turf Practice Wickets", rating: 4.6 }
+    ]
+  },
+  {
+    id: "fac_rajkot_05",
+    name: "Racecourse Sports Complex",
+    district: "Rajkot",
+    taluka: "Rajkot Urban",
+    location: "Racecourse Ring Road, Rajkot, Gujarat 360001",
+    latitude: 22.3039,
+    longitude: 70.8022,
+    category: "Municipal Stadium",
+    ownership: "Rajkot Municipal Corporation & SAG",
+    operationalSince: "2012",
+    areaAcres: 22.0,
+    contactPerson: "Kirit Rathod",
+    contactPhone: "+91 281 247 1823",
+    contactEmail: "manager.rajkot@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "05:30 AM", closingTime: "09:00 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: false,
+      canteen: true
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 82,
+      lastInspectionDate: "2026-09-11",
+      inspector: "DSO Rajkot",
+      turfStatus: "Cricket outfield well-mowed, tennis court resurfaced in 2025",
+      lightingStatus: "Operational Floodlights (350 Lux)",
+      safetyStatus: "Compliant",
+      sanitationScore: 80,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Proposal submitted for Divyangjan accessibility ramp construction."
+    },
+    utilisation: {
+      capacityDaily: 480,
+      currentDailyFootfall: 350,
+      utilizationRate: 73,
+      peakHours: "06:00 AM - 09:00 AM & 05:00 PM - 08:30 PM",
+      offPeakHours: "11:00 AM - 03:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Cricket", grounds: 1, feePerHour: "₹300", surface: "Natural Turf & Grass", rating: 4.8 },
+      { name: "Lawn Tennis", courts: 3, feePerHour: "₹180", surface: "Clay Court", rating: 4.4 },
+      { name: "Athletics & Track", lanes: 6, feePerHour: "₹40", surface: "Cinder 400m Track", rating: 4.2 },
+      { name: "Table Tennis", tables: 4, feePerHour: "₹80", surface: "Synthetic Mats", rating: 4.6 }
+    ]
+  },
+  {
+    id: "fac_bhavnagar_06",
+    name: "SAG Bhavnagar District Sports Complex",
+    district: "Bhavnagar",
+    taluka: "Bhavnagar",
+    location: "Kevalram Dave Road, Near Ruva, Bhavnagar, Gujarat 364001",
+    latitude: 21.7645,
+    longitude: 72.1519,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2017",
+    areaAcres: 12.0,
+    contactPerson: "Sunil Gohil",
+    contactPhone: "+91 278 251 3400",
+    contactEmail: "manager.bhavnagar@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1526676037777-05a232554f77?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "08:30 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: false,
+      divyangjanFriendly: true,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 75,
+      lastInspectionDate: "2026-07-30",
+      inspector: "DSO Bhavnagar",
+      turfStatus: "Good indoor surfaces, outdoor track requires red cinder replenishment",
+      lightingStatus: "Indoor LED operational; outdoor pole 3 flickering",
+      safetyStatus: "Compliant",
+      sanitationScore: 78,
+      maintenanceUrgency: "Minor Attention Required",
+      notes: "High participation in Table Tennis and Basketball. Recommended for school zonal trials."
+    },
+    utilisation: {
+      capacityDaily: 350,
+      currentDailyFootfall: 230,
+      utilizationRate: 66,
+      peakHours: "06:00 AM - 08:30 AM & 05:00 PM - 08:00 PM",
+      offPeakHours: "10:30 AM - 04:00 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Table Tennis", tables: 6, feePerHour: "₹70", surface: "Olympic Stag", rating: 4.7 },
+      { name: "Basketball", courts: 2, feePerHour: "₹100", surface: "Concrete with PU coating", rating: 4.4 },
+      { name: "Badminton", courts: 3, feePerHour: "₹130", surface: "Wooden Court", rating: 4.5 }
+    ]
+  },
+  {
+    id: "fac_mehsana_07",
+    name: "Mehsana Taluka Sports Complex",
+    district: "Mehsana",
+    taluka: "Mehsana",
+    location: "Modhera Road, Near Sports Hostel, Mehsana, Gujarat 384002",
+    latitude: 23.5880,
+    longitude: 72.3693,
+    category: "Taluka Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2014",
+    areaAcres: 9.5,
+    contactPerson: "Vikram Chaudhary",
+    contactPhone: "+91 2762 230 450",
+    contactEmail: "manager.mehsana@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "08:00 PM" },
+    amenities: {
+      floodlights: false,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: false,
+      divyangjanFriendly: false,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade C (Needs Maintenance)",
+      score: 58,
+      lastInspectionDate: "2026-10-02",
+      inspector: "DSO Mehsana",
+      turfStatus: "Outdoor pitch uneven; indoor kabaddi mats show moderate fraying",
+      lightingStatus: "No night floodlights; daylight usage only",
+      safetyStatus: "Action Required - Perimeter fencing has 2 breach sections",
+      sanitationScore: 60,
+      maintenanceUrgency: "High Priority Repair",
+      notes: "Budget sanctioned under SAG District Modernisation 2026-27. Resurfacing pending."
+    },
+    utilisation: {
+      capacityDaily: 250,
+      currentDailyFootfall: 95,
+      utilizationRate: 38,
+      peakHours: "06:30 AM - 08:30 AM & 05:00 PM - 07:00 PM",
+      offPeakHours: "09:00 AM - 04:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Kabaddi", courts: 2, feePerHour: "₹40", surface: "Traditional Mud & Mats", rating: 3.9 },
+      { name: "Volleyball", courts: 1, feePerHour: "₹50", surface: "Clay Pitch", rating: 3.8 },
+      { name: "Athletics & Track", lanes: 4, feePerHour: "₹20", surface: "Dirt Track 200m", rating: 3.5 }
+    ]
+  },
+  {
+    id: "fac_bhuj_08",
+    name: "Kutch District Sports Ground",
+    district: "Kutch",
+    taluka: "Bhuj",
+    location: "Mirzapar Highway, Bhuj, Kutch, Gujarat 370001",
+    latitude: 23.2420,
+    longitude: 69.6669,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2016",
+    areaAcres: 15.0,
+    contactPerson: "Harish Jadeja",
+    contactPhone: "+91 2832 254 788",
+    contactEmail: "manager.kutch@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "08:30 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 72,
+      lastInspectionDate: "2026-08-05",
+      inspector: "DSO Kutch",
+      turfStatus: "Good sandy soil base, archery range in prime order",
+      lightingStatus: "2/4 Floodlights functional; transformer maintenance underway",
+      safetyStatus: "Compliant",
+      sanitationScore: 76,
+      maintenanceUrgency: "Minor Attention Required",
+      notes: "Critical sports hub for border area youth. Archery talent scouting center."
+    },
+    utilisation: {
+      capacityDaily: 300,
+      currentDailyFootfall: 190,
+      utilizationRate: 63,
+      peakHours: "06:00 AM - 08:30 AM & 05:00 PM - 07:30 PM",
+      offPeakHours: "09:30 AM - 04:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Archery", courts: 2, feePerHour: "₹50", surface: "Standard Outdoor Range", rating: 4.8 },
+      { name: "Football", courts: 1, feePerHour: "₹180", surface: "Natural Grass", rating: 4.2 },
+      { name: "Athletics & Track", lanes: 6, feePerHour: "₹30", surface: "Cinder 400m Track", rating: 4.1 },
+      { name: "Badminton", courts: 2, feePerHour: "₹100", surface: "Synthetic Mat", rating: 4.3 }
+    ]
+  },
+  {
+    id: "fac_himatnagar_09",
+    name: "Himatnagar District Sports Complex",
+    district: "Sabarkantha",
+    taluka: "Himatnagar",
+    location: "Idar Road, Near Civil Hospital, Himatnagar, Gujarat 383001",
+    latitude: 23.5977,
+    longitude: 72.9698,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2018",
+    areaAcres: 11.2,
+    contactPerson: "Bipin Joshi",
+    contactPhone: "+91 2772 241 190",
+    contactEmail: "manager.sabarkantha@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "08:30 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 79,
+      lastInspectionDate: "2026-09-04",
+      inspector: "DSO Sabarkantha",
+      turfStatus: "Well-maintained indoor flooring and wrestling hall",
+      lightingStatus: "Operational LED lights",
+      safetyStatus: "Compliant",
+      sanitationScore: 80,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Major center for tribal youth athletic training under SAG Vanbandhu Kalyan Yojana."
+    },
+    utilisation: {
+      capacityDaily: 320,
+      currentDailyFootfall: 240,
+      utilizationRate: 75,
+      peakHours: "06:00 AM - 08:30 AM & 05:00 PM - 08:00 PM",
+      offPeakHours: "10:00 AM - 04:00 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Wrestling (Kushti)", mats: 2, feePerHour: "₹40", surface: "International Foam Mat", rating: 4.8 },
+      { name: "Athletics & Track", lanes: 6, feePerHour: "₹30", surface: "Cinder Track 400m", rating: 4.4 },
+      { name: "Kabaddi", courts: 2, feePerHour: "₹40", surface: "Rubberised Mat", rating: 4.7 }
+    ]
+  },
+  {
+    id: "fac_godhra_10",
+    name: "Godhra Sports Complex",
+    district: "Panchmahal",
+    taluka: "Godhra",
+    location: "Vavdi Road, Godhra, Gujarat 389001",
+    latitude: 22.7758,
+    longitude: 73.6149,
+    category: "Taluka Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2013",
+    areaAcres: 8.0,
+    contactPerson: "Mahesh Solanki",
+    contactPhone: "+91 2672 260 211",
+    contactEmail: "manager.panchmahal@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:30 AM", closingTime: "07:30 PM" },
+    amenities: {
+      floodlights: false,
+      drinkingWater: true,
+      changingRooms: false,
+      firstAid: true,
+      parking: true,
+      gym: false,
+      divyangjanFriendly: false,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade D (Critical Renovation)",
+      score: 42,
+      lastInspectionDate: "2026-10-18",
+      inspector: "SAG State Quality Audit Team",
+      turfStatus: "Worn grass, water drainage issues during monsoons",
+      lightingStatus: "Non-functional halogen fixtures",
+      safetyStatus: "Action Required - Boundary wall collapsed on north edge",
+      sanitationScore: 45,
+      maintenanceUrgency: "Immediate Intervention / Renovation Tender Issued",
+      notes: "Flagged for complete revamping under SAG Infrastructure Overhaul 2026."
+    },
+    utilisation: {
+      capacityDaily: 200,
+      currentDailyFootfall: 45,
+      utilizationRate: 22,
+      peakHours: "06:30 AM - 08:00 AM & 05:00 PM - 06:30 PM",
+      offPeakHours: "All Day Low Usage",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: false
+    },
+    sports: [
+      { name: "Football", courts: 1, feePerHour: "₹50", surface: "Uneven Mud / Natural", rating: 3.0 },
+      { name: "Volleyball", courts: 1, feePerHour: "₹30", surface: "Compacted Soil", rating: 3.2 }
+    ]
+  },
+  {
+    id: "fac_navsari_11",
+    name: "Navsari District Sports Ground",
+    district: "Navsari",
+    taluka: "Navsari",
+    location: "Near Lunsikui Ground, Navsari, Gujarat 396445",
+    latitude: 20.9467,
+    longitude: 72.9520,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2020",
+    areaAcres: 13.5,
+    contactPerson: "Chetan Desai",
+    contactPhone: "+91 2637 259 020",
+    contactEmail: "manager.navsari@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "09:00 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: true
+    },
+    condition: {
+      grade: "Grade A (Excellent)",
+      score: 86,
+      lastInspectionDate: "2026-09-15",
+      inspector: "DSO Navsari",
+      turfStatus: "Synthetic 8-lane track and indoor multipurpose stadium in prime condition",
+      lightingStatus: "LED lighting, 400 Lux",
+      safetyStatus: "Compliant",
+      sanitationScore: 88,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Host venue for South Gujarat inter-college tournaments."
+    },
+    utilisation: {
+      capacityDaily: 420,
+      currentDailyFootfall: 330,
+      utilizationRate: 78,
+      peakHours: "06:00 AM - 09:00 AM & 05:00 PM - 08:30 PM",
+      offPeakHours: "11:00 AM - 03:30 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Athletics & Track", lanes: 8, feePerHour: "₹50", surface: "Synthetic 400m Track", rating: 4.8 },
+      { name: "Badminton", courts: 4, feePerHour: "₹140", surface: "Teakwood Court", rating: 4.7 },
+      { name: "Basketball", courts: 2, feePerHour: "₹100", surface: "Synthetic Hard Court", rating: 4.6 }
+    ]
+  },
+  {
+    id: "fac_junagadh_12",
+    name: "Junagadh Bilkha Road Sports Ground",
+    district: "Junagadh",
+    taluka: "Junagadh Urban",
+    location: "Bilkha Road, Near Agricultural University, Junagadh, Gujarat 362001",
+    latitude: 21.5222,
+    longitude: 70.4579,
+    category: "SAG District Sports Complex",
+    ownership: "Sports Authority of Gujarat (SAG)",
+    operationalSince: "2017",
+    areaAcres: 14.0,
+    contactPerson: "Ashwin Makwana",
+    contactPhone: "+91 285 267 8901",
+    contactEmail: "manager.junagadh@sag.gujarat.gov.in",
+    picture: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80",
+    timings: { openingTime: "06:00 AM", closingTime: "08:30 PM" },
+    amenities: {
+      floodlights: true,
+      drinkingWater: true,
+      changingRooms: true,
+      firstAid: true,
+      parking: true,
+      gym: true,
+      divyangjanFriendly: true,
+      canteen: false
+    },
+    condition: {
+      grade: "Grade B (Good)",
+      score: 77,
+      lastInspectionDate: "2026-08-28",
+      inspector: "DSO Junagadh",
+      turfStatus: "Good swimming pool filtration and wrestling hall",
+      lightingStatus: "Operational standard lighting",
+      safetyStatus: "Compliant",
+      sanitationScore: 78,
+      maintenanceUrgency: "Normal / Routine",
+      notes: "Active morning swimming coaching camp."
+    },
+    utilisation: {
+      capacityDaily: 360,
+      currentDailyFootfall: 260,
+      utilizationRate: 72,
+      peakHours: "06:00 AM - 09:00 AM & 05:00 PM - 08:00 PM",
+      offPeakHours: "10:30 AM - 04:00 PM",
+      offPeakDiscountAvailable: true,
+      institutionalBookingAllowed: true
+    },
+    sports: [
+      { name: "Swimming", pools: 1, feePerHour: "₹100", surface: "Semi-Olympic 25m Pool", rating: 4.6 },
+      { name: "Wrestling (Kushti)", mats: 2, feePerHour: "₹40", surface: "Olympic Mat", rating: 4.7 },
+      { name: "Badminton", courts: 3, feePerHour: "₹120", surface: "Synthetic Flooring", rating: 4.4 }
+    ]
+  }
+];
+
+export const DEMO_USERS = [
+  {
+    roleName: "State Administrator (SAG Head)",
+    roleId: 5,
+    email: "admin@sag.gujarat.gov.in",
+    password: "admin",
+    name: "Dr. Arvind Patel, IAS (Director General, SAG)",
+    district: "State Headquarters (Gandhinagar)",
+    badgeColor: "bg-purple-600 text-white",
+    description: "Macro-level Gujarat infrastructure planning, budget approval, and statewide GIS utilization analytics."
+  },
+  {
+    roleName: "District Sports Officer (DSO Authority)",
+    roleId: 4,
+    email: "dso.ahmedabad@sag.gujarat.gov.in",
+    password: "dso",
+    name: "Shri Bhavik Solanki (DSO Ahmedabad)",
+    district: "Ahmedabad District",
+    badgeColor: "bg-blue-600 text-white",
+    description: "District-level facility condition audits, maintenance approval, and institutional tournament allocations."
+  },
+  {
+    roleName: "Sports Complex Manager",
+    roleId: 3,
+    email: "manager.khokhra@sag.gujarat.gov.in",
+    password: "manager",
+    name: "Rajesh Vaghela (Khokhra Sports Complex)",
+    district: "Ahmedabad (Maninagar Taluka)",
+    badgeColor: "bg-emerald-600 text-white",
+    description: "Day-to-day court slot scheduling, facility condition inspection logging, and coach/supervisor roster."
+  },
+  {
+    roleName: "Coach / Instructor",
+    roleId: 2,
+    email: "coach.patel@gujarat.org",
+    password: "coach",
+    name: "Coach Nayan Patel (State Badminton Trainer)",
+    district: "Vadodara / Sama Complex",
+    badgeColor: "bg-amber-600 text-white",
+    description: "Talent batch reservations, athlete training performance tracking, and equipment requisitions."
+  },
+  {
+    roleName: "Citizen / Athlete",
+    roleId: 0,
+    email: "athlete.aarav@gmail.com",
+    password: "athlete",
+    name: "Aarav Trivedi (Competitive Badminton Athlete)",
+    district: "Ahmedabad",
+    badgeColor: "bg-teal-600 text-white",
+    description: "Public facility discovery, interactive map search, pay-and-play booking, and condition feedback."
+  }
+];
+
+export const SAMPLE_INSTITUTIONAL_BOOKINGS = [
+  {
+    id: "ib_01",
+    institutionName: "Gujarat Technological University (GTU)",
+    institutionType: "University",
+    contactPerson: "Prof. H. B. Dave (Sports Director)",
+    email: "sports@gtu.ac.in",
+    phone: "+91 79 2326 7500",
+    complexId: "fac_khokhra_01",
+    complexName: "SAG Khokhra Sports Complex",
+    sport: "Badminton & Athletics",
+    eventType: "Inter-College Zonal Championship 2026",
+    startDate: "2026-11-15",
+    endDate: "2026-11-18",
+    participants: 340,
+    status: "Approved",
+    purpose: "State university level trials for West Zone Inter-University games."
+  },
+  {
+    id: "ib_02",
+    institutionName: "Delhi Public School Gandhinagar",
+    institutionType: "School",
+    contactPerson: "Mrs. Sunita Sharma (Vice Principal)",
+    email: "sports.dpsgn@gmail.com",
+    phone: "+91 79 2324 1122",
+    complexId: "fac_sgsu_03",
+    complexName: "Swarnim Gujarat Sports University Arena",
+    sport: "Athletics & Track",
+    eventType: "Annual Inter-House Sports Meet",
+    startDate: "2026-11-24",
+    endDate: "2026-11-25",
+    participants: 600,
+    status: "Approved",
+    purpose: "School annual athletics track and field competition."
+  },
+  {
+    id: "ib_03",
+    institutionName: "Saurashtra Badminton Academy",
+    institutionType: "Sports Academy",
+    contactPerson: "Kishore Bhatt",
+    email: "saurashtra.badminton@gmail.com",
+    phone: "+91 281 245 8890",
+    complexId: "fac_rajkot_05",
+    complexName: "Racecourse Sports Complex, Rajkot",
+    sport: "Badminton",
+    eventType: "Junior Talent Search Summer Camp",
+    startDate: "2026-12-01",
+    endDate: "2026-12-10",
+    participants: 80,
+    status: "Pending DSO Approval",
+    purpose: "Grassroots talent identification for under-14 district players."
+  }
+];
+
