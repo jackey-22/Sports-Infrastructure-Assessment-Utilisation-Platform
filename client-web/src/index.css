@@ -12,6 +12,24 @@
   }
 }
 
+@layer utilities {
+  .hero-landmark-silhouette {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 200' fill='%23007D40' opacity='0.08'%3E%3Cpath d='M80 180 L100 140 L120 180 Z M200 180 V100 H220 V180 Z M280 180 L320 60 L360 180 Z M400 180 V120 H480 V180 Z M520 180 L560 40 L600 180 Z M640 180 V90 H700 V180 Z M760 180 L800 70 L840 180 Z M900 180 V110 H980 V180 Z M1040 180 L1080 50 L1120 180 Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: bottom center;
+    background-size: 100% auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delay,
+  .animate-fade-up-delay-2,
+  .animate-fade-in {
+    animation: none !important;
+  }
+}
+
 /* Modernized PrimeReact DataTables */
 .p-datatable {
   border-radius: 1rem;

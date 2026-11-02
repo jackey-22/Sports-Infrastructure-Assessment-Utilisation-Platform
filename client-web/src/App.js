@@ -8,7 +8,8 @@ import Verify from "./Components/Auth/Verify";
 
 //Login Page (Common for All)
 import Login from "./Pages/Login";
-import PublicPortal from "./Components/Public/PublicPortal";
+import HomeLanding from "./Components/Public/HomeLanding";
+import PublicExplore from "./Components/Public/PublicExplore";
 
 //ErrorPage
 import ErrorPage from "./Pages/ErrorPage";
@@ -70,7 +71,11 @@ import Slot from "./Components/Manager/Slot";
 const routes = createBrowserRouter([
   {
     path: "/",
-    element: <PublicPortal />,
+    element: <HomeLanding />,
+  },
+  {
+    path: "/explore",
+    element: <PublicExplore />,
   },
   {
     path: "/login",

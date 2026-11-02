@@ -151,7 +151,7 @@ const Login = () => {
           className="inline-flex items-center gap-2 text-sm font-bold text-amber-400 hover:text-amber-300 transition bg-white/10 px-4 py-2 rounded-xl backdrop-blur-md"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Public GIS Map & Facility Search
+          Back to Home
         </Link>
         <div className="text-xs text-slate-400 hidden sm:block">
           Sports, Youth & Cultural Activities Department &bull; Govt. of Gujarat

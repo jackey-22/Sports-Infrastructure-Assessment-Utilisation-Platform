@@ -54,7 +54,7 @@ const Layout = () => {
         <nav className=" text-base font-semibold pt-3 overflow-y-scroll h-4/6">
           <div className="p-3">
             <Link
-              to="/"
+              to="/explore"
               className="flex items-center justify-center gap-2 text-xs font-bold text-amber-300 bg-white/10 hover:bg-white/20 py-2.5 px-3 rounded-xl transition border border-amber-400/30 shadow-sm"
             >
               <span>🗺️</span> KhelGujarat GIS Map

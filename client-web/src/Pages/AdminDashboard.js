@@ -71,7 +71,7 @@ export default function AdminDashboard() {
 
         <div className="flex flex-wrap gap-2.5">
           <Link
-            to="/"
+            to="/explore"
             className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
           >
             <span>🗺️</span> Open Statewide GIS Map
