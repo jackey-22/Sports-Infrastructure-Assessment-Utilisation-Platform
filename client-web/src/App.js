@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@material-tailwind/react";
 import { PrimeReactProvider } from "primereact/api";
+import AdminPanel from "./Components/Admin/AdminPanel";
 
 //Authenatication
 import LoginVerify from "./Components/Auth/LoginVerify";
@@ -15,25 +16,14 @@ import PublicExplore from "./Components/Public/PublicExplore";
 import ErrorPage from "./Pages/ErrorPage";
 
 //All Layout
-import AdminLayout from "./Components/Admin/Layout";
 import AuthorityLayout from "./Components/Authority/Layout";
 import ManagerLayout from "./Components/Manager/Layout";
 
-//Dashbaord
-import AdminDashboard from "./Pages/AdminDashboard";
 import AuthorityDashboard from "./Pages/AuthorityDashboard";
 import ManagerDashboard from "./Pages/ManagerDashboard";
 
-//Admin Pages
-import AddAuthority from "./Components/Admin/Authority/AddAuthority";
-import AddFacility from "./Components/Admin/Facility/AddFacility";
-import AddSportsComplex from "./Components/Admin/SportsComplex/AddSportsComplex";
-import AdminAllManager from "./Components/Admin/Manager/AllManager";
 //Authority Pages
 import AddManager from "./Components/Authority/Manager/AddManager";
-import AllAuthority from "./Components/Admin/Authority/AllAuthority";
-import AllFacility from "./Components/Admin/Facility/AllFacility";
-import AllSportsComplex from "./Components/Admin/SportsComplex/AllSportsComplex";
 import AllManager from "./Components/Authority/Manager/AllManager";
 import AllAuthoritySportsComplex from "./Components/Authority/SportsComplex/AllSportsComplex";
 import Profile from "./Components/Authority/Profile/Profile";
@@ -50,19 +40,11 @@ import EditSportsComplexDetails from "./Components/Manager/SportsComplexDetails/
 import ComplaintDetails from "./Components/Manager/Complaint/ComplainDetails";
 import AuthorityComplaintDataTable from "./Components/Authority/Complaint/ComplaintDetails";
 import Athelte from "./Components/Manager/Athelte/Athelte";
-import AdminComplaint from "./Components/Admin/Complaint/Complaint";
-import Analysis from "./Components/Admin/Analysis/Analysis";
 import AddComplaint from "./Components/Authority/Complaint/AddComplaint";
-import AddComplaintType from "./Components/Admin/Complaint/AddComplaintType";
 import ManagerAddComplaint from "./Components/Manager/Complaint/ManagerAddComplaint";
-import AdminNews from "./Components/Admin/News/News";
-import AddNews from "./Components/Admin/News/AddNews";
 import ComplexNews from "./Components/Manager/News/ComplexNews";
 import AddComplexNews from "./Components/Manager/News/AddComplexNews";
 import Leaderboard from "./Components/Admin/LeaderBoard/Leaderboard";
-// import AthletePerformance from "./Pages/AthletePerformance";
-import DistrictWiseSportsComplex from "./Components/Admin/DataTable";
-import Topboard from "./Components/Admin/Analysis/Topboard";
 import Utilization from "./Components/Manager/Analysis/Utilization";
 import AuthorityAnalysis from "./Components/Authority/Analysis/AuthorityAnalysis";
 // import SlotDataTable from "./Components/Manager/SlotDataTable";
@@ -85,92 +67,11 @@ const routes = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <AdminLayout />,
+    element: <AdminPanel />,
     loader: () => {
       return Verify(5);
     },
     errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        element: <AdminDashboard />,
-      },
-      {
-        path: "allauthority",
-        element: <AllAuthority />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addauthority",
-        element: <AddAuthority />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allmanager",
-        element: <AdminAllManager />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allfacility",
-        element: <AllFacility />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addfacility",
-        element: <AddFacility />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allsportscomplex",
-        element: <AllSportsComplex />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addsportscomplex",
-        element: <AddSportsComplex />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allcomplaints",
-        element: <AdminComplaint />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "analysis",
-        element: <Analysis />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addcomplianttype",
-        element: <AddComplaintType />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allevents",
-        element: <AdminNews />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addevent",
-        element: <AddNews />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "leaderboard",
-        element: <Leaderboard />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "districtWiseSportsComplex",
-        element: <DistrictWiseSportsComplex />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "topsportcomplex",
-        element: <Topboard />,
-        errorElement: <ErrorPage />,
-      },
-    ],
   },
   {
     path: "/authority",

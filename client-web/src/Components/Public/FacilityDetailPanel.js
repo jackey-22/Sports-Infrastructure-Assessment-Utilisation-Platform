@@ -9,6 +9,9 @@ import {
   School,
   Ticket,
   ChevronDown,
+  CalendarDays,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { getConditionMeta, getAverageRating, getFacilityType } from "./exploreUtils";
 
@@ -75,6 +78,26 @@ export default function FacilityDetailPanel({
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
+            <InfoChip icon={CalendarDays} label="Established" value={facility.operationalSince || "Not specified"} />
+            <InfoChip icon={Phone} label="Contact" value={facility.contactPhone || "Not specified"} />
+            <InfoChip icon={Mail} label="Email" value={facility.contactEmail || "Not specified"} />
+            <InfoChip icon={Users} label="Manager" value={facility.contactPerson || "Not specified"} />
+          </div>
+
+          {(facility.details || facility.gallery?.length > 0) && (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Complex details</h3>
+              {facility.details?.city && <p><span className="font-bold text-slate-800">City:</span> {facility.details.city}</p>}
+              {facility.details?.locality && <p><span className="font-bold text-slate-800">Area:</span> {facility.details.locality}</p>}
+              {facility.details?.manager && <p><span className="font-bold text-slate-800">Manager:</span> {facility.details.manager}</p>}
+              {facility.details?.status && <p><span className="font-bold text-slate-800">Status:</span> {facility.details.status}</p>}
+              {facility.details?.lastMaintenanceDate && <p><span className="font-bold text-slate-800">Last maintenance:</span> {facility.details.lastMaintenanceDate}</p>}
+              {facility.details?.address && <p><span className="font-bold text-slate-800">Address:</span> {facility.details.address}</p>}
+              {facility.gallery?.length > 1 && <div className="grid grid-cols-3 gap-2 pt-1">{facility.gallery.map((image, index) => <img key={`${image}-${index}`} src={image} alt={`${facility.name} gallery ${index + 1}`} className="h-16 w-full rounded-lg object-cover" />)}</div>}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
             <InfoChip
               icon={Clock}
               label="Hours"
@@ -91,15 +114,20 @@ export default function FacilityDetailPanel({
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
               Sports available
             </h3>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-2">
               {(facility.sports || []).map((sp) => (
-                <span
+                <div
                   key={sp.name}
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-soft text-brand-primary"
+                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2"
                 >
-                  {sp.name}
-                  {sp.feePerHour ? ` · ${sp.feePerHour}` : ""}
-                </span>
+                  {sp.image ? <img src={sp.image} alt={sp.name} className="h-12 w-12 rounded-lg object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-soft text-lg">🏅</div>}
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-brand-dark">{sp.name}</p>
+                    <p className="text-xs text-slate-500">{sp.category || "Sport"} · {sp.type || "Format"} · {sp.courts || 0} courts / units</p>
+                    <p className="text-xs text-slate-500">{sp.surface || "Details available at facility"} · {sp.availability || "Availability not specified"}</p>
+                    {sp.feePerHour && <p className="text-xs font-semibold text-brand-primary">{sp.feePerHour}</p>}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

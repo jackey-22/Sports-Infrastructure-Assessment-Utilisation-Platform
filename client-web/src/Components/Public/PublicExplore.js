@@ -21,9 +21,9 @@ import FacilityConditionAudit from "../Assessment/FacilityConditionAudit";
 import InstitutionalBookingModal from "../Utilisation/InstitutionalBookingModal";
 import CitizenBookingModal from "./CitizenBookingModal";
 import {
-  GUJARAT_FACILITIES,
   DEMO_USERS,
 } from "../../data/gujaratSportsData";
+import { getPublicFacilities } from "../../data/adminFacilityData";
 import {
   CONDITION_OPTIONS,
   getFacilityType,
@@ -47,7 +47,7 @@ export default function PublicExplore() {
   const listScrollRef = useRef(null);
   const suppressAutoSelectRef = useRef(false);
 
-  const [facilities, setFacilities] = useState(GUJARAT_FACILITIES);
+  const [facilities, setFacilities] = useState(getPublicFacilities);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("All Districts");
   const [selectedSports, setSelectedSports] = useState([]);
@@ -167,7 +167,7 @@ export default function PublicExplore() {
     setSelectedConditions([]);
     setSortBy("relevance");
     setNearMeActive(false);
-    setFacilities(GUJARAT_FACILITIES);
+    setFacilities(getPublicFacilities());
   };
 
   const toggleInList = (list, value, setter) => {
@@ -184,7 +184,7 @@ export default function PublicExplore() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        const sorted = [...GUJARAT_FACILITIES].sort((a, b) => {
+        const sorted = [...getPublicFacilities()].sort((a, b) => {
           const distA = Math.hypot(a.latitude - latitude, a.longitude - longitude);
           const distB = Math.hypot(b.latitude - latitude, b.longitude - longitude);
           return distA - distB;
@@ -300,7 +300,7 @@ export default function PublicExplore() {
       label: "Near me",
       onRemove: () => {
         setNearMeActive(false);
-        setFacilities(GUJARAT_FACILITIES);
+        setFacilities(getPublicFacilities());
       },
     });
   }

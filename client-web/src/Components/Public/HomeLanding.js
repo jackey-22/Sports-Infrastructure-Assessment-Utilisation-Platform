@@ -17,10 +17,10 @@ import PublicNavbar from "./PublicNavbar";
 import FacilityCard from "./FacilityCard";
 import gujMapHero from "../../Assets/guj-map-hero-image.png";
 import {
-  GUJARAT_FACILITIES,
   GUJARAT_DISTRICTS,
   SPORTS_LIST
 } from "../../data/gujaratSportsData";
+import { getPublicFacilities } from "../../data/adminFacilityData";
 
 const POPULAR_SPORTS = ["Cricket", "Football", "Badminton", "Athletics & Track", "Swimming"];
 
@@ -34,6 +34,7 @@ const FEATURES = [
 export default function HomeLanding() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [facilities, setFacilities] = useState(getPublicFacilities);
   const carouselRef = useRef(null);
 
   const handleSearch = (e) => {
@@ -188,9 +189,9 @@ export default function HomeLanding() {
         <div className="relative">
           <div
             ref={carouselRef}
-            className="flex gap-5 overflow-x-auto pb-4 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-5 overflow-x-auto pr-12 pb-4 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {GUJARAT_FACILITIES.map((facility) => (
+            {facilities.map((facility) => (
               <div key={facility.id} className="snap-start">
                 <FacilityCard facility={facility} />
               </div>

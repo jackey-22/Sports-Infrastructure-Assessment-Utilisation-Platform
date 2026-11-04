@@ -17,9 +17,9 @@ export default function FacilityCard({ facility, className = "" }) {
 
   return (
     <article
-      className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col w-[280px] sm:w-[300px] flex-shrink-0 group hover:shadow-md transition ${className}`}
+      className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col w-[280px] sm:w-[300px] h-[380px] flex-shrink-0 group hover:shadow-md transition ${className}`}
     >
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative h-44 flex-shrink-0 overflow-hidden">
         <img
           src={facility.picture}
           alt={facility.name}
@@ -43,7 +43,7 @@ export default function FacilityCard({ facility, className = "" }) {
         </span>
       </div>
 
-      <div className="p-4 flex flex-col flex-1 gap-2">
+      <div className="p-4 flex min-h-0 flex-1 flex-col gap-2">
         <h3 className="font-extrabold text-brand-dark text-base leading-snug line-clamp-2">
           {facility.name}
         </h3>
