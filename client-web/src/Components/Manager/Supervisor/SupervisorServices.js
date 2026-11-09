@@ -1,10 +1,13 @@
+import { DEMO_SUPERVISORS, withOffline } from "../../../data/offlineLists";
+
 export const SupervisorService = {
   getData(id) {
-    return fetch(`http://localhost:9999/getuser?Role=1&createdBy=${id}`)
-      .then((res) => res.json())
-      .then((res) => {
-        return res.data;
-      });
+    return withOffline(
+      fetch(`http://localhost:9999/getuser?Role=1&createdBy=${id}`)
+        .then((res) => res.json())
+        .then((res) => res.data),
+      DEMO_SUPERVISORS
+    );
   },
 
   getCustomersSmall(id) {

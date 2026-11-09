@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import Swal from "sweetalert2";
 import { Button } from "@material-tailwind/react";
+import { DEMO_COMPLEX_ROWS, addDemoManager, withOffline } from "../../../data/offlineLists";
 const initialValues = {
   name: "",
   email: "",
@@ -26,17 +27,24 @@ const AddManager = () => {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/getSportsComplex/?district=${AuthorityData.DistrictId}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        const data = result.data.filter(checkSportsComplex);
-        setSportsComplex(data);
-      })
-      .catch((error) => console.log("error", error));
-  }, []);
+    withOffline(
+      fetch(
+        `http://localhost:9999/getSportsComplex/?district=${AuthorityData.DistrictId}`,
+        requestOptions
+      ).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || !Array.isArray(result.data)) {
+        setSportsComplex(DEMO_COMPLEX_ROWS);
+        return;
+      }
+      const open = result.data.filter(checkSportsComplex);
+      setSportsComplex(open.length ? open : DEMO_COMPLEX_ROWS);
+    });
+  }, [AuthorityData.DistrictId]);
   const District = useSelector((state) => state.district.districts);
   const UserData = useSelector((state) => state.user.user);
   // console.log(UserData);
@@ -61,20 +69,34 @@ const AddManager = () => {
       redirect: "follow",
     };
 
-    fetch("http://localhost:9999/signup", requestOptions)
-      .then((response) => response.json())
-      .then((result) => {
-        console.log(result);
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Manager Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    const complex = SportsComplex.find((item) => item._id === values.Sportscomplex);
+    withOffline(
+      fetch("http://localhost:9999/signup", requestOptions).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || (result.rcode && result.rcode !== 200)) {
+        addDemoManager({
+          _id: `mgr-${Date.now()}`,
+          Name: values.name,
+          ContactNum: values.mobileNumber,
+          Email: values.email,
+          SportComplexId: { name: complex ? complex.name : "Sports complex" },
+          CreatedAt: new Date().toISOString().slice(0, 10),
+          date: new Date().toISOString().slice(0, 10),
         });
-        navigate("/authority/allmanager");
-      })
-      .catch((error) => console.log("error", error));
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Manager added",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/authority/allmanager");
+    });
   };
 
   const { values, errors, touched, handleBlur, handleChange, handleSubmit } =

@@ -31,7 +31,9 @@ const NAV_ITEMS = [
   { to: "/manager/addcomplaint", label: "Submit Grievance", icon: FileText },
   { to: "/manager/allsupervisor", label: "Supervisor", icon: Users },
   { to: "/manager/allinstructor", label: "Instructors", icon: Users },
+  { to: "/manager/allathelte", label: "Athletes", icon: Users },
   { to: "/manager/slottable", label: "Time Slots", icon: Calendar },
+  { to: "/manager/leaderboard", label: "Leaderboard", icon: BarChart3 },
   { to: "/manager/complexevents", label: "Updates", icon: Activity },
 ];
 

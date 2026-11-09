@@ -1,12 +1,13 @@
+import { DEMO_FACILITY_SPORTS, withOffline } from "../../../data/offlineLists";
+
 export const FacilityService = {
   getData(id) {
-    return fetch(
-      `http://localhost:9999/getSportsComplexwithsport?manager=${id}`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        return res.data[0].sports;
-      });
+    return withOffline(
+      fetch(`http://localhost:9999/getSportsComplexwithsport?manager=${id}`)
+        .then((res) => res.json())
+        .then((res) => res.data[0].sports),
+      DEMO_FACILITY_SPORTS
+    );
   },
 
   getCustomersSmall(id) {

@@ -67,7 +67,7 @@ function initialFilters(params) {
 
 export default function CitizenComplaints() {
   const [params, setParams] = useSearchParams();
-  const [tab, setTab] = useState("track");
+  const [tab, setTab] = useState(params.get("tab") === "register" ? "register" : "track");
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [confirm, setConfirm] = useState(false);
@@ -182,6 +182,7 @@ export default function CitizenComplaints() {
       setConfirm(false);
       setForm(EMPTY_FORM);
       setErrors({});
+      changeTab("track");
       reload();
     } catch (err) {
       setConfirm(false);
@@ -218,17 +219,16 @@ export default function CitizenComplaints() {
       />
 
       <DemoBanner>
-        Complaints are registered on the server (POST /addComplaint) and the list
-        shows your own server records (GET /getAllComplaints, scoped to you by the
-        backend). Status, level and remarks are shown exactly as returned; no
-        escalation or authority decision is simulated.
+        A complaint you register is saved in this browser. It appears in your
+        track list, in the facility manager inbox, and moves to the district
+        authority when the manager forwards it. Resolving it updates your status.
       </DemoBanner>
 
       {result ? (
         <Notice tone="success" title="Complaint registered">
           <p>
             Complaint <strong className="font-mono">{result.id}</strong>{" "}
-            (<strong>{result.category}</strong>) was saved on the server. Status:{" "}
+            (<strong>{result.category}</strong>) was registered. Status:{" "}
             <strong>{result.status}</strong>.
           </p>
         </Notice>
@@ -409,7 +409,7 @@ export default function CitizenComplaints() {
                     },
                     {
                       key: "subject",
-                      header: "Subject &amp; category",
+                      header: "Subject & category",
                       sortKey: "subject",
                       render: (row) => (
                         <div className="min-w-[200px]">

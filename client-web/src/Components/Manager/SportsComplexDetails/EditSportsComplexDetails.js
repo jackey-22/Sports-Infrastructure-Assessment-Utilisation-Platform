@@ -190,7 +190,7 @@ const EditSportsComplexDetails = () => {
                 className="block text-gray-700 text-sm font-bold mb-2"
                 htmlFor="capacity"
               >
-                Capacity of Atheltes in this Facility (per Day)
+                Capacity of Athletes in this Facility (per Day)
               </label>
               <input
                 className="w-full min-h-11 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30"

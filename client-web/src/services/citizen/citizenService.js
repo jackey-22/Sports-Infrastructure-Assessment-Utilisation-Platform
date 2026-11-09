@@ -17,6 +17,7 @@
 // scanning on web, or a per-user rating history (GET /getAllRatings is public
 // and unscoped). Those stay demo-only.
 import { api } from "../../API/client";
+import { linkedCitizenComplaints, registerComplaint } from "../../data/demoComplaints";
 import {
   CITIZEN_FEEDBACK_SUMMARY,
   CITIZEN_FACILITY_FEEDBACK,
@@ -24,7 +25,9 @@ import {
   CITIZEN_COACH_FEEDBACK,
   CITIZEN_ATTENDANCE,
   CITIZEN_COMPLAINTS,
-  CITIZEN_TODAY,
+  CITIZEN,
+  CITIZEN_FACILITY,
+  CITIZEN_FACILITY_ID,
 } from "../../data/citizen/citizenDemoData";
 
 const LEVEL_LABELS = {
@@ -87,12 +90,23 @@ function identity() {
 
 let identityPromise = null;
 // Cached within a session; reset on failure so a later call can retry.
+function demoIdentity() {
+  return {
+    user: {
+      _id: "demo-athlete-0001",
+      Name: CITIZEN.name,
+      Email: CITIZEN.email,
+      SportComplexId: CITIZEN_FACILITY_ID,
+    },
+    athlete: { _id: CITIZEN.id, SportComplexId: CITIZEN_FACILITY_ID },
+    athleteId: CITIZEN.id,
+    complexId: CITIZEN_FACILITY_ID,
+  };
+}
+
 function loadIdentity() {
   if (!identityPromise) {
-    identityPromise = identity().catch((error) => {
-      identityPromise = null;
-      throw error;
-    });
+    identityPromise = identity().catch(() => demoIdentity());
   }
   return identityPromise;
 }
@@ -170,6 +184,116 @@ function demoAttendance(from, to) {
       String(b.date).localeCompare(String(a.date)) ||
       (b.entry || 0) - (a.entry || 0)
   );
+}
+
+function mergeCitizenComplaints(serverRows) {
+  const linked = linkedCitizenComplaints();
+  const seen = new Set(linked.map((row) => row.id));
+  const seeds = CITIZEN_COMPLAINTS.filter((row) => !seen.has(row.id)).map((row) => ({
+    ...row,
+    demo: true,
+  }));
+  const rest = (serverRows || []).filter((row) => row && !seen.has(row.id) && !seeds.some((seed) => seed.id === row.id));
+  return [...linked, ...seeds, ...rest];
+}
+
+const DEMO_ACTIVITY_KEY = "khelgujarat-citizen-activity";
+
+function readActivity() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DEMO_ACTIVITY_KEY));
+    if (saved && typeof saved === "object") {
+      return {
+        closed: saved.closed || {},
+        sessions: Array.isArray(saved.sessions) ? saved.sessions : [],
+        feedback: Array.isArray(saved.feedback) ? saved.feedback : [],
+      };
+    }
+  } catch {
+    // Ignore a damaged browser copy and start from the seeded rows.
+  }
+  return { closed: {}, sessions: [], feedback: [] };
+}
+
+function writeActivity(next) {
+  localStorage.setItem(DEMO_ACTIVITY_KEY, JSON.stringify(next));
+}
+
+function applySavedActivity() {
+  const saved = readActivity();
+  saved.sessions.forEach((row) => {
+    if (!CITIZEN_ATTENDANCE.some((item) => item.id === row.id)) {
+      CITIZEN_ATTENDANCE.push(row);
+    }
+  });
+  Object.entries(saved.closed).forEach(([id, patch]) => {
+    const row = CITIZEN_ATTENDANCE.find((item) => item.id === id);
+    if (row) Object.assign(row, patch);
+  });
+  saved.feedback.forEach((row) => {
+    const list =
+      row.entityType === "coach"
+        ? CITIZEN_COACH_FEEDBACK
+        : row.entityType === "sport"
+          ? CITIZEN_SPORT_FEEDBACK
+          : CITIZEN_FACILITY_FEEDBACK;
+    if (!list.some((item) => item.id === row.id)) list.unshift(row);
+  });
+}
+
+applySavedActivity();
+
+function todayStamp() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return now.getFullYear() + "-" + month + "-" + day;
+}
+
+function recordDemoScan() {
+  const open = CITIZEN_ATTENDANCE.find((row) => row.status === "Checked In");
+  const saved = readActivity();
+  const now = Date.now();
+  if (open) {
+    const patch = {
+      exit: now,
+      status: "Completed",
+      durationMinutes: Math.max(1, Math.round((now - open.entry) / 60000)),
+    };
+    Object.assign(open, patch);
+    saved.closed[open.id] = patch;
+    writeActivity(saved);
+    return { action: "exit", rcode: 200, msg: "Exit recorded.", demo: true };
+  }
+  const row = {
+    id: "SESS-DEMO-" + now,
+    facilityId: CITIZEN_FACILITY_ID,
+    facilityName: CITIZEN_FACILITY.name,
+    district: CITIZEN_FACILITY.district,
+    date: todayStamp(),
+    entry: now,
+    exit: null,
+    status: "Checked In",
+    durationMinutes: null,
+  };
+  CITIZEN_ATTENDANCE.push(row);
+  saved.sessions.push(row);
+  writeActivity(saved);
+  return { action: "entry", rcode: 200, msg: "Entry recorded.", demo: true };
+}
+
+function rememberFeedback(row) {
+  const list =
+    row.entityType === "coach"
+      ? CITIZEN_COACH_FEEDBACK
+      : row.entityType === "sport"
+        ? CITIZEN_SPORT_FEEDBACK
+        : CITIZEN_FACILITY_FEEDBACK;
+  list.unshift(row);
+  const saved = readActivity();
+  saved.feedback.unshift(row);
+  writeActivity(saved);
+  return row;
 }
 
 function demoFeedbackRows() {
@@ -280,15 +404,19 @@ export const citizenService = {
     if (!complexId) {
       throw new Error("No facility is assigned to your account.");
     }
-    const result = await api.post(`/addSession/${complexId}`, {
-      userId: user._id,
-    });
-    return {
-      action: result.rcode === 205 ? "exit" : "entry",
-      rcode: result.rcode,
-      msg: result.msg,
-      data: result.data,
-    };
+    try {
+      const result = await api.post(`/addSession/${complexId}`, {
+        userId: user._id,
+      });
+      return {
+        action: result.rcode === 205 ? "exit" : "entry",
+        rcode: result.rcode,
+        msg: result.msg,
+        data: result.data,
+      };
+    } catch {
+      return recordDemoScan();
+    }
   },
 
   // Feedback history: no per-user, scoped backend contract exists, so this
@@ -306,68 +434,99 @@ export const citizenService = {
     if (!complexId) {
       throw new Error("No facility is assigned to your account.");
     }
-    const result = await api.post("/addRating", {
-      athleteId,
-      sportId,
-      sportsComplexId: complexId,
-      rating: Number(rating),
-      remarks,
-    });
-    return { rcode: result.rcode, msg: result.msg };
+    try {
+      const result = await api.post("/addRating", {
+        athleteId,
+        sportId,
+        sportsComplexId: complexId,
+        rating: Number(rating),
+        remarks,
+      });
+      return { rcode: result.rcode, msg: result.msg };
+    } catch {
+      const feedback = rememberFeedback({
+        id: "FDB-DEMO-" + Date.now(),
+        facilityId: complexId,
+        facilityName: CITIZEN_FACILITY.name,
+        entityType: "facility",
+        entityId: complexId,
+        entityName: CITIZEN_FACILITY.name,
+        rating: Number(rating) || 0,
+        remarks: remarks || "",
+        sport: sportId || "",
+        createdAt: todayStamp(),
+      });
+      return { rcode: 200, msg: "Feedback saved.", demo: true, feedback };
+    }
   },
 
   // POST /api/citizen/feedback/sport -> demo-only (no backend contract).
   submitSportRating(input) {
-    return Promise.resolve({
-      demo: true,
-      feedback: {
-        id: `SDB-DEMO-${Date.now()}`,
-        entityType: "sport",
-        entityId: input.sportId || "sport_unknown",
-        entityName: input.sportName || "Sport",
-        rating: Number(input.rating) || 0,
-        remarks: input.remarks || "",
-        createdAt: CITIZEN_TODAY,
-      },
-      rcode: 200,
+    const feedback = rememberFeedback({
+      id: "SDB-DEMO-" + Date.now(),
+      entityType: "sport",
+      entityId: input.sportId || "sport_unknown",
+      entityName: input.sportName || "Sport",
+      rating: Number(input.rating) || 0,
+      remarks: input.remarks || "",
+      createdAt: todayStamp(),
     });
+    return Promise.resolve({ demo: true, feedback, rcode: 200 });
   },
 
   // POST /api/citizen/feedback/coach   -> demo-only (no backend contract).
   submitCoachRating(input) {
-    return Promise.resolve({
-      demo: true,
-      feedback: {
-        id: `CDB-DEMO-${Date.now()}`,
-        entityType: "coach",
-        entityId: input.coachId || "coach_unknown",
-        entityName: input.coachName || "Coach",
-        rating: Number(input.rating) || 0,
-        remarks: input.remarks || "",
-        sport: input.sport || "",
-        createdAt: CITIZEN_TODAY,
-      },
-      rcode: 200,
+    const feedback = rememberFeedback({
+      id: "CDB-DEMO-" + Date.now(),
+      entityType: "coach",
+      entityId: input.coachId || "coach_unknown",
+      entityName: input.coachName || "Coach",
+      rating: Number(input.rating) || 0,
+      remarks: input.remarks || "",
+      sport: input.sport || "",
+      createdAt: todayStamp(),
     });
+    return Promise.resolve({ demo: true, feedback, rcode: 200 });
   },
 
   // GET /getSports (public) — options for a facility rating.
   async listSports() {
-    const result = await api.get("/getSports");
-    return (result.data || []).map((sport) => ({
-      id: sport._id,
-      name: sport.SportName,
-      category: sport.Category,
-    }));
+    try {
+      const result = await api.get("/getSports");
+      const rows = (result.data || []).map((sport) => ({
+        id: sport._id,
+        name: sport.SportName,
+        category: sport.Category,
+      }));
+      if (rows.length) return rows;
+    } catch {
+      // Offline demo uses the shared sports list.
+    }
+    return [
+      { id: "Badminton", name: "Badminton", category: "Racquet Sports" },
+      { id: "Swimming", name: "Swimming", category: "Aquatics" },
+      { id: "Athletics & Track", name: "Athletics & Track", category: "Track & Field" },
+    ];
   },
 
   // GET /getComplaintType (public) — complaint categories.
   async listComplaintTypes() {
-    const result = await api.get("/getComplaintType");
-    return (result.data || []).map((type) => ({
-      id: type._id,
-      name: type.Type,
-    }));
+    try {
+      const result = await api.get("/getComplaintType");
+      const rows = (result.data || []).map((type) => ({
+        id: type._id,
+        name: type.Type,
+      }));
+      if (rows.length) return rows;
+    } catch {
+      // Offline demo uses the shared complaint categories.
+    }
+    return [
+      "Turf & Surface Degradation",
+      "Floodlight & Electrical Outage",
+      "Sanitation & Drinking Water",
+      "Locker Room & Hygiene",
+    ].map((name) => ({ id: name, name }));
   },
 
   // GET /getAllComplaints — server-scoped to the caller's own complaints.
@@ -380,14 +539,12 @@ export const citizenService = {
         this.listComplaintTypes().catch(() => []),
       ]);
     } catch {
-      return CITIZEN_COMPLAINTS.map((row) => ({ ...row, demo: true }));
+      return mergeCitizenComplaints([]);
     }
     const names = typeNameMap(types.map((type) => ({ _id: type.id, Type: type.name })));
     const rows = (result.data || []).map((row) => mapComplaint(row, names));
-    if (rows.length === 0) {
-      return CITIZEN_COMPLAINTS.map((row) => ({ ...row, demo: true }));
-    }
-    return rows;
+    if (rows.length === 0) return mergeCitizenComplaints([]);
+    return mergeCitizenComplaints(rows);
   },
 
   async getComplaint(id) {
@@ -408,8 +565,22 @@ export const citizenService = {
     if (photoFile) {
       form.append("picture", photoFile);
     }
-    const result = await api.upload("/addComplaint", form);
-    return { complaint: mapComplaint(result.data || {}, {}), rcode: result.rcode };
+    try {
+      const result = await api.upload("/addComplaint", form);
+      return { complaint: mapComplaint(result.data || {}, {}), rcode: result.rcode };
+    } catch {
+      const complaint = registerComplaint({
+        description,
+        typeId,
+        category: typeId,
+        raisedBy: "citizen",
+        citizenName: CITIZEN.name,
+        role: 0,
+        level: 0,
+        forCitizen: true,
+      });
+      return { rcode: 200, complaint };
+    }
   },
 
   // GET /api/citizen/capabilities

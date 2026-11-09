@@ -72,6 +72,12 @@ export default function ManagerAssessmentList() {
 
   const draftCount = visibleRows.filter((row) => row.status === "Draft").length;
   const verifiedCount = visibleRows.filter((row) => row.status === "Verified").length;
+  const latestScored = visibleRows
+    .filter((row) => row.score != null && row.date)
+    .reduce(
+      (latest, row) => (!latest || row.date > latest.date ? row : latest),
+      null
+    );
 
   function update(patch) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -132,11 +138,11 @@ export default function ManagerAssessmentList() {
         <KpiCard
           label="Latest score"
           value={
-            visibleRows[0]?.score == null
+            latestScored?.score == null
               ? "—"
-              : `${visibleRows[0].score} / 100`
+              : `${latestScored.score} / 100`
           }
-          caption={visibleRows[0]?.grade || "No assessment yet"}
+          caption={latestScored?.grade || "No assessment yet"}
           icon={Building2}
           tone="green"
         />

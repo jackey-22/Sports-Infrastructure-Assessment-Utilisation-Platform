@@ -1,9 +1,14 @@
+import { DEMO_GUEST_SLOTS, withOffline } from "../../data/offlineLists";
+
 export const SlotServices = {
   getData(id) {
-    return fetch(`http://localhost:9999/getGuest`).then((res) => {
-      if (!res.ok) throw new Error(`Request failed with ${res.status}`);
-      return res.json();
-    });
+    return withOffline(
+      fetch(`http://localhost:9999/getGuest`).then((res) => {
+        if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+        return res.json();
+      }).then((res) => (Array.isArray(res) ? res : res.data)),
+      DEMO_GUEST_SLOTS
+    );
   },
 
   getCustomersSmall(id) {

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import QRCode from "qrcode";
 import {
   ArrowLeft,
   CalendarDays,
+  Camera,
   Clock3,
   QrCode,
   RotateCcw,
@@ -89,7 +89,6 @@ export default function CitizenAttendance() {
   const [filters, setFilters] = useState(() => initialFilters(params));
   const [rows, setRows] = useState([]);
   const [facilityId, setFacilityId] = useState("");
-  const [qrImage, setQrImage] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [scanValue, setScanValue] = useState("");
@@ -127,23 +126,6 @@ export default function CitizenAttendance() {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!facilityId) return undefined;
-    let active = true;
-    QRCode.toDataURL(facilityId, {
-      width: 320,
-      margin: 1,
-      color: { dark: "#0B3D2E", light: "#FFFFFF" },
-    })
-      .then((url) => {
-        if (active) setQrImage(url);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [facilityId]);
 
   const visibleRows = useMemo(
     () =>
@@ -289,27 +271,7 @@ export default function CitizenAttendance() {
             </span>
           }
         />
-        <div className="grid gap-4 p-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:p-5">
-          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-3">
-            {qrImage ? (
-              <img
-                src={qrImage}
-                alt={`QR code for ${facilityName}`}
-                className="h-32 w-32"
-              />
-            ) : (
-              <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                <QrCode className="h-10 w-10" aria-hidden="true" />
-              </div>
-            )}
-            <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Facility code
-            </p>
-            <p className="max-w-[9rem] break-all text-center font-mono text-[11px] text-slate-600">
-              {facilityId || "Loading…"}
-            </p>
-          </div>
-
+        <div className="p-4 sm:p-5">
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-brand-dark">{facilityName}</h3>
             <p className="mt-1 text-xs leading-relaxed text-slate-600">
@@ -351,7 +313,7 @@ export default function CitizenAttendance() {
                 <Field
                   label="Facility code"
                   htmlFor="scan-value"
-                  hint="Enter the code printed below the QR code at the entrance."
+                  hint="Use this only if the camera cannot read the code at the entrance."
                 >
                   <input
                     id="scan-value"
@@ -567,12 +529,6 @@ export default function CitizenAttendance() {
         )}
       </Card>
 
-      <p className="mt-3 flex items-start gap-1.5 text-[11px] text-slate-500">
-        <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        Camera scanning is simulated on web. Entry and exit are recorded by the
-        facility server, so the QR code above is only a reference copy.
-      </p>
-
       <Drawer
         open={scanOpen}
         onClose={() => {
@@ -602,11 +558,11 @@ export default function CitizenAttendance() {
       >
         <div className="mx-auto max-w-xs">
           <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-brand-primary/40 bg-brand-mint p-6">
-            <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-xl bg-white">
-              <QrCode
-                className="h-20 w-20 text-brand-primary/30"
-                aria-hidden="true"
-              />
+            <div className="mx-auto flex h-40 w-40 flex-col items-center justify-center rounded-xl bg-white text-brand-primary/40">
+              <Camera className="h-12 w-12" aria-hidden="true" />
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-wider">
+                Point at the gate
+              </p>
             </div>
             <span
               className="absolute inset-x-8 top-10 h-0.5 animate-pulse bg-brand-primary/70"
@@ -624,7 +580,7 @@ export default function CitizenAttendance() {
           <div className="mt-4">
             <Notice tone="info" title="Simulated camera">
               Camera scanning is not available on web yet. Use “Simulate scan”
-              to record attendance with your facility code.
+              to record the visit as if the gate code was read.
             </Notice>
           </div>
           {scanResult && !scanResult.ok ? (

@@ -1,28 +1,41 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { withOffline } from "../../../data/offlineLists";
+
+function districtName(value) {
+  if (!value) return "Ahmedabad";
+  if (typeof value === "string") return value;
+  return value.District || value.name || "Ahmedabad";
+}
 
 const Profile = () => {
   const AuthorityData = useSelector((state) => state.user.user);
   const [lodaer, setloader] = useState(false);
   const [Profile, setProfile] = useState([{}]);
-  console.log(AuthorityData);
   useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
+    const demoProfile = {
+      Name: AuthorityData.Name,
+      DistrictId: { District: districtName(AuthorityData.DistrictId) },
     };
-
-    fetch(
-      `http://localhost:9999/getuserwithdistrict?_id=${AuthorityData._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        console.log(result);
-        setloader(true);
-        setProfile(result.data[0]);
-      })
-      .catch((error) => console.log("error", error));
+    withOffline(
+      fetch(`http://localhost:9999/getuserwithdistrict?_id=${AuthorityData._id}`)
+        .then((response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
+        })
+        .then((result) => result.data[0]),
+      demoProfile
+    ).then((profile) => {
+      const next = profile || demoProfile;
+      setProfile({
+        ...next,
+        Name: next.Name || demoProfile.Name,
+        DistrictId: {
+          District: districtName(next.DistrictId || demoProfile.DistrictId),
+        },
+      });
+      setloader(true);
+    });
   }, []);
 
   const rows = [

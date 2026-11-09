@@ -17,8 +17,9 @@ import {
   DEMO_GRIEVANCES,
   DEMO_TODAY,
   DEMO_TRANSACTIONS,
+  LEVEL_LABELS,
 } from "./admin/adminDemoData";
-import { MANAGER_ASSESSMENTS, MANAGER_FACILITY_ID } from "./manager/managerDemoData";
+import { MANAGER_ASSESSMENTS, MANAGER_FACILITY, MANAGER_FACILITY_ID } from "./manager/managerDemoData";
 import { COACH_ATHLETES, COACH_FACILITY_ID, COACH_RATING_HISTORY } from "./coach/coachDemoData";
 
 // Deep clone keeps the original demo constants immutable across tests and
@@ -323,13 +324,47 @@ export const demoStore = {
   },
 
   // --- grievance mutations ---
-  updateGrievanceStatus({ id, status, remark, actor }) {
+  addGrievance(input) {
+    const level = input.level == null ? 0 : Number(input.level);
+    const today = input.submittedAt || new Date().toISOString().slice(0, 10);
+    const grievance = {
+      id: input.id,
+      subject: input.subject || input.description,
+      description: input.description || "",
+      category: input.category || "Complaint",
+      status: "Pending",
+      statusCode: 0,
+      level,
+      levelLabel: LEVEL_LABELS[level] || LEVEL_LABELS[0],
+      citizen: input.citizen || "Citizen",
+      facilityId: input.facilityId || MANAGER_FACILITY_ID,
+      facilityName: input.facilityName || MANAGER_FACILITY.name,
+      district: input.district || MANAGER_FACILITY.district,
+      submittedAt: today,
+      resolvedAt: null,
+      updatedAt: today,
+      satisfied: 0,
+      attachments: [],
+      remarks: [],
+    };
+    store.grievances.unshift(grievance);
+    persistState();
+    return grievance;
+  },
+
+  updateGrievanceStatus({ id, status, remark, actor, level }) {
     const grievance = store.grievances.find((row) => row.id === id);
     if (!grievance) return null;
-    grievance.status = status;
-    grievance.statusCode = status === "Resolved" ? 1 : 0;
+    if (status) {
+      grievance.status = status;
+      grievance.statusCode = status === "Resolved" ? 1 : 0;
+      grievance.resolvedAt = status === "Resolved" ? DEMO_TODAY : grievance.resolvedAt;
+    }
+    if (level != null) {
+      grievance.level = Number(level);
+      grievance.levelLabel = LEVEL_LABELS[grievance.level] || grievance.levelLabel;
+    }
     grievance.updatedAt = DEMO_TODAY;
-    grievance.resolvedAt = status === "Resolved" ? DEMO_TODAY : null;
     grievance.remarks = [
       ...grievance.remarks,
       {

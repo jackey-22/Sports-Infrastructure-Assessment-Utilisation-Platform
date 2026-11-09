@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@material-tailwind/react";
 import { useSelector } from "react-redux";
 import { UserActions } from "../../../store/UserData";
+import { DEMO_FACILITY_SPORTS, addDemoInstructor, withOffline } from "../../../data/offlineLists";
 const initialValues = {
   name: "",
   email: "",
@@ -49,21 +50,20 @@ const AddInstructor = () => {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/getSportsComplexwithsport?_id=${SportComplexId}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((res) => {
-        console.log(res.data[0].sports);
-        setFormData(SportsInitial(res.data[0].sports));
-      })
-      .then((result) => {
-        // console.log(result.data);
-        // setFormData(SportsInitial(result.data));
-      })
-      .catch((error) => console.log("error", error));
-  }, []);
+    withOffline(
+      fetch(
+        `http://localhost:9999/getSportsComplexwithsport?_id=${SportComplexId}`,
+        requestOptions
+      ).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((res) => {
+      const sports = res && res.data && res.data[0] && res.data[0].sports;
+      setFormData(SportsInitial(sports && sports.length ? sports : DEMO_FACILITY_SPORTS));
+    });
+  }, [SportComplexId]);
 
   const selectedData = formData
     .filter((data, index) => checkedCheckboxes.includes(index))
@@ -155,20 +155,45 @@ const AddInstructor = () => {
       redirect: "follow",
     };
 
-    fetch("http://localhost:9999/signup", requestOptions)
-      .then((response) => response.json())
-      .then((result) => {
-        setinstructor(!instructor);
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Instructor Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
-        });
-        navigate("/manager/allinstructor");
+    const chosen = formData.filter((_, index) => checkedCheckboxes.includes(index));
+    const sports = (chosen.length ? chosen : [{ SportName: "Badminton", experience: "1", fields: [{ from: "06:00", to: "08:00" }] }]).map(
+      (item) => ({
+        sport: { SportName: item.SportName || "Badminton" },
+        experience: Number(item.experience) || 1,
+        timeSlot: (item.fields || []).filter((slot) => slot.from || slot.to).length
+          ? item.fields
+          : [{ from: "06:00", to: "08:00" }],
       })
-      .catch((error) => console.log("error", error));
+    );
+
+    withOffline(
+      fetch("http://localhost:9999/signup", requestOptions).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || (result.rcode && result.rcode !== 200)) {
+        addDemoInstructor({
+          _id: `ins-${Date.now()}`,
+          userId: {
+            Name: values.name,
+            Email: values.email,
+            ContactNum: values.mobileNumber,
+          },
+          sports,
+        });
+      }
+      setinstructor(!instructor);
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Instructor added",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/manager/allinstructor");
+    });
   };
 
   const { values, errors, touched, handleBlur, handleChange, handleSubmit } =

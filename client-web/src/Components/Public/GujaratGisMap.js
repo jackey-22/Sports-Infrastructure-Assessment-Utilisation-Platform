@@ -64,7 +64,7 @@ export default function GujaratGisMap({
   const tileLayerRef = useRef(null);
   const markersRef = useRef({});
   const userMarkerRef = useRef(null);
-  const [activeTile, setActiveTile] = useState("voyager");
+  const [activeTile, setActiveTile] = useState("osm");
   const [layersOpen, setLayersOpen] = useState(false);
   const [locating, setLocating] = useState(false);
 
@@ -79,8 +79,8 @@ export default function GujaratGisMap({
       zoomControl: false,
     });
 
-    const initialLayer = L.tileLayer(TILE_LAYERS.voyager.url, {
-      attribution: TILE_LAYERS.voyager.attribution,
+    const initialLayer = L.tileLayer(TILE_LAYERS.osm.url, {
+      attribution: TILE_LAYERS.osm.attribution,
       maxZoom: 19,
     }).addTo(map);
 

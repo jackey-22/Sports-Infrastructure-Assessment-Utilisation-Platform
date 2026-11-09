@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@material-tailwind/react";
 import { useSelector } from "react-redux";
 import { eventSchemas } from "../../../Schemas";
+import { addDemoNews, withOffline } from "../../../data/offlineLists";
 const initialValues = {
   Title: "",
   Image: [],
@@ -27,7 +28,9 @@ const AddComplexNews = () => {
     var fileInput = document.getElementById("fileInput");
     formdata.append("title", values.Title);
     formdata.append("description", values.Description);
-    formdata.append("image", fileInput.files[0], values.Image[0].name);
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      formdata.append("image", fileInput.files[0], fileInput.files[0].name);
+    }
     formdata.append("level", 2);
     formdata.append("sportComplexId", SportComplexId);
 
@@ -37,19 +40,32 @@ const AddComplexNews = () => {
       redirect: "follow",
     };
 
-    fetch("http://localhost:9999/addUpdates", requestOptions)
-      .then((response) => response.text())
-      .then((result) => {
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Event Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    withOffline(
+      fetch("http://localhost:9999/addUpdates", requestOptions).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || (result.rcode && result.rcode !== 200)) {
+        addDemoNews({
+          _id: `news-${Date.now()}`,
+          title: values.Title,
+          description: values.Description,
+          image: "",
+          active: "1",
+          date: new Date().toISOString().slice(0, 10),
         });
-        navigate("/admin/allevents");
-      })
-      .catch((error) => console.log("error", error));
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Update added",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/manager/complexevents");
+    });
   };
 
   const {

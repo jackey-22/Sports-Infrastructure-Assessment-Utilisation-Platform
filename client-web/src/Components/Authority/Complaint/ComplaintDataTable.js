@@ -10,6 +10,8 @@ import { Calendar } from "primereact/calendar";
 import { useSelector } from "react-redux";
 
 import { AuthorityComplaintService } from "./ComplaintServices";
+import { settleComplaint } from "../../../data/demoComplaints";
+import { withOffline } from "../../../data/offlineLists";
 
 export default function AthorityComplaintDataTable() {
   const { DistrictId, _id } = useSelector((state) => state.user.user);
@@ -134,23 +136,31 @@ export default function AthorityComplaintDataTable() {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/updateComplaint/${rowdata._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        // console.log(result);
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint Sloved Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    withOffline(
+      fetch(`http://localhost:9999/updateComplaint/${rowdata._id}`, requestOptions).then(
+        (response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
+        }
+      ),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || result.rcode !== 200) {
+        settleComplaint(rowdata._id, {
+          status: 1,
+          remark: remarks[rowdata._id] || "Resolved by the district authority.",
+          actor: "District officer",
         });
-        setdeleterefresh(!deleterefresh);
-      })
-      .catch((error) => console.log("error", error));
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint resolved",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      setdeleterefresh(!deleterefresh);
+    });
   };
 
   const PassHandler = (rowdata) => {
@@ -169,23 +179,31 @@ export default function AthorityComplaintDataTable() {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/updateComplaint/${rowdata._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        // console.log(result);
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint Pass To Admin Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    withOffline(
+      fetch(`http://localhost:9999/updateComplaint/${rowdata._id}`, requestOptions).then(
+        (response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
+        }
+      ),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || result.rcode !== 200) {
+        settleComplaint(rowdata._id, {
+          level: 3,
+          remark: remarks[rowdata._id] || "Forwarded to the state admin.",
+          actor: "District officer",
         });
-        setdeleterefresh(!deleterefresh);
-      })
-      .catch((error) => console.log("error", error));
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint forwarded to admin",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      setdeleterefresh(!deleterefresh);
+    });
   };
 
   const RemarkBy = (rowData) => {
@@ -286,7 +304,7 @@ export default function AthorityComplaintDataTable() {
 
   const nameBodyTemplate = (data) => {
     if (data.userId.Role === 0)
-      return <div>{data.userId.Name + " (Athelte)"}</div>;
+      return <div>{data.userId.Name + " (Athlete)"}</div>;
     if (data.userId.Role === 1)
       return <div>{data.userId.Name + " (Supervisor)"}</div>;
     if (data.userId.Role === 2)
@@ -295,6 +313,7 @@ export default function AthorityComplaintDataTable() {
       return <div>{data.userId.Name + " (Manager)"}</div>;
     if (data.userId.Role === 4)
       return <div>{data.userId.Name + " (Authority)"}</div>;
+    return <div>{(data.userId && data.userId.Name) || "Citizen"}</div>;
   };
 
   useEffect(() => {

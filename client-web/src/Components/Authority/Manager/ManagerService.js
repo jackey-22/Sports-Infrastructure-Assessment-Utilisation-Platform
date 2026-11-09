@@ -1,12 +1,15 @@
+import { DEMO_MANAGERS, withOffline } from "../../../data/offlineLists";
+
 export const ManagerService = {
   getData(id) {
-    return fetch(
-      `http://localhost:9999/getuserwithsportscomplex?Role=3&&createdBy=${id}`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        return res.data;
-      });
+    return withOffline(
+      fetch(
+        `http://localhost:9999/getuserwithsportscomplex?Role=3&&createdBy=${id}`
+      )
+        .then((res) => res.json())
+        .then((res) => res.data),
+      DEMO_MANAGERS
+    );
   },
 
   getCustomersSmall() {

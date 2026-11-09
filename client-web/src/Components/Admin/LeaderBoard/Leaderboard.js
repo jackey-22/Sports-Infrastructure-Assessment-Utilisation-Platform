@@ -15,9 +15,15 @@ const Leaderboard = () => {
     fetch("http://localhost:9999/getSports", requestOptions)
       .then((response) => response.json())
       .then((result) => {
-        setData(result.data);
+        setData(result.data || []);
       })
-      .catch((error) => console.log("error", error));
+      .catch(() => {
+        setData([
+          { _id: "sp_badminton", SportName: "Badminton" },
+          { _id: "sp_swimming", SportName: "Swimming" },
+          { _id: "sp_athletics", SportName: "Athletics & Track" },
+        ]);
+      });
   }, []);
 
   const handleOptionChange = (e) => {

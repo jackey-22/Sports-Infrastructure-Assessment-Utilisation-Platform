@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { AthelteServices } from "./AthelteServices";
 
-export default function AthelteDataTable() {
+export default function AthleteDataTable() {
   const { SportComplexId } = useSelector((state) => state.user.user);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loadError, setLoadError] = useState(false);
@@ -181,7 +181,7 @@ export default function AthelteDataTable() {
         />
 
         <Column
-          header="Athelte Name"
+          header="Athlete Name"
           field="user[0].Name"
           filterField="Name"
           style={{ minWidth: "12rem" }}
@@ -216,7 +216,7 @@ export default function AthelteDataTable() {
         /> */}
 
         <Column
-          header="Athelte Contact Number"
+          header="Athlete Contact Number"
           field="user[0].ContactNum"
           filterField="ContactNum"
           style={{ minWidth: "12rem" }}
@@ -227,7 +227,7 @@ export default function AthelteDataTable() {
           }}
         />
         <Column
-          header="Athelte Email"
+          header="Athlete Email"
           field="user.Email"
           filterField="Email"
           style={{ minWidth: "12rem" }}

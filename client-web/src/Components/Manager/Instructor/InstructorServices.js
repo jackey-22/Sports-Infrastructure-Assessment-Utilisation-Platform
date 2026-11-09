@@ -1,10 +1,13 @@
+import { DEMO_INSTRUCTORS, withOffline } from "../../../data/offlineLists";
+
 export const InstructorService = {
   getData(id) {
-    return fetch(`http://localhost:9999/getInstructorswithall?createdBy=${id}`)
-      .then((res) => res.json())
-      .then((res) => {
-        return res.data;
-      });
+    return withOffline(
+      fetch(`http://localhost:9999/getInstructorswithall?createdBy=${id}`)
+        .then((res) => res.json())
+        .then((res) => res.data),
+      DEMO_INSTRUCTORS
+    );
   },
 
   getCustomersSmall(id) {

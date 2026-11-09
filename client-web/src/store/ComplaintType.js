@@ -8,7 +8,11 @@ const ComplaintTypeSlice = createSlice({
   initialState: initialValues,
   reducers: {
     getcomplaintType(state, action) {
-      state.complaintType = [...state.complaintType, action.payload];
+      const next = action.payload;
+      if (!next || !next._id) return;
+      const index = state.complaintType.findIndex((item) => item._id === next._id);
+      if (index === -1) state.complaintType.push(next);
+      else state.complaintType[index] = next;
     },
   },
 });

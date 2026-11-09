@@ -26,9 +26,10 @@ export const CITIZEN_FACILITY_ID = CITIZEN_FACILITY.id;
 // Citizen identity (demo).
 export const CITIZEN = {
   id: "CIT-2026-0001",
-  name: "Rohan Mehta",
+  name: "Aarav Trivedi",
   role: "Athlete",
-  email: "rohan.mehta@example.test",
+  email: "athlete.aarav@gmail.com",
+  contact: "+91 98980 12345",
   facilityId: CITIZEN_FACILITY_ID,
   facilityName: CITIZEN_FACILITY.name,
   district: CITIZEN_FACILITY.district,

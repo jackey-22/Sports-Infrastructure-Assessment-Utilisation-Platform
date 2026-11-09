@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import ComplaintDataTable from "./ComplaintDataTable";
 import { Button, Card, PageHeader, PageShell } from "../Common/ManagerUI";
 
 const ComplaintDetails = () => {
-  const [scope, setScope] = useState("incoming");
+  const [params] = useSearchParams();
+  const [scope, setScope] = useState(params.get("tab") === "mine" ? "mine" : "incoming");
 
   return (
     <PageShell>

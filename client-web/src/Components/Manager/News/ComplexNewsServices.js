@@ -1,12 +1,13 @@
+import { DEMO_COMPLEX_NEWS, withOffline } from "../../../data/offlineLists";
+
 export const ComplexNewsServices = {
   getData(id) {
-    return fetch(
-      `http://localhost:9999/getUpdates?level=2&sportComplexId=${id}`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        return res.data;
-      });
+    return withOffline(
+      fetch(`http://localhost:9999/getUpdates?level=2&sportComplexId=${id}`)
+        .then((res) => res.json())
+        .then((res) => res.data),
+      DEMO_COMPLEX_NEWS
+    );
   },
 
   getCustomersSmall(id) {

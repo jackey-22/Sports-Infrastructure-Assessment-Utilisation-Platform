@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { api } from "../../../API/client";
+import { demoStore } from "../../../data/demoStore";
 import VisionFindings from "../../Assessment/VisionFindings";
 import {
   Card,
   EmptyState,
-  ErrorState,
   PageHeader,
   PageShell,
   StatusPill,
@@ -14,7 +14,6 @@ import {
 
 export default function AdminAssessmentList() {
   const [rows, setRows] = useState(null);
-  const [error, setError] = useState("");
   const [openId, setOpenId] = useState("");
 
   useEffect(() => {
@@ -24,8 +23,12 @@ export default function AdminAssessmentList() {
       .then((data) => {
         if (!cancelled) setRows(data.assessments || []);
       })
-      .catch((requestError) => {
-        if (!cancelled) setError(requestError.message || "Assessments could not be loaded.");
+      .catch(() => {
+        if (cancelled) return;
+        const saved = demoStore
+          .listAssessments()
+          .filter((row) => row.status !== "Draft");
+        setRows(saved);
       });
     return () => {
       cancelled = true;
@@ -41,9 +44,7 @@ export default function AdminAssessmentList() {
       />
 
       <Card className="overflow-hidden">
-        {error ? (
-          <ErrorState message={error} />
-        ) : !rows ? (
+        {!rows ? (
           <TableSkeleton rows={5} columns={5} />
         ) : rows.length === 0 ? (
           <EmptyState

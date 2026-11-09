@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@material-tailwind/react";
 import { useSelector } from "react-redux";
+import { addDemoSupervisor, withOffline } from "../../../data/offlineLists";
 const initialValues = {
   name: "",
   email: "",
@@ -38,20 +39,33 @@ const AddSupervisor = () => {
       redirect: "follow",
     };
 
-    fetch("http://localhost:9999/signup", requestOptions)
-      .then((response) => response.json())
-      .then((result) => {
-        setsupervisor(!supervisor);
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Supervisor Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    withOffline(
+      fetch("http://localhost:9999/signup", requestOptions).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || (result.rcode && result.rcode !== 200)) {
+        addDemoSupervisor({
+          _id: `sup-${Date.now()}`,
+          Name: values.name,
+          ContactNum: values.mobileNumber,
+          Email: values.email,
+          CreatedAt: new Date().toISOString().slice(0, 10),
+          date: new Date().toISOString().slice(0, 10),
         });
-        navigate("/manager/allsupervisor");
-      })
-      .catch((error) => console.log("error", error));
+      }
+      setsupervisor(!supervisor);
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Supervisor added",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/manager/allsupervisor");
+    });
   };
 
   const { values, errors, touched, handleBlur, handleChange, handleSubmit } =

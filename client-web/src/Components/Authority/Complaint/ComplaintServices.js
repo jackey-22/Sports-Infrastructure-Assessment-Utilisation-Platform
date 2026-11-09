@@ -1,10 +1,13 @@
+import { authorityComplaintRows, withOffline } from "../../../data/offlineLists";
+
 export const AuthorityComplaintService = {
   getData(id) {
-    return fetch(`http://localhost:9999/getAuthorityComplaint?DistrictId=${id}`)
-      .then((res) => res.json())
-      .then((res) => {
-        return res.status0;
-      });
+    return withOffline(
+      fetch(`http://localhost:9999/getAuthorityComplaint?DistrictId=${id}`)
+        .then((res) => res.json())
+        .then((res) => res.status0),
+      authorityComplaintRows()
+    );
   },
 
   getCustomersSmall(id) {

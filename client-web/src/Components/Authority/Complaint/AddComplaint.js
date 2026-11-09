@@ -4,6 +4,8 @@ import { compalintSchemas } from "../../../Schemas";
 import { useSelector } from "react-redux";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { registerComplaint } from "../../../data/demoComplaints";
+import { withOffline } from "../../../data/offlineLists";
 const initialValues = {
   type: "",
   description: "",
@@ -12,7 +14,8 @@ const initialValues = {
 const AddComplaint = () => {
   const navigate = useNavigate();
   const ComplaintType = useSelector((s) => s.complaintType.complaintType);
-  const { _id } = useSelector((s) => s.user.user);
+  const user = useSelector((s) => s.user.user) || {};
+  const { _id, Name } = user;
   const handleOneFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
     setFieldValue("Thumbnail", selectedFiles);
@@ -26,27 +29,41 @@ const AddComplaint = () => {
     // formdata.append("sportsComplex", "654a07e68d14ca1d77041c04");
     formdata.append("level", "3");
     formdata.append("status", "0");
-    formdata.append("picture", fileInput.files[0], values.Thumbnail[0].name);
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      formdata.append("picture", fileInput.files[0], fileInput.files[0].name);
+    }
 
-    var requestOptions = {
-      method: "POST",
-      body: formdata,
-      redirect: "follow",
-    };
-
-    fetch("http://localhost:9999/addComplaint", requestOptions)
-      .then((response) => response.text())
-      .then((result) => {
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
+    withOffline(
+      fetch("http://localhost:9999/addComplaint", {
+        method: "POST",
+        body: formdata,
+        redirect: "follow",
+      }).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || result.rcode !== 200) {
+        registerComplaint({
+          description: values.description,
+          typeId: values.type,
+          raisedBy: "authority",
+          citizenName: Name || "District officer",
+          role: 4,
+          level: 2,
+          forCitizen: false,
         });
-        navigate("/authority/allcomplaint");
-      })
-      .catch((error) => console.log("error", error));
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint added",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/authority/allcomplaint");
+    });
   };
 
   const {

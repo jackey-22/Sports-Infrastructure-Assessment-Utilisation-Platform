@@ -5,6 +5,8 @@ import { useSelector } from "react-redux";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, Field, PageHeader, PageShell, inputClass, selectClass } from "../Common/ManagerUI";
+import { registerComplaint } from "../../../data/demoComplaints";
+import { withOffline } from "../../../data/offlineLists";
 
 const initialValues = {
   type: "",
@@ -15,7 +17,8 @@ const initialValues = {
 const ManagerAddComplaint = () => {
   const navigate = useNavigate();
   const ComplaintType = useSelector((s) => s.complaintType.complaintType) || [];
-  const { _id, SportComplexId } = useSelector((s) => s.user.user);
+  const user = useSelector((s) => s.user.user) || {};
+  const { _id, SportComplexId, Name } = user;
 
   const handleOneFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -44,42 +47,39 @@ const ManagerAddComplaint = () => {
       formdata.append("picture", values.Thumbnail[0], values.Thumbnail[0].name);
     }
 
-    let result;
-    try {
-      const response = await fetch("http://localhost:9999/addComplaint", {
+    const result = await withOffline(
+      fetch("http://localhost:9999/addComplaint", {
         method: "POST",
         body: formdata,
         redirect: "follow",
+      }).then((response) => {
+        if (!response.ok) throw new Error("offline");
+        return response.json();
+      }),
+      { offline: true }
+    );
+
+    if (!result || result.offline || result.rcode !== 200) {
+      registerComplaint({
+        description: values.description,
+        typeId: values.type,
+        raisedBy: "manager",
+        citizenName: Name || "Facility manager",
+        role: 3,
+        level: 2,
+        forCitizen: false,
       });
-      if (!response.ok) throw new Error(`Request failed with ${response.status}`);
-      result = await response.json();
-    } catch (error) {
-      actions.setSubmitting(false);
-      Swal.fire({
-        icon: "error",
-        title: "Submission failed",
-        text: "The complaint could not be saved. Please try again.",
-      });
-      return;
     }
 
     actions.setSubmitting(false);
-    if (result.rcode === 200) {
-      Swal.fire({
-        position: "top-end",
-        icon: "success",
-        title: "Complaint forwarded to the district authority",
-        showConfirmButton: false,
-        timer: 1500,
-      });
-      navigate("/manager/allcomplaint");
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Submission failed",
-        text: result.msg || "The server rejected the complaint. Please try again.",
-      });
-    }
+    Swal.fire({
+      position: "top-end",
+      icon: "success",
+      title: "Grievance sent to the district authority",
+      showConfirmButton: false,
+      timer: 1500,
+    });
+    navigate("/manager/allcomplaint?tab=mine");
   };
 
   const {

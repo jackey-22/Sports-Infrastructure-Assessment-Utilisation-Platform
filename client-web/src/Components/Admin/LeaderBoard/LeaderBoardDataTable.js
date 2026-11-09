@@ -213,46 +213,54 @@ export default function LeaderboardDataTable({ selectedOption }) {
         />
 
         <Column
-          header="Athelte Name"
+          header="Athlete Name"
           field="name"
           filterField="name"
           style={{ minWidth: "10rem" }}
         />
         <Column
-          header="Athelte Points"
+          header="Athlete Points"
           field="rating"
           filterField="rating"
           style={{ minWidth: "5rem" }}
         />
         <Column
-          header="Athelte Profile"
+          header="Athlete Profile"
           field="image"
           filterField="image"
           body={(rowdata) => {
+            const image = rowdata.image || "";
+            const src =
+              image.startsWith("data:") || image.startsWith("http")
+                ? image
+                : image
+                  ? `http://localhost:9999/${image.replace(/^\//, "")}`
+                  : "";
+            if (!src) return "—";
             return (
               <img
-                className="w-full h-56"
-                src={`http://localhost:9999/${rowdata.image.slice(1)}`}
-                alt="Sport Facility Pic"
+                className="h-16 w-16 rounded-lg object-cover"
+                src={src}
+                alt=""
               />
             );
           }}
           style={{ minWidth: "12rem" }}
         />
         <Column
-          header="Athelte Email"
+          header="Athlete Email"
           field="email"
           filterField="email"
           style={{ minWidth: "12rem" }}
         />
         <Column
-          header="Athelte Number"
+          header="Athlete Number"
           field="contact"
           filterField="contact"
           style={{ minWidth: "12rem" }}
         />
         <Column
-          header="Athelte DOB"
+          header="Athlete DOB"
           field="dob"
           filterField="dob"
           body={(rowData) => {
@@ -261,7 +269,7 @@ export default function LeaderboardDataTable({ selectedOption }) {
           style={{ minWidth: "8rem" }}
         />
         <Column
-          header="Athelte Address"
+          header="Athlete Address"
           field="address"
           filterField="address"
           style={{ minWidth: "12rem" }}
@@ -303,7 +311,7 @@ export default function LeaderboardDataTable({ selectedOption }) {
 }
 
 /* <Column
-          header="Athelte Address"
+          header="Athlete Address"
           field="address"
           filterField="address"
           body={(rawdata) => {

@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 import { ComplaintService } from "./ComplaintServices";
+import { settleComplaint } from "../../../data/demoComplaints";
+import { withOffline } from "../../../data/offlineLists";
 import { useRef } from "react";
 import Swal from "sweetalert2";
 import LoadError from "../../Common/LoadError";
@@ -188,36 +190,31 @@ export default function ComplaintDataTable({ scope = "incoming" }) {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/updateComplaint/${rowdata._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        if (result.rcode !== 200) {
-          Swal.fire({
-            icon: "error",
-            title: "Could not resolve",
-            text: result.msg || "Please try again.",
-          });
-          return;
+    withOffline(
+      fetch(`http://localhost:9999/updateComplaint/${rowdata._id}`, requestOptions).then(
+        (response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
         }
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint resolved",
-          showConfirmButton: false,
-          timer: 1500,
+      ),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || result.rcode !== 200) {
+        settleComplaint(rowdata._id, {
+          status: 1,
+          remark: remarks[rowdata._id] || "Resolved at the facility.",
+          actor: "Facility manager",
         });
-        setRefreshKey((k) => k + 1);
-      })
-      .catch(() => {
-        Swal.fire({
-          icon: "error",
-          title: "Could not resolve",
-          text: "Could not reach the server.",
-        });
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint resolved",
+        showConfirmButton: false,
+        timer: 1500,
       });
+      setRefreshKey((k) => k + 1);
+    });
   };
 
   const PassHandler = (rowdata) => {
@@ -237,36 +234,31 @@ export default function ComplaintDataTable({ scope = "incoming" }) {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/updateComplaint/${rowdata._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        if (result.rcode !== 200) {
-          Swal.fire({
-            icon: "error",
-            title: "Could not forward",
-            text: result.msg || "Please try again.",
-          });
-          return;
+    withOffline(
+      fetch(`http://localhost:9999/updateComplaint/${rowdata._id}`, requestOptions).then(
+        (response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
         }
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint forwarded to the authority",
-          showConfirmButton: false,
-          timer: 1500,
+      ),
+      { offline: true }
+    ).then((result) => {
+      if (!result || result.offline || result.rcode !== 200) {
+        settleComplaint(rowdata._id, {
+          level: 2,
+          remark: remarks[rowdata._id] || "Forwarded to the district authority.",
+          actor: "Facility manager",
         });
-        setRefreshKey((k) => k + 1);
-      })
-      .catch(() => {
-        Swal.fire({
-          icon: "error",
-          title: "Could not forward",
-          text: "Could not reach the server.",
-        });
+      }
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint forwarded to the authority",
+        showConfirmButton: false,
+        timer: 1500,
       });
+      setRefreshKey((k) => k + 1);
+    });
   };
 
   const [remarks, setRemarks] = useState({});
@@ -328,7 +320,7 @@ export default function ComplaintDataTable({ scope = "incoming" }) {
   const nameBodyTemplate = (data) => {
     if (!data.userId) return <div>Unknown user</div>;
     if (data.userId.Role === 0)
-      return <div>{data.userId.Name + " (Athelte)"}</div>;
+      return <div>{data.userId.Name + " (Athlete)"}</div>;
     if (data.userId.Role === 1)
       return <div>{data.userId.Name + " (Supervisor)"}</div>;
     if (data.userId.Role === 2)
@@ -337,6 +329,7 @@ export default function ComplaintDataTable({ scope = "incoming" }) {
       return <div>{data.userId.Name + " (Manager)"}</div>;
     if (data.userId.Role === 4)
       return <div>{data.userId.Name + " (Authority)"}</div>;
+    return <div>{data.userId.Name || "Citizen"}</div>;
   };
   const RemarkBy = (rowData) => {
     if (rowData.level === 0) return `Supervisor ${rowData.userId?.Name || ""}`;

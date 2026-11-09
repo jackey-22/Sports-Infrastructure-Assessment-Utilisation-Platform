@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useSelector } from "react-redux";
+import { MANAGER_FACILITY } from "../../data/manager/managerDemoData";
+import { withOffline } from "../../data/offlineLists";
 const Profile = () => {
   const AuthorityData = useSelector((state) => state.user.user);
   const [lodaer, setloader] = useState(false);
@@ -50,18 +52,31 @@ const Profile = () => {
       redirect: "follow",
     };
 
-    fetch(
-      `http://localhost:9999/getuserwithsportscomplex?_id=${AuthorityData._id}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        console.log(result);
-        setloader(true);
-        setProfile(result.data[0]);
-      })
-      .catch((error) => console.log("error", error));
-    setUrl(AuthorityData.SportComplexId);
+    const demoProfile = {
+      Name: AuthorityData.Name,
+      SportComplexId: {
+        name: MANAGER_FACILITY.name,
+        area: "14.5 acres",
+        taluka: MANAGER_FACILITY.taluka,
+        operationalSince: "2016",
+      },
+    };
+    withOffline(
+      fetch(
+        `http://localhost:9999/getuserwithsportscomplex?_id=${AuthorityData._id}`,
+        requestOptions
+      )
+        .then((response) => {
+          if (!response.ok) throw new Error("offline");
+          return response.json();
+        })
+        .then((result) => result.data[0]),
+      demoProfile
+    ).then((profile) => {
+      setloader(true);
+      setProfile(profile || demoProfile);
+    });
+    setUrl(`${MANAGER_FACILITY.name} · ${AuthorityData.SportComplexId || "khokhra"}`);
   }, []);
 
   const complex = lodaer && Profile && Profile.SportComplexId ? Profile.SportComplexId : {};

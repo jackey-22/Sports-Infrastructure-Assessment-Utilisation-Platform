@@ -65,6 +65,7 @@ export default function CitizenProfile() {
           <DetailRow label="Name">{citizen.name}</DetailRow>
           <DetailRow label="Role">{citizen.role}</DetailRow>
           <DetailRow label="Email">{citizen.email}</DetailRow>
+          <DetailRow label="Contact">{citizen.contact}</DetailRow>
           <DetailRow label="Member ID">{citizen.memberId}</DetailRow>
           <DetailRow label="Joined">{citizen.joinedAt}</DetailRow>
         </dl>

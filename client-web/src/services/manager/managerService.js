@@ -159,25 +159,53 @@ export const managerService = {
   // POST /api/manager/assessments. Saves the questionnaire on the server.
   // A browser copy keeps the manager dashboard in step after refresh.
   async saveAssessment(input) {
-    const data = await api.post("/api/manager/assessments", input);
-    const assessment = data.assessment;
-    demoStore.saveAssessment({
-      id: assessment.id,
-      facilityId: MANAGER_FACILITY_ID,
-      facilityName: assessment.facilityName,
-      district: assessment.district,
-      assessmentDate: assessment.date,
-      totalScore: assessment.score,
-      grade: assessment.grade,
-      status: assessment.status,
-      inspectorName: assessment.inspector,
-      maintenanceUrgency: assessment.maintenanceUrgency,
-      photos: assessment.photos,
-      summary: assessment.summary,
-      ai: assessment.ai,
-      source: "database",
-    });
-    return { demo: false, assessment };
+    try {
+      const data = await api.post("/api/manager/assessments", input);
+      const assessment = data.assessment;
+      demoStore.saveAssessment({
+        id: assessment.id,
+        facilityId: MANAGER_FACILITY_ID,
+        facilityName: assessment.facilityName,
+        district: assessment.district,
+        assessmentDate: assessment.date,
+        totalScore: assessment.score,
+        grade: assessment.grade,
+        status: assessment.status,
+        inspectorName: assessment.inspector,
+        maintenanceUrgency: assessment.maintenanceUrgency,
+        photos: assessment.photos,
+        summary: assessment.summary,
+        ai: assessment.ai,
+        source: "database",
+      });
+      return { demo: false, assessment };
+    } catch {
+      const score = Object.values(input.scores || {}).reduce(
+        (total, value) => total + (Number(value) || 0),
+        0
+      );
+      const grade =
+        score >= 85
+          ? "Grade A (Excellent)"
+          : score >= 70
+            ? "Grade B (Good)"
+            : "Grade C (Fair)";
+      const assessment = demoStore.saveAssessment({
+        facilityId: MANAGER_FACILITY_ID,
+        facilityName: MANAGER_FACILITY.name,
+        district: MANAGER_FACILITY.district,
+        assessmentDate: input.assessmentDate,
+        totalScore: score,
+        grade,
+        status: "Submitted",
+        inspectorName: input.inspectorName,
+        maintenanceUrgency: input.maintenanceUrgency,
+        photos: input.photoNames || [],
+        summary: input.managerObservations,
+        source: "demo",
+      });
+      return { demo: true, assessment };
+    }
   },
 
   // Expose role-bound capabilities for the UI.
