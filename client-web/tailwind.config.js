@@ -1,5 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 const withMT = require("@material-tailwind/react/utils/withMT");
+const colors = require("tailwindcss/colors");
+
+// withMT replaces Tailwind's default palette with Material colours, which
+// have no slate, emerald, sky, violet or rose. Those utilities were silent
+// no-ops, so dark screens painted white text on the light page background.
 module.exports = withMT({
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -13,6 +18,13 @@ module.exports = withMT({
         display: ['"Plus Jakarta Sans"', 'sans-serif'],
       },
       colors: {
+        slate: colors.slate,
+        emerald: colors.emerald,
+        sky: colors.sky,
+        violet: colors.violet,
+        rose: colors.rose,
+        indigo: { 950: colors.indigo[950] },
+        blue: { 950: colors.blue[950] },
         gov: {
           dark: "#0b1222",
           navy: "#0f172a",

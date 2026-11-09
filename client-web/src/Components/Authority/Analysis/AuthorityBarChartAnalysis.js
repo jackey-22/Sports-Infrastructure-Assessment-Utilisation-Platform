@@ -1,257 +1,346 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { RotateCcw } from "lucide-react";
 import TimewiseAnalysis from "../../Admin/Analysis/BarChart/TimeSlotAnalysis";
 import CapacityAnalysis from "../../Admin/Analysis/BarChart/CapacityAnalysis";
 import ComplaintAnalysis from "../../Admin/Analysis/BarChart/ComplaintAnalysis";
 import EnrollAnalysis from "../../Admin/Analysis/BarChart/EnrollAnalysis";
 import AgeGroupAnalysis from "../../Admin/Analysis/BarChart/AgeGroupAnalysis";
 import AgeGroupwiseCount from "../../Admin/Analysis/BarChart/AgeGroupCount";
-import DistrictChart from "./DistrictChart";
 import AttendanceAnalysis from "../../Admin/Analysis/BarChart/Attendance";
-import GeneralAnalyis from "./GeneralAnalysis";
+import DistrictChart from "./DistrictChart";
+import {
+  DEMO_AUTHORITY_COMPLEXES,
+  DEMO_AUTHORITY_SPORTS,
+} from "../../../data/authority/authorityDemoData";
+import { ChartCard } from "../../Admin/Common/AdminCharts";
+import {
+  Button,
+  Card,
+  Field,
+  Notice,
+  SectionHeader,
+  selectClass,
+} from "../../Admin/Common/AdminUI";
+
+const API = "http://localhost:9999";
+const AGE_GROUPS = [
+  { value: "0-100", label: "All ages" },
+  { value: "10-20", label: "10 to 20 years" },
+  { value: "20-25", label: "20 to 25 years" },
+  { value: "25-30", label: "25 to 30 years" },
+  { value: "30-40", label: "30 to 40 years" },
+  { value: "40-50", label: "40 to 50 years" },
+  { value: "50-100", label: "Over 50 years" },
+];
+const YEARS = Array.from({ length: 6 }, (_, index) =>
+  String(new Date().getFullYear() - index)
+);
+const TODAY = new Date().toISOString().slice(0, 10);
+const THIRTY_DAYS_AGO = new Date(Date.now() - 29 * 86400000)
+  .toISOString()
+  .slice(0, 10);
+
+function ChartGroup({ title, description, children }) {
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="text-sm font-bold text-brand-dark">{title}</h2>
+        {description ? (
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{children}</div>
+    </section>
+  );
+}
 
 const AuthorityBarChartAnalysis = () => {
-  const [data, setData] = useState([]);
-  const [sport, setsports] = useState([]);
-  const [timeslot, setTimeslot] = useState("");
-  const [min, setminAge] = useState(0);
-  const [max, setmaxAge] = useState(100);
-  const [sportId, setsportId] = useState("");
-  const [year, setYear] = useState("");
-  const [CapSport, setCapSport] = useState("");
-  const [ToDate, setTodate] = useState("");
-  const today = new Date();
-  const formattedToday = today.toISOString().substr(0, 10);
-  const [fromdate, setFromDate] = useState(formattedToday);
-  const [error, setError] = useState("");
   const { DistrictId } = useSelector((state) => state.user.user);
+  const [complexes, setComplexes] = useState(DEMO_AUTHORITY_COMPLEXES);
+  const [sports, setSports] = useState(DEMO_AUTHORITY_SPORTS);
   const [selectedOption, setSelectedOption] = useState("");
-  useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
-    };
+  const [sportId, setSportId] = useState("");
+  const [ageGroup, setAgeGroup] = useState("0-100");
+  const [year, setYear] = useState("");
+  const [fromDate, setFromDate] = useState(THIRTY_DAYS_AGO);
+  const [toDate, setToDate] = useState(TODAY);
+  const [dateError, setDateError] = useState("");
 
-    fetch(
-      `http://localhost:9999/getSportsComplex?district=${DistrictId}`,
-      requestOptions
-    )
+  const [minAge, maxAge] = ageGroup.split("-").map(Number);
+
+  useEffect(() => {
+    let active = true;
+    const requestOptions = { method: "GET", redirect: "follow" };
+
+    fetch(`${API}/getSportsComplex?district=${DistrictId}`, requestOptions)
       .then((response) => response.json())
       .then((result) => {
-        setData(result.data);
+        if (active && Array.isArray(result.data) && result.data.length > 0) {
+          setComplexes(result.data);
+        }
       })
       .catch((error) => console.log("error", error));
 
-    fetch("http://localhost:9999/getSports", requestOptions)
+    fetch(`${API}/getSports`, requestOptions)
       .then((response) => response.json())
-      .then((result) => setsports(result.data))
+      .then((result) => {
+        if (active && Array.isArray(result.data) && result.data.length > 0) {
+          setSports(result.data);
+        }
+      })
       .catch((error) => console.log("error", error));
+
+    return () => {
+      active = false;
+    };
   }, [DistrictId]);
 
   useEffect(() => {
-    if (data.length > 0) {
-      setSelectedOption(data[0]._id);
-    }
-  }, [data]);
-  const handleOptionChange = (e) => {
-    setSelectedOption(e.target.value);
-  };
-  const handleTimeslotChange = (e) => {
-    setTimeslot(e.target.value);
-    setminAge(e.target.value.split("-")[0]);
-    setmaxAge(e.target.value.split("-")[1]);
-  };
-  const handleSports = (e) => {
-    setsportId(e.target.value);
-  };
-  const handleYear = (e) => {
-    setYear(e.target.value);
-  };
-  const handleCapacitySport = (e) => {
-    setCapSport(e.target.value);
-  };
-  const handledatechange = (e) => {
-    setFromDate(e.target.value);
-  };
+    if (complexes.length > 0) setSelectedOption(complexes[0]._id);
+  }, [complexes]);
 
-  const handleToChange = (e) => {
-    const selectedToDate = e.target.value;
-    setTodate(selectedToDate);
-    if (fromdate && new Date(fromdate) > new Date(selectedToDate)) {
-      setError("End date must be equal or after the start date");
-      setTodate("");
+  const handleToDate = (event) => {
+    const value = event.target.value;
+    setToDate(value);
+    if (fromDate && value && new Date(fromDate) > new Date(value)) {
+      setDateError("End date must be the same as or after the start date.");
+      setToDate("");
     } else {
-      setError("");
-      // Add any additional logic if needed
+      setDateError("");
     }
   };
+
+  const handleFromDate = (event) => {
+    const value = event.target.value;
+    setFromDate(value);
+    if (toDate && value && new Date(value) > new Date(toDate)) {
+      setDateError("End date must be the same as or after the start date.");
+      setToDate("");
+    } else {
+      setDateError("");
+    }
+  };
+
+  const resetFilters = () => {
+    setSportId("");
+    setAgeGroup("0-100");
+    setYear("");
+    setFromDate(THIRTY_DAYS_AGO);
+    setToDate(TODAY);
+    setDateError("");
+  };
+
+  const isFiltered =
+    Boolean(sportId || year) ||
+    ageGroup !== "0-100" ||
+    fromDate !== THIRTY_DAYS_AGO ||
+    toDate !== TODAY;
+
   return (
-    <div>
-      <div className="w-1/5 relative m-5">
-        <select
-          className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-          onChange={handleOptionChange}
-          value={selectedOption}
-          // defaultValue={data[0]._id}
-        >
-          {data.map((item, index) => (
-            <option key={item._id} value={item._id} selected={index === 0}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-          <svg
-            className="fill-current h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-          </svg>
-        </div>
-      </div>
-      <TimewiseAnalysis selectedOption={selectedOption} />
-      <hr className="h-px bg-gray-700 " />
-      <CapacityAnalysis selectedOption={selectedOption} />
-      <hr className="h-px bg-gray-700 " />
-      <ComplaintAnalysis selectedOption={selectedOption} />
-      <hr className="h-px bg-gray-700 " />
-      <div className="w-1/5 relative m-5">
-        <select
-          className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-          onChange={handleCapacitySport}
-          value={CapSport}
-        >
-          <option value="" selected>
-            select a Sport
-          </option>
-          {sport.map((item, index) => (
-            <option key={item._id} value={item._id}>
-              {item.SportName}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-          <svg
-            className="fill-current h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-          </svg>
-        </div>
-      </div>
-      <EnrollAnalysis selectedOption={selectedOption} sportId={CapSport} />
-      <hr className="h-px bg-gray-700 " />
-      {/* <EnrollLineAnalysis selectedOption={selectedOption} /> */}
-      <hr className="h-px bg-gray-700 " />
-
-      <div className="w-1/5 relative m-5">
-        <select
-          className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-          onChange={handleTimeslotChange}
-          value={timeslot}
-        >
-          <option value="0-100" selected>
-            Total
-          </option>
-          <option value="10-20">10 to 20</option>
-          <option value="20-25">20 to 25</option>
-          <option value="25-30">25 to 30</option>
-          <option value="30-40">30 to 40</option>
-          <option value="40-50">40 to 50</option>
-          <option value="50-100">More than 50</option>
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-          <svg
-            className="fill-current h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-          </svg>
-        </div>
-      </div>
-      <AgeGroupAnalysis
-        minAge={min}
-        maxAge={max}
-        selectedOption={selectedOption}
-      />
-      <hr className="h-px bg-gray-700 " />
-
-      <div className="flex">
-        <div className="w-1/5 relative m-5">
-          <select
-            className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-            onChange={handleYear}
-            value={year}
-          >
-            <option value="" selected>
-              select a Year
-            </option>
-            <option value="2022">2022</option>
-            <option value="2023">2023</option>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-            <svg
-              className="fill-current h-4 w-4"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
+    <div className="space-y-6">
+      <Card>
+        <SectionHeader
+          title="Filters"
+          description="The sports complex applies to every chart. The remaining filters narrow specific sections below."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={resetFilters}
+              disabled={!isFiltered}
             >
-              <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-            </svg>
-          </div>
-        </div>
-        <div className="w-1/5 relative m-5">
-          <select
-            className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-            onChange={handleSports}
-            value={sportId}
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </Button>
+          }
+        />
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-5">
+          <Field
+            label="Sports complex"
+            htmlFor="analysis-complex"
+            className="sm:col-span-2"
           >
-            <option value="" selected>
-              select a Sport
-            </option>
-            {sport.map((item, index) => (
-              <option key={item._id} value={item._id}>
-                {item.SportName}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-            <svg
-              className="fill-current h-4 w-4"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
+            <select
+              id="analysis-complex"
+              className={selectClass}
+              onChange={(event) => setSelectedOption(event.target.value)}
+              value={selectedOption}
             >
-              <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-            </svg>
+              {complexes.length === 0 ? (
+                <option value="">Loading sports complexes…</option>
+              ) : null}
+              {complexes.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Sport" htmlFor="analysis-sport">
+            <select
+              id="analysis-sport"
+              className={selectClass}
+              onChange={(event) => setSportId(event.target.value)}
+              value={sportId}
+            >
+              <option value="">All sports</option>
+              {sports.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.SportName}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Age group" htmlFor="analysis-age">
+            <select
+              id="analysis-age"
+              className={selectClass}
+              onChange={(event) => setAgeGroup(event.target.value)}
+              value={ageGroup}
+            >
+              {AGE_GROUPS.map((group) => (
+                <option key={group.value} value={group.value}>
+                  {group.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Year" htmlFor="analysis-year">
+            <select
+              id="analysis-year"
+              className={selectClass}
+              onChange={(event) => setYear(event.target.value)}
+              value={year}
+            >
+              <option value="">All years</option>
+              {YEARS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="From date" htmlFor="analysis-from">
+            <input
+              id="analysis-from"
+              type="date"
+              className={selectClass}
+              value={fromDate}
+              onChange={handleFromDate}
+            />
+          </Field>
+
+          <Field label="To date" htmlFor="analysis-to">
+            <input
+              id="analysis-to"
+              type="date"
+              className={selectClass}
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={handleToDate}
+            />
+          </Field>
+        </div>
+        {dateError ? (
+          <div className="px-4 pb-4 sm:px-5">
+            <Notice tone="error" title="Check the date range">
+              {dateError}
+            </Notice>
           </div>
-        </div>
-      </div>
-      <AgeGroupwiseCount
-        selectedOption={selectedOption}
-        year={year}
-        sport={sportId}
-      />
-      <hr className="h-px bg-gray-700 " />
-      <div className="flex m-5">
-        <div className="flex m-5 space-x-3">
-          <h1 className="text-xl font-semibold">From :</h1>
-          <input type="date" value={fromdate} onChange={handledatechange} />
-        </div>
-        <div className="flex m-5 space-x-3">
-          <h1 className="text-xl font-semibold">To :</h1>
-          <input type="date" value={ToDate} onChange={handleToChange} />
-          {error && <p className="text-red-500">{error}</p>}
-        </div>
-      </div>
-      <AttendanceAnalysis
-        selectedOption={selectedOption}
-        fromdate={fromdate}
-        todate={ToDate}
-      />
-      <DistrictChart />
-      {/* <GeneralAnalyis selectedOption={selectedOption} /> */}
+        ) : null}
+      </Card>
+
+      <ChartGroup
+        title="Utilisation and capacity"
+        description="When athletes use the complex and how enrolments compare with available capacity."
+      >
+        <ChartCard
+          title="Athletes by time slot"
+          description="Sessions attended at this complex across the day."
+        >
+          <TimewiseAnalysis selectedOption={selectedOption} />
+        </ChartCard>
+        <ChartCard
+          title="Capacity vs enrolment"
+          description="Available capacity and enrolled athletes for each sport."
+        >
+          <CapacityAnalysis selectedOption={selectedOption} />
+        </ChartCard>
+      </ChartGroup>
+
+      <ChartGroup
+        title="Athlete participation"
+        description="Enrolment through the year and the age profile of athletes at this complex."
+      >
+        <ChartCard
+          title="Monthly enrolment"
+          description="Athletes enrolled each month for the selected sport."
+        >
+          <EnrollAnalysis selectedOption={selectedOption} sportId={sportId} />
+        </ChartCard>
+        <ChartCard
+          title="Athletes by age group"
+          description="Athletes within the selected age group at this complex."
+        >
+          <AgeGroupAnalysis
+            minAge={minAge}
+            maxAge={maxAge}
+            selectedOption={selectedOption}
+          />
+        </ChartCard>
+        <ChartCard
+          className="xl:col-span-2"
+          title="Age profile by year"
+          description="Age-group distribution for the selected year and sport."
+        >
+          <AgeGroupwiseCount
+            selectedOption={selectedOption}
+            year={year}
+            sport={sportId}
+          />
+        </ChartCard>
+      </ChartGroup>
+
+      <ChartGroup
+        title="Attendance and grievances"
+        description="Attendance recorded in the selected date range and complaints raised by type."
+      >
+        <ChartCard
+          title="Attendance by sport"
+          description="Attendance records between the selected dates."
+        >
+          <AttendanceAnalysis
+            selectedOption={selectedOption}
+            fromdate={fromDate}
+            todate={toDate}
+          />
+        </ChartCard>
+        <ChartCard
+          title="Complaints by type"
+          description="Complaint volume and resolution status for this complex."
+        >
+          <ComplaintAnalysis selectedOption={selectedOption} />
+        </ChartCard>
+      </ChartGroup>
+
+      <ChartGroup
+        title="District facilities"
+        description="How many sports complexes in the district offer each sport."
+      >
+        <ChartCard
+          className="xl:col-span-2"
+          title="Sports complexes by sport"
+          description="Facilities available across the district."
+        >
+          <DistrictChart />
+        </ChartCard>
+      </ChartGroup>
     </div>
   );
 };

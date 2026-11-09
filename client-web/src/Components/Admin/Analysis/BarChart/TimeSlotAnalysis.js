@@ -1,122 +1,61 @@
 import React, { useEffect, useState } from "react";
-import ReactApexChart from "react-apexcharts";
+import { BarChart } from "../../Common/AdminCharts";
+import { DEMO_TIME_SLOT_ATTENDANCE } from "../../../../data/authority/authorityDemoData";
 
-const TimewiseAnalysis = (props) => {
-  const [chartData, setChartData] = useState({
-    series: [
-      {
-        name: "Athelte",
-        data: [30, 40, 35, 50, 49, 60, 10, 12],
-      },
-    ],
-    options: {
-      chart: {
-        type: "bar",
-        height: 350,
-      },
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: "55%",
-          endingShape: "rounded",
-        },
-      },
-      dataLabels: {
-        enabled: true,
-        offsetY: -10,
-        style: {
-          fontSize: "12px",
-          fontWeight: "bold",
-          colors: ["#000"],
-        },
-      },
-      xaxis: {
-        categories: [
-          "7 to 8 AM",
-          "8 to 9 AM",
-          "9 to 10 PM",
-          "10 to 11 PM ",
-          "11 to 12 PM",
-          "12 to 1 PM",
-          "1 to 2 PM",
-          "2 to 3 AM",
-          "3 to 4 AM",
-          "4 to 5 AM",
-          "5 to 6 AM",
-          "6 to 7 AM",
-        ],
-      },
-      yaxis: {
-        title: {
-          text: "Number of Athelte in Sport Complexes",
-          style: {
-            fontSize: "12px",
-            // fontWeight: "bold",
-            fontFamily: undefined,
-            color: "#263238",
-          }, // Your Y-axis title
-        },
-      },
-      colors: ["#3366FF"],
-      title: {
-        text: "Time slot wise Athelte in Sport Complex",
-        align: "center",
-        margin: 50,
-        offsetX: 0,
-        offsetY: 0,
-        floating: false,
-        style: {
-          fontSize: "26px",
-          fontWeight: "bold",
-          fontFamily: undefined,
-          color: "#263238",
-        },
-      },
-      fill: {
-        opacity: 1,
-      },
-    },
-  });
+const TIME_SLOTS = [
+  "7 – 8 AM",
+  "8 – 9 AM",
+  "9 – 10 AM",
+  "10 – 11 AM",
+  "11 AM – 12 PM",
+  "12 – 1 PM",
+  "1 – 2 PM",
+  "2 – 3 PM",
+  "3 – 4 PM",
+  "4 – 5 PM",
+  "5 – 6 PM",
+  "6 – 7 PM",
+];
+
+const TimewiseAnalysis = ({ selectedOption }) => {
+  const [series, setSeries] = useState([
+    { name: "Athletes", data: DEMO_TIME_SLOT_ATTENDANCE },
+  ]);
 
   useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
-    };
+    if (!selectedOption) return undefined;
+    let active = true;
 
     fetch(
-      `http://localhost:9999/timeSlotUtilization?sportsComplexId=${props.selectedOption}`,
-      requestOptions
+      `http://localhost:9999/timeSlotUtilization?sportsComplexId=${selectedOption}`,
+      { method: "GET", redirect: "follow" }
     )
       .then((response) => response.json())
       .then((result) => {
-        setChartData({
-          ...chartData,
-          series: [
-            {
-              data: result.slotcount,
-            },
-          ],
-          options: {
-            ...chartData.options,
-            xaxis: {
-              ...chartData.options.xaxis,
-            },
-          },
-        });
+        if (!active) return;
+        const values =
+          Array.isArray(result.slotcount) && result.slotcount.length > 0
+            ? result.slotcount
+            : DEMO_TIME_SLOT_ATTENDANCE;
+        setSeries([{ name: "Athletes", data: values }]);
       })
-      .catch((error) => console.log("error", error));
-  }, [props.selectedOption]);
+      .catch((error) => {
+        if (active) setSeries([{ name: "Athletes", data: DEMO_TIME_SLOT_ATTENDANCE }]);
+        console.log("error", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOption]);
 
   return (
-    <div className="chart m-8">
-      <ReactApexChart
-        options={chartData.options}
-        series={chartData.series}
-        type="bar"
-        height={chartData.options.chart.height}
-      />
-    </div>
+    <BarChart
+      series={series}
+      categories={TIME_SLOTS}
+      colors={["#007D40"]}
+      height={300}
+    />
   );
 };
 

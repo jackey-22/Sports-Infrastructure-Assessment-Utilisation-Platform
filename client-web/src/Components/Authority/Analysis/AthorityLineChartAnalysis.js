@@ -1,81 +1,90 @@
 import React, { useEffect, useState } from "react";
-
 import { useSelector } from "react-redux";
 import EnrollLineAnalysis from "../../Admin/Analysis/Line/EnrollLineAnalysis";
 import EventAnalysis from "../../Admin/Analysis/Line/EventAnalysis";
 import ComplaintLineAnalysis from "../../Admin/Analysis/Line/ComplaintLine";
+import { ChartCard } from "../../Admin/Common/AdminCharts";
+import { DEMO_AUTHORITY_COMPLEXES } from "../../../data/authority/authorityDemoData";
+import { Card, Field, SectionHeader, selectClass } from "../../Admin/Common/AdminUI";
 
 const AuthorityLineChartAnalysis = () => {
-  const [selectedOption, setSelectedOption] = useState("");
-  const [data, setData] = useState([]);
   const { DistrictId } = useSelector((state) => state.user.user);
+  const [complexes, setComplexes] = useState(DEMO_AUTHORITY_COMPLEXES);
+  const [selectedOption, setSelectedOption] = useState("");
 
   useEffect(() => {
-    var requestOptions = {
+    let active = true;
+
+    fetch(`http://localhost:9999/getSportsComplex?district=${DistrictId}`, {
       method: "GET",
       redirect: "follow",
-    };
-
-    fetch(
-      `http://localhost:9999/getSportsComplex?district=${DistrictId}`,
-      requestOptions
-    )
+    })
       .then((response) => response.json())
       .then((result) => {
-        setData(result.data);
+        if (active && Array.isArray(result.data) && result.data.length > 0) {
+          setComplexes(result.data);
+        }
       })
       .catch((error) => console.log("error", error));
+
+    return () => {
+      active = false;
+    };
   }, [DistrictId]);
+
   useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
-    };
+    if (complexes.length > 0) setSelectedOption(complexes[0]._id);
+  }, [complexes]);
 
-    fetch(
-      `http://localhost:9999/getSportsComplex?district=${DistrictId}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        setData(result.data);
-      })
-      .catch((error) => console.log("error", error));
-  }, []);
-  const handleOptionChange = (e) => {
-    setSelectedOption(e.target.value);
-  };
   return (
-    <div>
-      <div className="w-1/5 relative m-5">
-        <select
-          className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-          onChange={handleOptionChange}
-          value={selectedOption}
-        >
-          <option value="" selected={true}>
-            ALL
-          </option>
-
-          {data.map((item) => (
-            <option key={item._id} value={item._id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-          <svg
-            className="fill-current h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.293 14.293a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414L10 12.586 5.707 8.293a1 1 0 1 0-1.414 1.414l5 5z" />
-          </svg>
+    <div className="space-y-6">
+      <Card>
+        <SectionHeader
+          title="Filters"
+          description="Choose the sports complex to plot monthly trends for."
+        />
+        <div className="p-4 sm:p-5">
+          <Field label="Sports complex" htmlFor="line-complex">
+            <select
+              id="line-complex"
+              className={selectClass}
+              onChange={(event) => setSelectedOption(event.target.value)}
+              value={selectedOption}
+            >
+              {complexes.length === 0 ? (
+                <option value="">Loading sports complexes…</option>
+              ) : null}
+              {complexes.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ChartCard
+          title="Monthly enrolment"
+          description="Athletes enrolled at this complex each month."
+        >
+          <EnrollLineAnalysis selectedOption={selectedOption} />
+        </ChartCard>
+        <ChartCard
+          title="Monthly events"
+          description="Events hosted at this complex each month."
+        >
+          <EventAnalysis selectedOption={selectedOption} />
+        </ChartCard>
+        <ChartCard
+          className="xl:col-span-2"
+          title="Monthly complaints"
+          description="Complaints raised at this complex each month."
+        >
+          <ComplaintLineAnalysis selectedOption={selectedOption} />
+        </ChartCard>
       </div>
-      <EnrollLineAnalysis selectedOption={selectedOption} />
-      <EventAnalysis selectedOption={selectedOption} />
-      <ComplaintLineAnalysis selectedOption={selectedOption} />
     </div>
   );
 };

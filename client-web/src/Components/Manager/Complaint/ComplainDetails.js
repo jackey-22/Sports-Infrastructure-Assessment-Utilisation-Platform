@@ -1,19 +1,53 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
-import { Button } from "@material-tailwind/react";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import ComplaintDataTable from "./ComplaintDataTable";
+import { Button, Card, PageHeader, PageShell } from "../Common/ManagerUI";
+
 const ComplaintDetails = () => {
+  const [scope, setScope] = useState("incoming");
+
   return (
-    <div className="px-4">
-      <div className="flex justify-end mb-4">
-        <NavLink to={"/manager/addcomplaint"}>
-          <Button className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl ">
-            Add Complaint
+    <PageShell>
+      <PageHeader
+        eyebrow="Facility Manager"
+        title="Grievances"
+        description="Complaints waiting at this complex, and the ones you have sent upward."
+        actions={
+          <Button as={Link} to="/manager/addcomplaint">
+            Submit grievance
           </Button>
-        </NavLink>
+        }
+      />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setScope("incoming")}
+          className={`min-h-11 rounded-lg px-4 text-sm font-bold ${
+            scope === "incoming"
+              ? "bg-brand-primary text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Complaints to resolve
+        </button>
+        <button
+          type="button"
+          onClick={() => setScope("mine")}
+          className={`min-h-11 rounded-lg px-4 text-sm font-bold ${
+            scope === "mine"
+              ? "bg-brand-primary text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          My submissions
+        </button>
       </div>
-      <ComplaintDataTable />
-    </div>
+      <Card>
+        <div className="overflow-x-auto p-2 sm:p-4">
+          <ComplaintDataTable scope={scope} />
+        </div>
+      </Card>
+    </PageShell>
   );
 };
 

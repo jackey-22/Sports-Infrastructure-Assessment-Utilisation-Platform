@@ -28,6 +28,7 @@ import * as Sharing from "expo-sharing";
 import { useSelector } from "react-redux";
 import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
+import { getChartUrl } from "../../helpers/chartToken";
 import bronze from "./../../assets/badges/bronze.png";
 import silver from "./../../assets/badges/silver.png";
 import gold from "./../../assets/badges/gold.png";
@@ -60,6 +61,7 @@ const BadgePerformance = () => {
   const [data, setdata] = useState([]);
   const [userData, setUserData] = useState({});
   const [sportid, setsportid] = useState();
+  const [chartUri, setChartUri] = useState("");
   const [loading, setLoading] = useState(true);
   const [sportpoints, setsportponits] = useState();
   const leaderboardRef = useRef();
@@ -105,6 +107,30 @@ const BadgePerformance = () => {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!sportid || sportid.rating === 0) {
+      setChartUri("");
+      return;
+    }
+    let cancelled = false;
+    const athleteId = Atheltedata[0]._id;
+    const selectedSportId = sportid.sports._id;
+    getChartUrl(`/athelteperformance/${athleteId}/${selectedSportId}`, {
+      athleteId,
+      sportId: selectedSportId,
+      type: "performance",
+    })
+      .then((uri) => {
+        if (!cancelled) setChartUri(uri);
+      })
+      .catch(() => {
+        if (!cancelled) setChartUri("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sportid]);
 
   if (loading) {
     return (
@@ -246,10 +272,7 @@ const BadgePerformance = () => {
               marginTop: 10,
             }}
             source={{
-              uri:
-                sportid.rating !== 0
-                  ? `http://${ip}:9999/athelteperformance/${Atheltedata[0]._id}/${sportid.sports._id}`
-                  : "",
+              uri: chartUri,
             }}
           />
         </View>

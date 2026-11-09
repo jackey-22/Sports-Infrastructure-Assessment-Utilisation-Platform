@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import LeaderboardDataTable from "./LeaderBoardDataTable";
+import { Card, PageHeader, PageShell } from "../../Manager/Common/ManagerUI";
 
 const Leaderboard = () => {
   const [data, setData] = useState([]);
@@ -23,13 +24,19 @@ const Leaderboard = () => {
     setSelectedOption(e.target.value); // Update the selected option state
   };
   return (
-    <div className="px-4 m-5 bg-gray-50 py-3">
-      <div className="w-1/4 relative m-5">
-        <select
-          className=" block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
-          onChange={handleOptionChange} // Add an onChange event handler
-          value={selectedOption} // Set the value of the select element to the selectedOption state
-        >
+    <PageShell>
+      <PageHeader
+        eyebrow="Performance"
+        title="Leaderboard"
+        description="Athlete rankings and per-sport performance."
+      />
+      <Card>
+        <div className="w-full max-w-xs relative mb-5">
+          <select
+            className=" block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
+            onChange={handleOptionChange} // Add an onChange event handler
+            value={selectedOption} // Set the value of the select element to the selectedOption state
+          >
           <option value="">General</option>
 
           {data.map((item) => (
@@ -49,8 +56,11 @@ const Leaderboard = () => {
         </div>
       </div>
 
-      <LeaderboardDataTable selectedOption={selectedOption} />
-    </div>
+      <div className="overflow-x-auto">
+        <LeaderboardDataTable selectedOption={selectedOption} />
+      </div>
+      </Card>
+    </PageShell>
   );
 };
 

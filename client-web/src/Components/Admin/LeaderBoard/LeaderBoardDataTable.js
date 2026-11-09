@@ -6,7 +6,6 @@ import { Column } from "primereact/column";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Calendar } from "primereact/calendar";
-import { Link } from "react-router-dom";
 import { LeaderboardServices } from "./LeaderboardServices";
 import ChartConfig from "./ChartConfig";
 import BarChartConfig from "./BarChartConfig";
@@ -138,28 +137,6 @@ export default function LeaderboardDataTable({ selectedOption }) {
     );
   };
 
-  const actionBodyTemplate = (rowData) => {
-    return (
-      <div className="flex justify-between">
-        <Link to={"/admin/blogsedit"} state={{ data: rowData }}>
-          <button
-            type="button"
-            className="text-blue-500 hover:text-blue-700 p-1"
-          >
-            {/* Your SVG icon for editing */}
-          </button>
-        </Link>
-        <button
-          type="button"
-          //   onClick={() => DeleteHandler(rowData)}
-          className="text-red-500 hover:text-red-700 p-1"
-        >
-          {/* Your SVG icon for deleting */}
-        </button>
-      </div>
-    );
-  };
-
   const header = renderHeader();
   const [first, setFirst] = useState(0);
 
@@ -168,17 +145,6 @@ export default function LeaderboardDataTable({ selectedOption }) {
   };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState(null);
-
-  const chartData = {
-    categories: [
-      "Category 1",
-      "Category 2",
-      "Category 3",
-      "Category 4",
-      "Category 5",
-    ],
-    seriesData: [80, 50, 30, 40, 60],
-  };
 
   const handleChartClick = (rowData) => {
     if (selectedOption !== "") {
@@ -314,7 +280,7 @@ export default function LeaderboardDataTable({ selectedOption }) {
       </DataTable>
       {isModalOpen && selectedAthlete && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-lg absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[45rem] h-[30rem]">
+          <div className="bg-white p-6 rounded shadow-lg absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[min(45rem,92vw)] h-[min(30rem,80vh)] overflow-auto">
             {selectedOption === "" ? (
               <BarChartConfig
                 chartType="bar"

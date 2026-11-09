@@ -9,12 +9,12 @@ import {
   Menu,
   Plus,
   Search,
-  ShieldCheck,
   Trash2,
   UserRound,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import AdminSidebar from "./AdminSidebar";
 import L from "leaflet";
 import { ADMIN_STORAGE_KEY } from "../../data/adminFacilityData";
 
@@ -143,9 +143,12 @@ function statusClass(status) {
 }
 
 export default function AdminPanel() {
-  const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [data, setData] = useState(readData);
-  const [activeModule, setActiveModule] = useState("facilities");
+  const requested = params.get("section");
+  const [activeModule, setActiveModule] = useState(
+    MODULES.some((item) => item.id === requested) ? requested : "facilities"
+  );
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [district, setDistrict] = useState("");
@@ -155,6 +158,10 @@ export default function AdminPanel() {
   useEffect(() => {
     window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(data));
   }, [data]);
+
+  useEffect(() => {
+    if (MODULES.some((item) => item.id === requested)) setActiveModule(requested);
+  }, [requested]);
 
   useEffect(() => {
     setQuery("");
@@ -209,35 +216,10 @@ export default function AdminPanel() {
     showNotice("Record deleted.");
   };
 
-  const logout = () => {
-    window.localStorage.removeItem("token");
-    navigate("/");
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      <aside className={`fixed inset-y-0 left-0 z-30 flex flex-col bg-brand-dark text-white transition-all ${collapsed ? "w-20" : "w-72"}`}>
-        <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary font-display text-xl font-extrabold">K</div>
-          {!collapsed && <div><p className="font-display text-lg font-extrabold">KhelGujarat</p><p className="text-[10px] uppercase tracking-[0.2em] text-brand-light">Admin Console</p></div>}
-        </div>
-        <nav className="flex-1 space-y-2 px-3 py-6">
-          <p className={`mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 ${collapsed ? "hidden" : ""}`}>Management</p>
-          {MODULES.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" onClick={() => setActiveModule(id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${activeModule === id ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && label}
-            </button>
-          ))}
-        </nav>
-        <div className="border-t border-white/10 p-3">
-          <button type="button" onClick={() => navigate("/explore")} className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm text-brand-light hover:bg-white/10 ${collapsed ? "justify-center" : ""}`}>
-            <ShieldCheck className="h-5 w-5" /> {!collapsed && "View public portal"}
-          </button>
-          <button type="button" onClick={logout} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-300 hover:bg-white/10 hover:text-white ${collapsed ? "justify-center" : ""}`}>
-            <span className="text-lg">↪</span> {!collapsed && "Sign out"}
-          </button>
-        </div>
+      <aside className={`fixed inset-y-0 left-0 z-30 ${collapsed ? "w-20" : "w-72"}`}>
+        <AdminSidebar collapsed={collapsed} />
       </aside>
 
       <main className={`min-h-screen transition-all ${collapsed ? "ml-20" : "ml-72"}`}>

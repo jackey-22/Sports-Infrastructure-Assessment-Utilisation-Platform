@@ -1,23 +1,23 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
-import { Button } from "@material-tailwind/react";
+import { Link } from "react-router-dom";
 import InstructorDataTable from "./InstructorDataTable";
+import { Button, PageHeader, PageShell } from "../Common/ManagerUI";
 
 const AllInstructor = () => {
   return (
-    <div className="px-4">
-      <div>
-        <NavLink
-          to={"/manager/addinstructor"}
-          className="flex justify-end mb-4"
-        >
-          <Button className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl ">
-            Add Instructor
+    <PageShell>
+      <PageHeader
+        eyebrow="Facility Manager · Instructors"
+        title="Instructors"
+        description="Coaches assigned to sports at this complex, with their experience and weekly coaching time slots."
+        actions={
+          <Button as={Link} to="/manager/addinstructor">
+            Add instructor
           </Button>
-        </NavLink>
-      </div>
+        }
+      />
       <InstructorDataTable />
-    </div>
+    </PageShell>
   );
 };
 

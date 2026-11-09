@@ -1,9 +1,18 @@
 export const ComplaintService = {
-  getData(id) {
-    return fetch(
-      `http://localhost:9999/getAllComplaints?sportsComplex=${id}&level=1&status=0`
-    )
-      .then((res) => res.json())
+  getData(id, scope = "incoming", userId) {
+    // "Incoming" is every open complaint raised for this facility, whatever
+    // its level: a citizen/athlete complaint starts at level 0 and must reach
+    // the facility inbox, not only the level-1 items already forwarded.
+    const query =
+      scope === "mine"
+        ? `sportsComplex=${id}&userId=${userId}`
+        : `sportsComplex=${id}&status=0`;
+
+    return fetch(`http://localhost:9999/getAllComplaints?${query}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+        return res.json();
+      })
       .then((res) => {
         return res.data;
       });
@@ -21,8 +30,8 @@ export const ComplaintService = {
     return Promise.resolve(this.getData(id).slice(0, 200));
   },
 
-  getCustomersXLarge(id) {
-    return Promise.resolve(this.getData(id));
+  getCustomersXLarge(id, scope, userId) {
+    return Promise.resolve(this.getData(id, scope, userId));
   },
 
   //   getCustomers(params) {
@@ -39,3 +48,4 @@ export const ComplaintService = {
   //     );
   //   },
 };
+

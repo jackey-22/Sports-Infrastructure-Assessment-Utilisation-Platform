@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   StyleSheet,
@@ -12,10 +12,35 @@ import {
 import { WebView } from "react-native-webview";
 
 import { Rating } from "react-native-ratings";
-import ipconfig from "../../ipconfig";
+import { getChartUrl } from "../../helpers/chartToken";
 const ComparativeAnalysisModal = (props) => {
-  const ip = ipconfig.ip;
   const [modalVisible, setModalVisible] = useState(props.rateModal);
+  const [chartUri, setChartUri] = useState("");
+
+  useEffect(() => {
+    const { currentathelteid, opponentathelteid, sportid } = props;
+    if (!currentathelteid || !opponentathelteid || !sportid) return;
+    let cancelled = false;
+    getChartUrl(
+      `/comparativeathelteperformance/${currentathelteid}/${opponentathelteid}/${sportid}`,
+      {
+        athleteId: currentathelteid,
+        opponentAthleteId: opponentathelteid,
+        sportId: sportid,
+        type: "comparative",
+      }
+    )
+      .then((uri) => {
+        if (!cancelled) setChartUri(uri);
+      })
+      .catch(() => {
+        if (!cancelled) setChartUri("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.currentathelteid, props.opponentathelteid, props.sportid]);
+
   return (
     <Modal
       animationType="slide"
@@ -40,9 +65,7 @@ const ComparativeAnalysisModal = (props) => {
             marginLeft: 20,
           }}
           source={{
-            uri: true
-              ? `http://${ip}:9999/comparativeathelteperformance/${props.currentathelteid}/${props.opponentathelteid}/${props.sportid}`
-              : "",
+            uri: chartUri,
           }}
         />
       </View>

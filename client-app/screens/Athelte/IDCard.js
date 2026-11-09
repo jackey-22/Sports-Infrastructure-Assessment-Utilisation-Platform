@@ -11,22 +11,18 @@ import ipconfig from "../../ipconfig";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-// import QRCodeGenerator from "./QRCodeUser";
+import QRCodeGenerator from "./QRCodeUser";
 
 const IDCard = ({ navigation }) => {
   const ip = ipconfig.ip;
   const Userdata = useSelector((state) => state.user.User);
   const Atheltedata = useSelector((state) => state.athelte.Athelte);
-  const [supervisorId, setsupervisorId] = useState("");
   const [image, setimage] = useState("./../../assets/icon.png");
 
   useEffect(() => {
-    if (Atheltedata[0].createdBy) {
-      setsupervisorId(Atheltedata[0].createdBy._id);
-    }
-    const i = Atheltedata[0].baseUrl.slice(1);
-    setimage(i);
-  }, [image]);
+    const base = Atheltedata?.[0]?.baseUrl;
+    if (base) setimage(base.slice(1));
+  }, [Atheltedata]);
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -57,20 +53,9 @@ const IDCard = ({ navigation }) => {
           source={{ uri: `http://${ip}:9999/${image}` }}
         />
         <View style={styles.profileDetail}>
-          {/* {supervisorId && <QRCodeGenerator value={supervisorId} size={300} />} */}
-          <Image
-            style={{
-              width: 300,
-              height: 300,
-              // borderRadius: 62.5,
-              // marginTop: -185,
-              // borderColor: "white",
-              // borderWidth: 5,
-            }}
-            source={{
-              uri: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${supervisorId}`,
-            }}
-          />
+          {Userdata?._id ? (
+            <QRCodeGenerator value={String(Userdata._id)} size={200} />
+          ) : null}
           <View></View>
           <Text style={styles.input}>{Userdata.Email}</Text>
           <Text style={styles.input}>{Userdata.Name}</Text>

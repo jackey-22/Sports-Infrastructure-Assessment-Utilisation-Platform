@@ -7,31 +7,69 @@ const ComplaintTypeModel = require("../Model/ComplaintTypeModel");
 const ComplaintModel = require("../Model/ComplaintModel");
 const Reminder = require("../Model/Reminder");
 const { setReminder } = require("../SetReminder");
+const { ROLE } = require("../Utils/roles");
+const {
+  sanitizeFilters,
+  athleteQueryScope,
+  canAccessAthlete,
+} = require("../Utils/scope");
+
 module.exports.addAthlete = async function (req, res) {
-  //console.log(req.file);
-  const BaseUrl = `http://localhost:9999/Athletes/${req.file.originalname}`;
-  //console.log(BaseUrl);
-  req.body.baseUrl = BaseUrl;
-  let Athlete = new AthleteModel(req.body);
+  const body = sanitizeFilters(req.body, [
+    "userId",
+    "bloodGroup",
+    "disability",
+    "healthIssue",
+    "weight",
+    "height",
+    "isApproved",
+    "isActive",
+    "address",
+    "emergencyNumber",
+  ]);
+  if (req.file) {
+    body.baseUrl = `http://localhost:9999/Athletes/${req.file.originalname}`;
+  }
+  body.createdBy = req.user._id;
+  if ([ROLE.SUPERVISOR, ROLE.MANAGER, ROLE.COACH].includes(req.user.Role)) {
+    body.SportComplexId = req.user.SportComplexId;
+  } else if (req.user.Role === ROLE.ADMIN) {
+    body.SportComplexId = req.body.SportComplexId;
+  }
 
-  let data = await Athlete.save();
-
-  console.log(data);
-
+  let data = await new AthleteModel(body).save();
   res.json({ data: data, msg: "Athlete Added", rcode: 200 });
 };
 
 module.exports.getAthlete = async function (req, res) {
-  const data = await AthleteModel.find(req.query).populate("userId");
+  const filters = sanitizeFilters(req.query, ["_id", "userId", "SportComplexId"]);
+  await athleteQueryScope(req.user, filters);
+  const data = await AthleteModel.find(filters).populate("userId");
   res.json({ data: data, msg: "Athlete Retrived", rcode: 200 });
 };
 module.exports.getAthleteWithGoals = async function (req, res) {
-  let _id = req.query._id;
-  let achieved = 0;
-  if (achieved !== undefined) {
-    achieved = req.query.achieved;
+  const q = sanitizeFilters(req.query, ["_id", "achieved"]);
+  let _id = q._id;
+  let achieved = q.achieved === undefined ? 0 : q.achieved;
+  if (!_id) {
+    return res
+      .status(400)
+      .json({ data: "", msg: "_id is required", rcode: -9 });
+  }
+  if (req.user.Role === ROLE.ATHLETE) {
+    const own = await AthleteModel.findOne({ _id, userId: req.user._id });
+    if (!own) {
+      return res
+        .status(403)
+        .json({ data: "", msg: "Athlete is outside your scope", rcode: -10 });
+    }
   }
   const data = await AthleteModel.find({ _id });
+  if (!data[0]) {
+    return res
+      .status(404)
+      .json({ data: "", msg: "Athlete not found", rcode: 404 });
+  }
   let goals = [];
   if (data[0].goals) {
     for (let index = 0; index < data[0].goals.length; index++) {
@@ -44,8 +82,9 @@ module.exports.getAthleteWithGoals = async function (req, res) {
   res.json({ data: goals, msg: "Athlete Goals Retrived", rcode: 200 });
 };
 module.exports.getAthletewithRating = async function (req, res) {
-  const aid = req.query.id;
-  const sportId = req.query.sportId;
+  const q = sanitizeFilters(req.query, ["id", "sportId"]);
+  const aid = q.id;
+  const sportId = q.sportId;
   let parameter = {};
 
   const data = await AthleteModel.find().populate("userId");
@@ -72,8 +111,16 @@ module.exports.getAthletewithRating = async function (req, res) {
   myarray.sort((a, b) => b.score - a.score);
   let index = myarray.findIndex((ele) => ele.athleteid == aid);
   currentuser = { ...currentuser, index: index };
+  // The leaderboard (data1) is shared, but full athlete/user records are scoped
+  // to the caller's facility or district.
+  const responseData =
+    req.user.Role === ROLE.ADMIN
+      ? data
+      : await AthleteModel.find(await athleteQueryScope(req.user, {})).populate(
+          "userId"
+        );
   res.json({
-    data: data,
+    data: responseData,
     data1: myarray,
     currentuserdata: currentuser,
     msg: "Athlete General Rating Retrived",
@@ -82,9 +129,12 @@ module.exports.getAthletewithRating = async function (req, res) {
 };
 
 module.exports.getAthletesWithAllRating = async function (req, res) {
-  let sportId = req.query.sportId;
+  const q = sanitizeFilters(req.query, ["sportId"]);
+  let sportId = q.sportId;
 
-  const data = await AthleteModel.find().populate("userId");
+  const data = await AthleteModel.find(
+    await athleteQueryScope(req.user, {})
+  ).populate("userId");
   let myarray = [];
   for (let index = 0; index < data.length; index++) {
     const element = data[index];
@@ -171,8 +221,21 @@ async function ComplaintCount(userId) {
 }
 
 module.exports.getAthletesWithAllSportsRating = async function (req, res) {
-  const athelteid = req.query.athleteid;
-  const userid = req.query.userid;
+  const q = sanitizeFilters(req.query, ["athleteid", "userid"]);
+  const athelteid = q.athelteid;
+  let userid = q.userid;
+  if (req.user.Role === ROLE.ATHLETE) {
+    const own = await AthleteModel.findOne({
+      _id: athelteid,
+      userId: req.user._id,
+    });
+    if (!own) {
+      return res
+        .status(403)
+        .json({ data: "", msg: "Athlete is outside your scope", rcode: -10 });
+    }
+    userid = req.user._id;
+  }
   let atheltedata = await AthleteModel.findOne({ _id: athelteid });
   let userdata = await UsersModel.findOne({ _id: userid });
   let sports = await SportModel.find();
@@ -272,7 +335,9 @@ module.exports.averageRating = async function (userId, sportId) {
   // return total2 / total;
 };
 module.exports.getAthletewithsupervisor = async function (req, res) {
-  AthleteModel.find(req.query)
+  const filters = sanitizeFilters(req.query, ["_id", "userId", "SportComplexId"]);
+  await athleteQueryScope(req.user, filters);
+  AthleteModel.find(filters)
     .populate("createdBy")
     .then((data) => {
       res.json({
@@ -282,11 +347,13 @@ module.exports.getAthletewithsupervisor = async function (req, res) {
       });
     })
     .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+      res.status(500).json({ data: "", msg: "Could not retrieve athletes", rcode: -9 });
     });
 };
 module.exports.getAthletewithpayments = async function (req, res) {
-  AthleteModel.find(req.query)
+  const filters = sanitizeFilters(req.query, ["_id", "userId", "SportComplexId"]);
+  await athleteQueryScope(req.user, filters);
+  AthleteModel.find(filters)
     .populate("payments")
     .then((data) => {
       res.json({
@@ -296,14 +363,16 @@ module.exports.getAthletewithpayments = async function (req, res) {
       });
     })
     .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+      res.status(500).json({ data: "", msg: "Could not retrieve athletes", rcode: -9 });
     });
 };
 module.exports.getAthletewithpaymentswithsupervisor = async function (
   req,
   res
 ) {
-  AthleteModel.find(req.query)
+  const filters = sanitizeFilters(req.query, ["_id", "userId", "SportComplexId"]);
+  await athleteQueryScope(req.user, filters);
+  AthleteModel.find(filters)
     .populate("payments")
     .populate("createdBy")
     .then((data) => {
@@ -321,55 +390,43 @@ module.exports.getAthletewithpaymentswithsupervisor = async function (
 module.exports.updateAthlete = async function (req, res) {
   const id = req.params.id;
 
-  // console.log(req.files);
-  // let resourcesarray = [];
-  // req.files.forEach((ele) => {
-  //   resourcesarray.push(`http://localhost:9999/uploads/${ele.originalname}`);
-  // });
-
-  // console.log(resourcesarray);
-
-  // let json = {
-  //   bloodGroup: req.body.bloodGroup,
-  //   isApproved: req.body.isApproved,
-  //   healthIssue: req.body.healthIssue,
-  //   disability: req.body.disability,
-  //   isActive: req.body.isActive,
-  //   address: req.body.address,
-  //   emergencyNumber: req.body.emergencyNumber,
-  // };
-
-  let Athlete = await AthleteModel.findOne({ _id: id });
+  const Athlete = await AthleteModel.findOne({ _id: id });
 
   if (!Athlete) {
-    res.json({ data: "", msg: "Athlete not found", rcode: 404 });
+    return res
+      .status(404)
+      .json({ data: "", msg: "Athlete not found", rcode: 404 });
+  }
+  if (!(await canAccessAthlete(req.user, Athlete))) {
+    return res.status(403).json({
+      data: "",
+      msg: "Athlete is outside your scope",
+      rcode: -10,
+    });
   }
 
-  // Update only the fields that are provided in the request body
+  // Update only the fields that are provided in the request body.
   if (req.body.bloodGroup !== undefined) {
     Athlete.bloodGroup = req.body.bloodGroup;
   }
-
-  if (req.body.isApproved !== undefined) {
-    Athlete.isApproved = req.body.isApproved;
+  // Approval / activation state is controlled by facility staff only.
+  if (req.user.Role !== ROLE.ATHLETE) {
+    if (req.body.isApproved !== undefined) {
+      Athlete.isApproved = req.body.isApproved;
+    }
+    if (req.body.isActive !== undefined) {
+      Athlete.isActive = req.body.isActive;
+    }
   }
-
   if (req.body.healthIssue !== undefined) {
     Athlete.healthIssue = req.body.healthIssue;
   }
-
   if (req.body.disability !== undefined) {
     Athlete.disability = req.body.disability;
   }
-
-  if (req.body.isActive !== undefined) {
-    Athlete.isActive = req.body.isActive;
-  }
-
   if (req.body.address !== undefined) {
     Athlete.address = req.body.address;
   }
-
   if (req.body.emergencyNumber !== undefined) {
     Athlete.emergencyNumber = req.body.emergencyNumber;
   }
@@ -381,13 +438,10 @@ module.exports.updateAthlete = async function (req, res) {
   }
 
   try {
-    let response = [];
-    partialresponse = await Athlete.save();
-    response.push(partialresponse);
+    const response = [await Athlete.save()];
     res.json({ data: response, msg: "updated successfully", rcode: 200 });
   } catch (error) {
-    console.error(error);
-    res.json({ data: error.msg, msg: "smw", rcode: -9 });
+    res.status(500).json({ data: "", msg: "Could not update athlete", rcode: -9 });
   }
 };
 
@@ -397,6 +451,11 @@ module.exports.goalOfAthletes = async function (req, res) {
   if (!Athlete) {
     res.json({ data: "", msg: "Athlete not found", rcode: 404 });
   } else {
+    if (!(await canAccessAthlete(req.user, Athlete))) {
+      return res
+        .status(403)
+        .json({ data: "", msg: "Athlete is outside your scope", rcode: -10 });
+    }
     let goal = {
       title: req.body.title,
       description: req.body.description,
@@ -451,6 +510,11 @@ module.exports.achieveOfAthletes = async function (req, res) {
       return res
         .status(404)
         .json({ data: "", msg: "Athlete not found", rcode: 404 });
+    }
+    if (!(await canAccessAthlete(req.user, athlete))) {
+      return res
+        .status(403)
+        .json({ data: "", msg: "Athlete is outside your scope", rcode: -10 });
     }
 
     const goalIdToUpdate = req.query.goalId;

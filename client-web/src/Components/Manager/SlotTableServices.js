@@ -1,11 +1,9 @@
 export const SlotServices = {
   getData(id) {
-    return fetch(`http://localhost:9999/getGuest`)
-      .then((res) => res.json())
-      .then((res) => {
-        console.log(res);
-        return res;
-      });
+    return fetch(`http://localhost:9999/getGuest`).then((res) => {
+      if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+      return res.json();
+    });
   },
 
   getCustomersSmall(id) {
@@ -38,3 +36,4 @@ export const SlotServices = {
   //     );
   //   },
 };
+

@@ -35,7 +35,7 @@ export default function QR({ navigation }) {
   const userdata = useSelector((state) => state.user.User);
   const AthelteData = useSelector((state) => state.athelte.Athelte);
 
-  const complexId = AthelteData[0].createdBy.SportComplexId;
+  const complexId = AthelteData?.[0]?.createdBy?.SportComplexId;
   const ip = ipconfig.ip;
   const [hasPermission, setHasPermission] = useState(false);
   const [scanData, setScanData] = useState(undefined);
@@ -191,9 +191,11 @@ export default function QR({ navigation }) {
       )
         .then((response) => response.json())
         .then((result) => {
-          // console.log(result.data[0].createdBy.SportComplexId);
-          setathleteid(result.data[0]._id);
-          setcomplexid(result.data[0].createdBy.SportComplexId);
+          const row = result.data && result.data[0];
+          if (row) {
+            setathleteid(row._id);
+            setcomplexid(row.createdBy && row.createdBy.SportComplexId);
+          }
         })
         .catch((error) => console.log("error", error));
     })();

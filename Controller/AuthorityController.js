@@ -6,10 +6,23 @@ const paymentModel = require("../Model/PaymentModel");
 const instructerModel = require("../Model/instructorModel");
 const complaintModel = require("../Model/ComplaintModel");
 const userModel=require("../Model/UsersModel")
+const { ROLE } = require("../Utils/roles");
+
+// Authorities are always pinned to their own district; only admins may choose.
+function districtScope(user, requested) {
+  if (user.Role === ROLE.ADMIN) return requested;
+  return user.DistrictId;
+}
 
 module.exports.getDetails = async function (req, res) {
+  const districtId = districtScope(req.user, req.query.districtId);
+  if (!districtId) {
+    return res
+      .status(400)
+      .json({ data: "", msg: "District is not assigned", rcode: -9 });
+  }
   const sportcomplex = await SportsComplex.find({
-    district: new mongoose.Types.ObjectId(req.query.districtId),
+    district: new mongoose.Types.ObjectId(districtId),
   });
 
   console.log(sportcomplex);
@@ -101,21 +114,21 @@ module.exports.getDetails = async function (req, res) {
 
  
   let instructor=await instructerModel.find({}).populate( {path: 'SportComplexId',
-  match: { district: req.query.districtId }}).lean();
+  match: { district: districtId }}).lean();
   instructor =   instructor.filter(ele=>ele.SportComplexId!=null);
 
 let manager=await userModel.find({Role:3}).populate( {path: 'SportComplexId',
-match: { district: req.query.districtId }})
+match: { district: districtId }})
 manager =   manager.filter(ele=>ele.SportComplexId!=null);
   
 
 let supervisor=await userModel.find({Role:1}).populate( {path: 'SportComplexId',
-match: { district: req.query.districtId }})
+match: { district: districtId }})
 supervisor =   supervisor.filter(ele=>ele.SportComplexId!=null);
   
 
 let complaintsType=await complaintModel.find({status:1}).populate({path: 'sportsComplex',
-match: { district: req.query.districtId }})
+match: { district: districtId }})
 
 complaintsType=complaintsType.filter(ele=> ele.sportsComplex!=null)
 console.log(complaintsType.length)
@@ -140,8 +153,14 @@ console.log(happy.length,sad.length)
 
 module.exports.getSportsCount = async function (req, res) {
   try {
+    const districtId = districtScope(req.user, req.query.districtId);
+    if (!districtId) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "District is not assigned", rcode: -9 });
+    }
     // const sportcomplex = await //SportsComplex.find({
-    //   district: new mongoose.Types.ObjectId(req.query.districtId),
+    //   district: new mongoose.Types.ObjectId(districtId),
     // });
 
     // let sports = [];
@@ -149,7 +168,7 @@ module.exports.getSportsCount = async function (req, res) {
     const sportcomplex = await SportsComplex.aggregate([
       {
         $match: {
-          district: new mongoose.Types.ObjectId(req.query.districtId),
+          district: new mongoose.Types.ObjectId(districtId),
         },
       },
       {

@@ -1,274 +1,347 @@
-import React, { useState, useEffect } from "react";
-import Swal from "sweetalert2";
-import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { FilterMatchMode } from "primereact/api";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { InputText } from "primereact/inputtext";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar";
+import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useCookies } from "react-cookie";
-import { InstructorService } from "./InstructorServices";
 import { useSelector } from "react-redux";
+import {
+  CalendarDays,
+  Clock3,
+  RotateCcw,
+  Search,
+  Trophy,
+  Users,
+} from "lucide-react";
+import { InstructorService } from "./InstructorServices";
+import { formatNumber } from "../../../utils/manager/managerUtils";
+import { useAdminQuery, useTableState } from "../../../hooks/manager/useManagerQuery";
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  Field,
+  KpiCard,
+  Pagination,
+  TableSkeleton,
+  inputClass,
+  selectClass,
+} from "../Common/ManagerUI";
+
+const MAX_PREVIEW_SLOTS = 4;
+
+function initials(name) {
+  return String(name || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+function formatSlot(slot) {
+  return `${slot.from} – ${slot.to}`;
+}
+
+function normaliseInstructor(row) {
+  const user = row.userId || {};
+  const sports = (Array.isArray(row.sports) ? row.sports : [])
+    .filter((entry) => entry && entry.sport)
+    .map((entry) => ({
+      name: entry.sport.SportName || "Sport",
+      experience: Number(entry.experience) || 0,
+      slots: (Array.isArray(entry.timeSlot) ? entry.timeSlot : []).filter(
+        (slot) => slot && slot.from && slot.to
+      ),
+    }));
+
+  return {
+    id: String(row._id || user._id || user.Email || ""),
+    name: user.Name || "Unnamed instructor",
+    email: user.Email || "",
+    contact: user.ContactNum || "",
+    sports,
+    sportNames: sports.map((sport) => sport.name).join(", "),
+    slotCount: sports.reduce((total, sport) => total + sport.slots.length, 0),
+    experience: sports.reduce(
+      (highest, sport) => Math.max(highest, sport.experience),
+      0
+    ),
+  };
+}
 
 export default function InstructorDataTable() {
   const { _id } = useSelector((state) => state.user.user);
-  const [deleterefresh, setdeleterefresh] = useState(true);
-  const [customers, setCustomers] = useState(null);
-  const [filters, setFilters] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [globalFilterValues, setGlobalFilterValues] = useState({
-    Name: "",
-    ContactNum: "",
-    Email: "",
-    District: "",
+  const [filters, setFilters] = useState({ search: "", sport: "" });
+
+  const { data, loading, error, reload } = useAdminQuery(
+    () => InstructorService.getCustomersXLarge(_id),
+    [_id]
+  );
+
+  const rows = useMemo(
+    () => (Array.isArray(data) ? data.map(normaliseInstructor) : []),
+    [data]
+  );
+
+  const sportOptions = useMemo(
+    () =>
+      [...new Set(rows.flatMap((row) => row.sports.map((sport) => sport.name)))].sort(),
+    [rows]
+  );
+
+  const visibleRows = useMemo(() => {
+    const query = filters.search.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchesSport =
+        !filters.sport || row.sports.some((sport) => sport.name === filters.sport);
+      if (!matchesSport) return false;
+      if (!query) return true;
+      return `${row.name} ${row.email} ${row.contact} ${row.sportNames}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [rows, filters]);
+
+  const table = useTableState(visibleRows, {
+    pageSize: 10,
+    sortKey: "name",
+    sortDir: "asc",
   });
-  const [cookies] = useCookies(["token"]);
 
-  const DeleteHandler = (rowdata) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, Delete it!",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        var myHeaders = new Headers();
-        myHeaders.append("token", cookies.token);
-        var requestOptions = {
-          method: "DELETE",
-          headers: myHeaders,
-          redirect: "follow",
-        };
-        fetch(`http://localhost:9999/deleteblog/${rowdata._id}`, requestOptions)
-          .then((response) => response.text())
-          .then((result) => {
-            setdeleterefresh(!deleterefresh);
-          })
-          .catch((error) => console.log("error", error));
-        console.log("Deleted !!");
-        Swal.fire("Deleted!", "Your file has been deleted.", "success");
-      }
-    });
-  };
+  const sportsCovered = useMemo(
+    () => new Set(rows.flatMap((row) => row.sports.map((sport) => sport.name))).size,
+    [rows]
+  );
+  const slotCount = useMemo(
+    () => rows.reduce((total, row) => total + row.slotCount, 0),
+    [rows]
+  );
+  const averageExperience = useMemo(() => {
+    const withExperience = rows.filter((row) => row.experience > 0);
+    if (!withExperience.length) return "—";
+    const total = withExperience.reduce((sum, row) => sum + row.experience, 0);
+    return `${Math.round((total / withExperience.length) * 10) / 10} yrs`;
+  }, [rows]);
 
-  useEffect(() => {
-    InstructorService.getCustomersXLarge(_id).then((data) => {
-      setCustomers(getCustomers(data));
-      setLoading(false);
-    });
-    initFilters();
-  }, [deleterefresh]);
+  const isFiltered = Boolean(filters.search || filters.sport);
 
-  const getCustomers = (data) => {
-    return [...(data || [])].map((d) => {
-      d.date = new Date(d.date);
-      return d;
-    });
-  };
+  function update(patch) {
+    setFilters((current) => ({ ...current, ...patch }));
+  }
 
-  const clearFilter = () => {
-    initFilters();
-  };
+  function reset() {
+    setFilters({ search: "", sport: "" });
+  }
 
-  const onGlobalFilterChange = (e) => {
-    const value = e.target.value;
-    let _filters = { ...filters };
-
-    _filters["global"].value = value;
-    // Update the global filter value for all fields
-    setGlobalFilterValues({
-      Name: value,
-      ContactNum: value,
-      Email: value,
-      District: value,
-    });
-
-    setFilters(_filters);
-  };
-
-  const initFilters = () => {
-    setFilters({
-      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    });
-
-    // Set the global filter values for all fields to empty strings
-    setGlobalFilterValues({
-      Name: "",
-      ContactNum: "",
-      Email: "",
-      District: "",
-    });
-  };
-
-  const renderHeader = () => {
-    return (
-      <div className="flex justify-between mr-2">
-        <Button
-          type="button"
-          label="Clear"
-          outlined
-          className="px-4 py-2 rounded-lg text-blue-800 ring-0 border-2 border-blue-700 hover:bg-gray-200"
-          onClick={clearFilter}
-        />
-        <span className="p-input-icon-left">
-          <InputText
-            value={globalFilterValues.Name}
-            onChange={onGlobalFilterChange}
-            placeholder="Keyword Search"
-            className="p-2 ring-1 ring-opacity-50 ring-black focus:ring-blue-600 focus:ring-2 focus:ring-opacity-70 hover:ring-opacity-100 hover:ring-blue-400"
-          />
-        </span>
-      </div>
-    );
-  };
-
-  const dateBodyTemplate = (rowData) => {
-    const date = new Date(rowData.CreatedAt);
-    return formatDate(date);
-  };
-
-  const formatDate = (value) => {
-    if (value instanceof Date) {
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, "0");
-      const day = String(value.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-    return "";
-  };
-
-  const dateFilterTemplate = (options) => {
-    return (
-      <Calendar
-        value={options.value}
-        onChange={(e) => options.filterCallback(e.value, options.index)}
-        dateFormat="mm/dd/yy"
-        placeholder="mm/dd/yyyy"
-        mask="99/99/9999"
-      />
-    );
-  };
-
-  const actionBodyTemplate = (rowData) => {
-    return (
-      <div className="flex justify-between">
-        <Link to={"/admin/blogsedit"} state={{ data: rowData }}>
-          <button
-            type="button"
-            className="text-blue-500 hover:text-blue-700 p-1"
+  const columns = [
+    {
+      key: "name",
+      header: "Instructor",
+      sortKey: "name",
+      render: (row) => (
+        <div className="flex min-w-[210px] items-center gap-3">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-brand-soft text-xs font-extrabold text-brand-primary"
+            aria-hidden="true"
           >
-            {/* Your SVG icon for editing */}
-          </button>
-        </Link>
-        <button
-          type="button"
-          onClick={() => DeleteHandler(rowData)}
-          className="text-red-500 hover:text-red-700 p-1"
-        >
-          {/* Your SVG icon for deleting */}
-        </button>
-      </div>
-    );
-  };
-
-  const header = renderHeader();
-  const [first, setFirst] = useState(0);
-
-  const calculateIndex = (currentPage, rowIndex) => {
-    return currentPage * 10 + rowIndex + 1;
-  };
+            {initials(row.name)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-bold text-slate-800">{row.name}</p>
+            <p className="truncate text-[11px] text-slate-500">
+              {row.email || "Email not recorded"}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "contact",
+      header: "Contact number",
+      render: (row) => (
+        <span className="whitespace-nowrap text-slate-700">
+          {row.contact || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "sports",
+      header: "Sports & experience",
+      render: (row) =>
+        row.sports.length ? (
+          <div className="flex max-w-[280px] flex-wrap gap-1.5">
+            {row.sports.map((sport) => (
+              <span
+                key={sport.name}
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"
+              >
+                {sport.name}
+                {sport.experience > 0 ? (
+                  <span className="font-normal text-emerald-700">
+                    · {sport.experience} yrs
+                  </span>
+                ) : null}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-slate-500">No sports assigned</span>
+        ),
+    },
+    {
+      key: "slots",
+      header: "Weekly schedule",
+      render: (row) => {
+        const slots = row.sports.flatMap((sport) =>
+          sport.slots.map((slot) => ({ ...slot, sport: sport.name }))
+        );
+        if (!slots.length) {
+          return <span className="text-slate-500">No time slots</span>;
+        }
+        return (
+          <div className="flex max-w-[320px] flex-wrap gap-1.5">
+            {slots.slice(0, MAX_PREVIEW_SLOTS).map((slot) => (
+              <span
+                key={`${slot.sport}-${slot.from}-${slot.to}`}
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700"
+                title={`${slot.sport}: ${formatSlot(slot)}`}
+              >
+                <Clock3 className="h-3 w-3 text-slate-500" aria-hidden="true" />
+                {formatSlot(slot)}
+              </span>
+            ))}
+            {slots.length > MAX_PREVIEW_SLOTS ? (
+              <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                +{slots.length - MAX_PREVIEW_SLOTS} more
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
-    <div className="card">
-      <DataTable
-        value={customers}
-        paginator
-        showGridlines
-        stripedRows
-        rows={10}
-        rowsPerPageOptions={[10, 25, 50]}
-        loading={loading}
-        dataKey="_id"
-        filters={filters}
-        globalFilterFields={[
-          "userId.Name",
-          "userId.ContactNum",
-          "userId.Email",
-        ]}
-        header={header}
-        emptyMessage="No Data found."
-      >
-        <Column
-          field="index"
-          header="Index"
-          style={{ width: "4rem" }}
-          body={(rowData) => {
-            const rowIndex = customers.indexOf(rowData);
-            return calculateIndex(Math.floor(first / 10), rowIndex);
-          }}
+    <>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Instructors"
+          value={formatNumber(rows.length)}
+          caption="Assigned to this complex"
+          icon={Users}
+          tone="green"
         />
+        <KpiCard
+          label="Sports covered"
+          value={formatNumber(sportsCovered)}
+          caption="Across all instructors"
+          icon={Trophy}
+          tone="blue"
+        />
+        <KpiCard
+          label="Weekly time slots"
+          value={formatNumber(slotCount)}
+          caption="Recurring coaching sessions"
+          icon={CalendarDays}
+          tone="amber"
+        />
+        <KpiCard
+          label="Average experience"
+          value={averageExperience}
+          caption="Reported by instructors"
+          icon={Clock3}
+          tone="slate"
+        />
+      </div>
 
-        <Column
-          header="Instructor Name"
-          field="userId.Name"
-          filterField="Name"
-          style={{ minWidth: "12rem" }}
-        />
-        <Column
-          header="Intructor Contact Number"
-          field="userId.ContactNum"
-          filterField="ContactNum"
-          style={{ minWidth: "12rem" }}
-        />
-        <Column
-          header="Instructor Email"
-          field="userId.Email"
-          filterField="Email"
-          style={{ minWidth: "12rem" }}
-        />
+      <Card className="mb-4">
+        <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4 sm:px-5">
+          <Field label="Search" htmlFor="instructor-search" className="sm:col-span-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500"
+                aria-hidden="true"
+              />
+              <input
+                id="instructor-search"
+                type="search"
+                value={filters.search}
+                onChange={(event) => update({ search: event.target.value })}
+                placeholder="Instructor name, email, contact number or sport"
+                className={`${inputClass} pl-9`}
+              />
+            </div>
+          </Field>
 
-        <Column
-          header="Sports"
-          field="sports"
-          filterField="Email"
-          style={{ minWidth: "12rem" }}
-          body={(rowData) => {
-            const sports = rowData.sports;
-            if (Array.isArray(sports) && sports.length > 0) {
-              return (
-                <ul>
-                  {sports.map((sport, sportIndex) => (
-                    <li key={sportIndex} className="flex border-2">
-                      <div className="flex flex-col mx-4">
-                        <span className="font-bold text-black">{`Sport: ${sport.sport.SportName}`}</span>
-                        <span className="font-bold text-red-400">{`Experince : ${sport.experience}`}</span>
-                      </div>
-                      <ul className="justify-center mb-2 ">
-                        {sport.timeSlot.map((timeSlot, timeSlotIndex) => (
-                          <li
-                            key={timeSlotIndex}
-                            className="font-bold text-blue-600"
-                          >
-                            {`Time Slot ${timeSlotIndex + 1}: From ${
-                              timeSlot.from
-                            } to ${timeSlot.to}`}
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              );
-            }
-            return "No sports available";
-          }}
-        />
-      </DataTable>
-    </div>
+          <Field label="Sport" htmlFor="instructor-sport">
+            <select
+              id="instructor-sport"
+              className={selectClass}
+              value={filters.sport}
+              onChange={(event) => update({ sport: event.target.value })}
+            >
+              <option value="">All sports</option>
+              {sportOptions.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="flex items-end">
+            <Button variant="secondary" onClick={reset} disabled={!isFiltered}>
+              <RotateCcw className="h-4 w-4" /> Reset filters
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        {loading && !data ? (
+          <TableSkeleton rows={6} columns={4} />
+        ) : error ? (
+          <ErrorState message={error.message} onRetry={reload} />
+        ) : (
+          <>
+            <DataTable
+              caption="Instructors assigned to this sports complex"
+              columns={columns}
+              rows={table.pageRows}
+              sort={table.sort}
+              onSort={table.toggleSort}
+              empty={
+                isFiltered ? (
+                  <EmptyState
+                    title="No instructors match these filters"
+                    description="Try a different name, sport or contact number."
+                    action={<Button onClick={reset}>Reset filters</Button>}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No instructors yet"
+                    description="Add an instructor to assign sports and weekly coaching time slots to this complex."
+                    action={
+                      <Button as={Link} to="/manager/addinstructor">
+                        Add instructor
+                      </Button>
+                    }
+                  />
+                )
+              }
+            />
+            {table.total > 0 ? (
+              <Pagination
+                page={table.page}
+                pageCount={table.pageCount}
+                pageSize={table.pageSize}
+                total={table.total}
+                setPage={table.setPage}
+                setPageSize={table.setPageSize}
+              />
+            ) : null}
+          </>
+        )}
+      </Card>
+    </>
   );
 }

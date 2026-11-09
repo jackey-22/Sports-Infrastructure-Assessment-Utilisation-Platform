@@ -18,6 +18,8 @@ const UserSchema = new mongoose.Schema(
     Password: {
       type: String,
       trim: true,
+      // Never selected by default; login explicitly asks for it.
+      select: false,
     },
 
     ContactNum: {

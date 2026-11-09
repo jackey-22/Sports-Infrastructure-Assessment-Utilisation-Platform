@@ -1,25 +1,50 @@
 const Guest = require("../Model/GuestModel");
 const instructorModel = require("../Model/instructorModel");
+const { sanitizeFilters, guestQueryScope } = require("../Utils/scope");
 
-// Add data controller
-(module.exports.addUser = async function (req, res) {
+// Public guest booking: only the booking fields are accepted.
+module.exports.addUser = async function (req, res) {
   try {
-    const gus = new Guest(req.body);
-    const savedGuest = await gus.save();
+    const body = {};
+    [
+      "Name",
+      "Email",
+      "ContactNum",
+      "timeslot",
+      "duration",
+      "sport",
+      "SportComplexId",
+      "Startdate",
+      "Enddate",
+    ].forEach((key) => {
+      if (req.body[key] !== undefined) body[key] = req.body[key];
+    });
+    const guest = new Guest(body);
+    const savedGuest = await guest.save();
     res.status(201).json(savedGuest);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: "Could not save booking" });
   }
-}),
-  // Get all data controller
-  (module.exports.getAllUsers = async function (req, res) {
-    try {
-      const Guests = await Guest.find(req.query).populate('SportComplexId').populate('sport');
-      res.status(200).json(Guests);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+};
+
+module.exports.getAllUsers = async function (req, res) {
+  try {
+    const filters = sanitizeFilters(req.query, [
+      "_id",
+      "Email",
+      "ContactNum",
+      "SportComplexId",
+      "sport",
+    ]);
+    const scope = await guestQueryScope(req.user);
+    const guests = await Guest.find({ ...filters, ...scope })
+      .populate("SportComplexId")
+      .populate("sport");
+    res.status(200).json(guests);
+  } catch (error) {
+    res.status(500).json({ error: "Could not retrieve guests" });
+  }
+};
 
 module.exports.gettimeslotfrominstructor = async function (req, res) {
   try {
@@ -44,22 +69,3 @@ module.exports.gettimeslotfrominstructor = async function (req, res) {
     res.status(500).json({ error: "Internal Server Error", rcode: 500 });
   }
 };
-
-// module.exports.gettimeslotfrominstructor = async function (req, res) {
-//   let data = await instructorModel.find({
-//     SportComplexId: req.query.SportComplexId,
-//   });
-//   let timeslot = [];
-
-//   for (let index = 0; index < data.length; index++) {
-//     const element = data[index];
-//     for (let index = 0; index < element.sports.length; index++) {
-//       const ele = element.sports[index];
-//       if (ele === req.query.sportId) {
-//         // timeslot = ele.timeSlot;
-//         timeslot.push(ele.timeSlot);
-//       }
-//     }
-//   }
-//   res.json({ data: timeslot, rcode: 200 });
-// };

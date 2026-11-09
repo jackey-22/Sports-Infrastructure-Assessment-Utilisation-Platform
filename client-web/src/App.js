@@ -21,6 +21,7 @@ import ManagerLayout from "./Components/Manager/Layout";
 
 import AuthorityDashboard from "./Pages/AuthorityDashboard";
 import ManagerDashboard from "./Pages/ManagerDashboard";
+import AdminDashboard from "./Pages/AdminDashboard";
 
 //Authority Pages
 import AddManager from "./Components/Authority/Manager/AddManager";
@@ -50,6 +51,41 @@ import AuthorityAnalysis from "./Components/Authority/Analysis/AuthorityAnalysis
 // import SlotDataTable from "./Components/Manager/SlotDataTable";
 import Slot from "./Components/Manager/Slot";
 
+// Phase 2C.2 Manager modules
+import ManagerTransactionList from "./Components/Manager/Transaction/ManagerTransactionList";
+import ManagerGrantList from "./Components/Manager/Grant/ManagerGrantList";
+import ManagerGrantDetail from "./Components/Manager/Grant/ManagerGrantDetail";
+import ManagerProofSubmission from "./Components/Manager/Grant/ManagerProofSubmission";
+import ManagerAssessmentList from "./Components/Manager/Assessment/ManagerAssessmentList";
+import ManagerAssessmentForm from "./Components/Manager/Assessment/ManagerAssessmentForm";
+import ManagerAssessmentDetail from "./Components/Manager/Assessment/ManagerAssessmentDetail";
+import ManagerOverviewDashboard from "./Components/Manager/Dashboard/ManagerDashboard";
+
+// Phase 2C.3 Coach modules
+import CoachLayout from "./Components/Coach/Layout";
+import CoachDashboard from "./Components/Coach/Dashboard/CoachDashboard";
+import CoachAthleteList from "./Components/Coach/Athletes/CoachAthleteList";
+import CoachAthleteProfile from "./Components/Coach/AthleteProfile/CoachAthleteProfile";
+import CoachRateAthlete from "./Components/Coach/Rating/CoachRateAthlete";
+import CoachRatingHistory from "./Components/Coach/RatingHistory/CoachRatingHistory";
+
+// Phase 2C.4 Citizen modules
+import CitizenLayout from "./Components/Citizen/Layout";
+import CitizenDashboard from "./Components/Citizen/Dashboard/CitizenDashboard";
+import CitizenAttendance from "./Components/Citizen/Attendance/CitizenAttendance";
+import CitizenFeedback from "./Components/Citizen/Feedback/CitizenFeedback";
+import CitizenComplaints from "./Components/Citizen/Complaints/CitizenComplaints";
+import CitizenProfile from "./Components/Citizen/Profile/CitizenProfile";
+
+// Admin Phase 2C.1 modules
+import AdminModuleLayout from "./Components/Admin/ModuleLayout";
+import GrievanceList from "./Components/Admin/Grievance/GrievanceList";
+import TransactionList from "./Components/Admin/Transaction/TransactionList";
+import GrantList from "./Components/Admin/Grant/GrantList";
+import AdminAssessmentList from "./Components/Admin/Assessment/AdminAssessmentList";
+import GrantAllocation from "./Components/Admin/Grant/GrantAllocation";
+import GrantDetail from "./Components/Admin/Grant/GrantDetail";
+
 const routes = createBrowserRouter([
   {
     path: "/",
@@ -72,6 +108,23 @@ const routes = createBrowserRouter([
       return Verify(5);
     },
     errorElement: <ErrorPage />,
+  },
+  {
+    path: "/admin/insights",
+    element: <AdminModuleLayout />,
+    loader: () => {
+      return Verify(5);
+    },
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: "grievances", element: <GrievanceList /> },
+      { path: "transactions", element: <TransactionList /> },
+      { path: "grants", element: <GrantList /> },
+      { path: "grants/allocate", element: <GrantAllocation /> },
+      { path: "grants/:grantId", element: <GrantDetail /> },
+      { path: "assessments", element: <AdminAssessmentList /> },
+    ],
   },
   {
     path: "/authority",
@@ -140,6 +193,11 @@ const routes = createBrowserRouter([
         element: <ManagerDashboard />,
       },
       {
+        path: "overview",
+        element: <ManagerOverviewDashboard />,
+        errorElement: <ErrorPage />,
+      },
+      {
         path: "profile",
         element: <AuthorityProfile />,
         errorElement: <ErrorPage />,
@@ -185,6 +243,41 @@ const routes = createBrowserRouter([
         errorElement: <ErrorPage />,
       },
       {
+        path: "transactions",
+        element: <ManagerTransactionList />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "grants",
+        element: <ManagerGrantList />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "grants/:grantId",
+        element: <ManagerGrantDetail />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "grants/:grantId/submit-proof",
+        element: <ManagerProofSubmission />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "assessment",
+        element: <ManagerAssessmentList />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "assessment/new",
+        element: <ManagerAssessmentForm />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "assessment/:assessmentId",
+        element: <ManagerAssessmentDetail />,
+        errorElement: <ErrorPage />,
+      },
+      {
         path: "allathelte",
         element: <Athelte />,
         errorElement: <ErrorPage />,
@@ -212,6 +305,76 @@ const routes = createBrowserRouter([
       {
         path: "slottable",
         element: <Slot />,
+        errorElement: <ErrorPage />,
+      },
+    ],
+  },
+  {
+    path: "/coach",
+    element: <CoachLayout />,
+    loader: () => {
+      return Verify(2);
+    },
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: "dashboard",
+        element: <CoachDashboard />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "athletes",
+        element: <CoachAthleteList />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "athletes/:athleteId",
+        element: <CoachAthleteProfile />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "rate/:athleteId",
+        element: <CoachRateAthlete />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "rating-history",
+        element: <CoachRatingHistory />,
+        errorElement: <ErrorPage />,
+      },
+    ],
+  },
+  {
+    path: "/citizen",
+    element: <CitizenLayout />,
+    loader: () => {
+      return Verify(0);
+    },
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: "dashboard",
+        element: <CitizenDashboard />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "attendance",
+        element: <CitizenAttendance />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "feedback",
+        element: <CitizenFeedback />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "complaints",
+        element: <CitizenComplaints />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "profile",
+        element: <CitizenProfile />,
         errorElement: <ErrorPage />,
       },
     ],

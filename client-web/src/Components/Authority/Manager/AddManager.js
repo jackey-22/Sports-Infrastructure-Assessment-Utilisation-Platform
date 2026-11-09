@@ -90,7 +90,7 @@ const AddManager = () => {
     });
   return (
     <>
-    <div className="bg-[#f8f9fa] m-5 h-screen scrollbar">
+    <div className="m-5 min-h-screen scrollbar">
       <div className="flex  mx-5">
         <Button
           className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl "
@@ -103,7 +103,7 @@ const AddManager = () => {
       </div>
       <div className="flex items-center justify-center  ">
         <div className="w-full max-w-2xl">
-          <h2 className="text-center text-2xl uppercase font-semibold font-serif text-gray-800">
+          <h2 className="text-center text-2xl uppercase font-semibold font-display text-gray-800">
             Add New Manager
           </h2>
           <form
@@ -228,7 +228,7 @@ const AddManager = () => {
 
             <div className="flex items-center justify-center">
               <button
-                className="bg-blue-500 uppercase hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                className="bg-brand-primary uppercase hover:bg-brand-dark text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                 type="submit"
                 // onClick={console.log("Hello")}
               >

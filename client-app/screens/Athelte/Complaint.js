@@ -47,7 +47,7 @@ const Complaint = ({ navigation }) => {
     })();
   }, []);
 
-  const complexId = Atheltedata[0].createdBy.SportComplexId;
+  const complexId = Atheltedata?.[0]?.createdBy?.SportComplexId;
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -63,6 +63,18 @@ const Complaint = ({ navigation }) => {
   };
 
   const handleSubmit = async () => {
+    if (!complaint) {
+      alert("Please select a complaint type.");
+      return;
+    }
+    if (!value.trim()) {
+      alert("Please describe your complaint.");
+      return;
+    }
+    if (!photo) {
+      alert("Please upload a photo.");
+      return;
+    }
     var myHeaders = new Headers();
     myHeaders.append("Content-Type", "application/json");
 

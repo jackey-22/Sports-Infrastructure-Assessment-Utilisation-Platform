@@ -11,6 +11,7 @@ import { AthelteActions } from "../../store/Athelte";
 import InstructorMain from "../Instructor/InstructorMain";
 import messaging from "@react-native-firebase/messaging";
 import { Alert } from "react-native";
+import { View, Text } from "react-native";
 const getLoginData = async () => {
   return await AsyncStorage.getItem("token");
 };
@@ -112,6 +113,28 @@ const Main = ({ navigation }) => {
     return <SupervisorMain />;
   } else if (UserData.Role === 2) {
     return <InstructorMain />;
+  } else if ([3, 4, 5].includes(UserData.Role)) {
+    // Manager, Authority and Admin use the web platform; this app is for
+    // field roles (athlete, supervisor, coach) and the public.
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          backgroundColor: "#fbe8e0",
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: "bold", textAlign: "center" }}>
+          Please use the web portal
+        </Text>
+        <Text style={{ marginTop: 8, textAlign: "center", color: "#555" }}>
+          Manager, Authority and Admin workflows are available on the
+          KhelGujarat web platform.
+        </Text>
+      </View>
+    );
   } else {
     return <NoAuthTab />;
   }

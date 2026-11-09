@@ -1,13 +1,46 @@
 const sessions = require("../Model/SessionModel");
 const mongoose = require("mongoose");
+const athleteModel = require("../Model/athleteModel");
+const { ROLE } = require("../Utils/roles");
+const { canAccessComplex, sanitizeFilters } = require("../Utils/scope");
+
+function validObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ""));
+}
+
 module.exports.addSession = async function (req, res) {
-  let existingSession = await sessions.findOne(
-    {
-      sportscomplex: req.params.id,
-    },
-    null,
-    { sort: { createdAt: -1 } }
-  );
+  try {
+    const complexId = req.params.id;
+    const targetUserId = req.body && req.body.userId;
+    if (!validObjectId(complexId) || !validObjectId(targetUserId)) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "Invalid facility or user", rcode: -9 });
+    }
+    if (req.user.Role === ROLE.ATHLETE) {
+      // An athlete may only record their own entry/exit.
+      if (String(targetUserId) !== String(req.user._id)) {
+        return res.status(403).json({
+          data: "",
+          msg: "You can only record your own attendance",
+          rcode: -10,
+        });
+      }
+    } else if (!(await canAccessComplex(req.user, complexId))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
+
+    let existingSession = await sessions.findOne(
+      {
+        sportscomplex: complexId,
+      },
+      null,
+      { sort: { createdAt: -1 } }
+    );
   console.log(existingSession);
 
   let check = false;
@@ -88,22 +121,82 @@ module.exports.addSession = async function (req, res) {
       rcode: 200,
     });
   }
+  } catch (error) {
+    console.error("addSession failed:", error.message);
+    return res
+      .status(500)
+      .json({ data: "", msg: "Could not record attendance", rcode: -9 });
+  }
 };
 
 module.exports.getSession = async function (req, res) {
   try {
-    let sportscomplex = req.query.sportscomplex;
+    let sportscomplex = sanitizeFilters(req.query, ["sportscomplex"]).sportscomplex;
+    if (!validObjectId(sportscomplex)) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "Valid sportscomplex is required", rcode: -9 });
+    }
+    // Athletes read their own facility only. canAccessComplex deliberately
+    // returns false for athletes, so the athlete's complex is resolved from the
+    // athlete record and the response is narrowed to their own enrollments.
+    let ownEnrollsOnly = false;
+    if (req.user.Role === ROLE.ATHLETE) {
+      const athlete = await athleteModel
+        .findOne({ userId: req.user._id })
+        .select("SportComplexId")
+        .lean();
+      if (
+        !athlete ||
+        !athlete.SportComplexId ||
+        String(athlete.SportComplexId) !== String(sportscomplex)
+      ) {
+        return res.status(403).json({
+          data: "",
+          msg: "Facility is outside your scope",
+          rcode: -10,
+        });
+      }
+      ownEnrollsOnly = true;
+    } else if (!(await canAccessComplex(req.user, sportscomplex))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
     let date = new Date(req.query.date);
+    if (Number.isNaN(date.getTime())) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "Valid date is required", rcode: -9 });
+    }
     date.setHours(0, 0, 0, 0);
     let night12 = new Date(date.getTime() + 86400000);
     console.log(date + "  " + night12);
-    const data = await sessions
+    let data = await sessions
       .find({
         sportscomplex: sportscomplex,
         date: { $gte: date, $lt: night12 },
       })
       .populate("sportscomplex")
       .populate("enrolls.userId");
+    if (ownEnrollsOnly) {
+      data = data
+        .map((session) => {
+          const own = session.enrolls.filter((enroll) => {
+            const owner = enroll.userId && enroll.userId._id ? enroll.userId._id : enroll.userId;
+            return String(owner) === String(req.user._id);
+          });
+          if (!own.length) return null;
+          const plain = session.toObject();
+          plain.enrolls = own.map((enroll) =>
+            enroll.toObject ? enroll.toObject() : enroll
+          );
+          return plain;
+        })
+        .filter(Boolean);
+    }
     res.json({
       data: data,
       rcode: 200,
@@ -120,7 +213,22 @@ module.exports.getSession = async function (req, res) {
 //create patch query to add sports in session enroll array
 module.exports.updateSportsInSession = async function (req, res) {
   try {
-    let sportscomplex = req.query.sportscomplex;
+    let sportscomplex = sanitizeFilters(req.query, ["sportscomplex"]).sportscomplex;
+    if (!validObjectId(sportscomplex)) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "Valid sportscomplex is required", rcode: -9 });
+    }
+    if (
+      req.user.Role !== ROLE.ATHLETE &&
+      !(await canAccessComplex(req.user, sportscomplex))
+    ) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
     let date = new Date();
     date.setHours(0, 0, 0, 0);
     let night12 = new Date(date.getTime() + 86400000);
@@ -136,6 +244,17 @@ module.exports.updateSportsInSession = async function (req, res) {
     const indexToUpdate = data.enrolls.findIndex(
       (enroll) => enroll._id == enroll_id
     );
+    if (
+      indexToUpdate !== -1 &&
+      req.user.Role === ROLE.ATHLETE &&
+      String(data.enrolls[indexToUpdate].userId) !== String(req.user._id)
+    ) {
+      return res.status(403).json({
+        data: "",
+        msg: "You can only update your own attendance",
+        rcode: -10,
+      });
+    }
 
     const sport = req.body.sport;
     console.log(sport);
@@ -168,7 +287,19 @@ module.exports.updateSportsInSession = async function (req, res) {
 module.exports.attendanceSportWise=async function (req,res){
   try {
   
-    let sportscomplex = req.query.sportscomplex;
+    let sportscomplex = sanitizeFilters(req.query, ["sportscomplex"]).sportscomplex;
+    if (!validObjectId(sportscomplex)) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "Valid sportscomplex is required", rcode: -9 });
+    }
+    if (!(await canAccessComplex(req.user, sportscomplex))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
     let date = new Date(req.query.from);
     // console.log(date)
     date.setHours(0, 0, 0, 0);

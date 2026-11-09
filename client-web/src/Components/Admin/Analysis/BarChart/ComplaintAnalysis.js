@@ -1,161 +1,85 @@
 import React, { useEffect, useState } from "react";
-import ReactApexChart from "react-apexcharts";
+import { BarChart } from "../../Common/AdminCharts";
+import { DEMO_COMPLAINTS } from "../../../../data/authority/authorityDemoData";
 
-const ComplaintAnalysis = (props) => {
-  const [chartData, setChartData] = useState({
-    series: [
-      {
-        name: "Total Complaint",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-      {
-        name: "Sloved Complaint",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-      {
-        name: "Unsloved Complaint",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-      {
-        name: "Sloved With satisfied",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-      {
-        name: "Sloved With unsatisfied",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-    ],
-    options: {
-      chart: {
-        type: "bar",
-        height: 350,
-      },
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: "55%",
-          endingShape: "rounded",
-        },
-      },
-      dataLabels: {
-        enabled: true, // Enable data labels
-        offsetY: -10, // Adjust the vertical position of labels
-        style: {
-          fontSize: "12px",
-          fontWeight: "bold",
-          colors: ["#000"], // Text color
-        },
-      },
-      // dataLabels: {
-      //   enabled: false,
-      // },
-      xaxis: {
-        categories: [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-        ],
-      },
-      yaxis: {
-        title: {
-          text: "Number of Complaint",
-          style: {
-            fontSize: "12px",
-            // fontWeight: "bold",
-            fontFamily: undefined,
-            color: "#263238",
-          }, // Your Y-axis title
-        },
-      },
-      colors: ["#66FF33", "#FF3366", "#33FFCC", "#FFCC33"],
-      title: {
-        text: "Complaint Analysis",
-        align: "center",
-        margin: 50,
-        offsetX: 0,
-        offsetY: 0,
-        floating: false,
-        style: {
-          fontSize: "26px",
-          fontWeight: "bold",
-          fontFamily: undefined,
-          color: "#263238",
-        },
-      },
-      fill: {
-        opacity: 1,
-      },
-    },
-  });
+const SERIES_NAMES = [
+  "Total complaints",
+  "Resolved",
+  "Unresolved",
+  "Resolved – satisfied",
+  "Resolved – unsatisfied",
+];
+
+function demoSeries() {
+  return [
+    { name: SERIES_NAMES[0], data: DEMO_COMPLAINTS.total },
+    { name: SERIES_NAMES[1], data: DEMO_COMPLAINTS.resolved },
+    { name: SERIES_NAMES[2], data: DEMO_COMPLAINTS.unresolved },
+    { name: SERIES_NAMES[3], data: DEMO_COMPLAINTS.satisfied },
+    { name: SERIES_NAMES[4], data: DEMO_COMPLAINTS.unsatisfied },
+  ];
+}
+
+const ComplaintAnalysis = ({ selectedOption }) => {
+  const [categories, setCategories] = useState(DEMO_COMPLAINTS.categories);
+  const [series, setSeries] = useState(demoSeries);
 
   useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
-    };
+    if (!selectedOption) return undefined;
+    let active = true;
+
+    function applyDemo() {
+      setCategories(DEMO_COMPLAINTS.categories);
+      setSeries(demoSeries());
+    }
 
     fetch(
-      `http://localhost:9999/ComplaintsAnalysis?sportsComplexId=${props.selectedOption}`,
-      requestOptions
+      `http://localhost:9999/ComplaintsAnalysis?sportsComplexId=${selectedOption}`,
+      { method: "GET", redirect: "follow" }
     )
       .then((response) => response.json())
       .then((result) => {
-        const data = result.data;
-        // console.log(data);
-        const categories = data.map((s) => s.type);
-        const sloved = data.map((s) => s.solved);
-        const unsolved = data.map((s) => s.unsolved);
-        const solvedsatisfied = data.map((s) => s.solvedsatisfied);
-        const solvednotsatisfied = data.map((s) => s.solvednotsatisfied);
-        const totalComplaints = sloved.map(
-          (value, index) => value + unsolved[index]
-        );
-        setChartData({
-          ...chartData,
-          series: [
-            {
-              data: totalComplaints,
-            },
-            {
-              data: sloved,
-            },
-            {
-              data: unsolved,
-            },
-            {
-              data: solvedsatisfied,
-            },
-            {
-              data: solvednotsatisfied,
-            },
-          ],
-          options: {
-            ...chartData.options,
-            xaxis: {
-              ...chartData.options.xaxis,
-              categories: categories,
-            },
+        if (!active) return;
+        const rows = Array.isArray(result.data) ? result.data : [];
+        if (rows.length === 0) {
+          applyDemo();
+          return;
+        }
+        setCategories(rows.map((row) => row.type));
+        setSeries([
+          {
+            name: SERIES_NAMES[0],
+            data: rows.map((row) => (row.solved || 0) + (row.unsolved || 0)),
           },
-        });
+          { name: SERIES_NAMES[1], data: rows.map((row) => row.solved || 0) },
+          { name: SERIES_NAMES[2], data: rows.map((row) => row.unsolved || 0) },
+          {
+            name: SERIES_NAMES[3],
+            data: rows.map((row) => row.solvedsatisfied || 0),
+          },
+          {
+            name: SERIES_NAMES[4],
+            data: rows.map((row) => row.solvednotsatisfied || 0),
+          },
+        ]);
       })
-      .catch((error) => console.log("error", error));
-  }, [props.selectedOption]);
+      .catch((error) => {
+        if (active) applyDemo();
+        console.log("error", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOption]);
 
   return (
-    <div className="chart m-8">
-      <ReactApexChart
-        options={chartData.options}
-        series={chartData.series}
-        type="bar"
-        height={chartData.options.chart.height}
-      />
-    </div>
+    <BarChart
+      series={series}
+      categories={categories}
+      colors={["#0f172a", "#007D40", "#f59e0b", "#0ea5e9", "#ef4444"]}
+      height={300}
+    />
   );
 };
 

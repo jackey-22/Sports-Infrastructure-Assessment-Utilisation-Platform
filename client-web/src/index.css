@@ -124,6 +124,47 @@
   z-index: 1000 !important;
 }
 
+/* Login is painted with real colours so labels stay readable even if a utility is missing. */
+.login-screen {
+  background: #f3faf6;
+  color: #0b3d2e;
+}
+.login-screen h1,
+.login-screen h2,
+.login-screen label {
+  color: #0b3d2e;
+}
+.login-screen p,
+.login-screen span,
+.login-screen a {
+  color: #1e293b;
+}
+.login-screen a {
+  color: #007d40;
+}
+.login-screen input {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+.login-screen input::placeholder {
+  color: #64748b;
+}
+.login-screen button[type="submit"] {
+  background: #007d40;
+  color: #ffffff;
+}
+
+/* Saved-password fill stays dark text on the light login fields. */
+.login-field:-webkit-autofill,
+.login-field:-webkit-autofill:hover,
+.login-field:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  transition: background-color 9999s ease-out;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+}
+
 /* Glassmorphism Classes */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);

@@ -1,19 +1,27 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
-import { Button } from "@material-tailwind/react";
+import { Link } from "react-router-dom";
 import FacilityDataTable from "./FacilityDataTable";
+import { Button, Card, PageHeader, PageShell } from "../Common/ManagerUI";
+
 const SportsComplexDetails = () => {
   return (
-    <div className="px-4">
-      <div className="flex justify-end mb-4">
-        <NavLink to={"/manager/editfacility"}>
-          <Button className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl ">
-            Add Facility Details
+    <PageShell>
+      <PageHeader
+        eyebrow="Facility Manager"
+        title="Facility details"
+        description="Courts, contact details and the record for this sports complex."
+        actions={
+          <Button as={Link} to="/manager/editfacility">
+            Edit facility
           </Button>
-        </NavLink>
-      </div>
-      <FacilityDataTable />
-    </div>
+        }
+      />
+      <Card>
+        <div className="overflow-x-auto p-2 sm:p-4">
+          <FacilityDataTable />
+        </div>
+      </Card>
+    </PageShell>
   );
 };
 

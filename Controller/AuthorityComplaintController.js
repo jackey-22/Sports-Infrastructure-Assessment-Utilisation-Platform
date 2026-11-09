@@ -1,8 +1,17 @@
 const SportsComplex = require("../Model/SportsComplexModel");
 const ComplaintModel = require("../Model/ComplaintModel");
+const { ROLE } = require("../Utils/roles");
+const { sanitizeFilters } = require("../Utils/scope");
 
 module.exports.getAuthorityComplaint = async function (req, res) {
-  let districtid = req.query.DistrictId;
+  const query = sanitizeFilters(req.query, ["DistrictId"]);
+  let districtid =
+    req.user.Role === ROLE.ADMIN ? query.DistrictId : req.user.DistrictId;
+  if (!districtid) {
+    return res
+      .status(400)
+      .json({ data: "", msg: "District is not assigned", rcode: -9 });
+  }
 
   let data = await SportsComplex.find({ district: districtid });
   //   console.log(data);

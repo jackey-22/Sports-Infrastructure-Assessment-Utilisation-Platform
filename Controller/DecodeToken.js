@@ -1,25 +1,28 @@
-
-const jwt = require("jsonwebtoken");
 const UserModel = require("../Model/UsersModel");
+const { verifyAccessToken } = require("../Utils/tokens");
 
-const { ACCESS_TOKEN_SECRET } = process.env;
-
+// Public session-restoration endpoint: the token is supplied in the body.
 module.exports.decodedToken = async function (req, res) {
-    const { token } = req.body;
-
-
-    try {
-        const decodedToken = jwt.verify(token, ACCESS_TOKEN_SECRET);
-
-        let User = await UserModel.findOne({ Email: decodedToken.Email });
-
-        if (User && User.Password == decodedToken.Password)
-            res.json({ data: User, msg: "Verified", rcode: 200 });
-        else {
-            res.json({ data: "", msg: " Not Verified", rcode: -9 });
-        }
-        // res.json({ decodedToken });
-    } catch (error) {
-        res.json({ data: error.msg, msg: "Error", rcode: 400 });
+  try {
+    const { token } = req.body || {};
+    if (typeof token !== "string" || token.length === 0) {
+      return res
+        .status(401)
+        .json({ data: "", msg: "Authentication required", rcode: -9 });
     }
+
+    const decoded = verifyAccessToken(token);
+    const user = await UserModel.findById(decoded.sub);
+    if (!user || user.IsActive === 0) {
+      return res
+        .status(401)
+        .json({ data: "", msg: "Account is inactive or no longer exists", rcode: -9 });
+    }
+
+    return res.json({ data: user, msg: "Verified", rcode: 200 });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ data: "", msg: "Invalid or expired token", rcode: -9 });
+  }
 };

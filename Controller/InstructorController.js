@@ -3,57 +3,79 @@ const mongoose = require("mongoose");
 const InstructorModel = require("../Model/instructorModel");
 const paymentModel = require("../Model/PaymentModel");
 const complaintModel = require("../Model/ComplaintModel");
+const {
+  sanitizeFilters,
+  complexFilter,
+  canAccessComplex,
+} = require("../Utils/scope");
+const { ROLE } = require("../Utils/roles");
+
+async function scopedInstructorQuery(req) {
+  const filters = sanitizeFilters(req.query, [
+    "_id",
+    "userId",
+    "createdBy",
+    "SportComplexId",
+  ]);
+  // A coach without an assigned facility may still see their own instructor
+  // profile (used by the notification screen), but nothing else.
+  if (req.user.Role === ROLE.COACH && !req.user.SportComplexId) {
+    return { ...filters, userId: req.user._id };
+  }
+  // Scope is applied last so a query parameter cannot widen it.
+  const scope = await complexFilter(req.user, "SportComplexId");
+  return { ...filters, ...scope };
+}
 
 module.exports.addInstructor = async function (req, res) {
+  if (!(await canAccessComplex(req.user, req.body.SportComplexId))) {
+    return res.status(403).json({
+      data: "",
+      msg: "Facility is outside your scope",
+      rcode: -10,
+    });
+  }
   let Instructor = new InstructorModel(req.body);
 
   let data = await Instructor.save();
-
-  console.log(data);
 
   res.json({ data: data, msg: "Instructor Added", rcode: 200 });
 };
 
 module.exports.getInstructor = async function (req, res) {
-  InstructorModel.find(req.query)
+  InstructorModel.find(await scopedInstructorQuery(req))
     .then((data) => {
       res.json({ data: data, msg: "Instructor Retrived", rcode: 200 });
     })
-    .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+    .catch(() => {
+      res.status(500).json({ data: "", msg: "Could not retrieve instructors", rcode: -9 });
     });
 };
 module.exports.getInstructorwithUserName = async function (req, res) {
-  InstructorModel.find(req.query)
+  InstructorModel.find(await scopedInstructorQuery(req))
     .populate("userId")
     .then((data) => {
       res.json({ data: data, msg: "Instructor Retrived", rcode: 200 });
     })
-    .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+    .catch(() => {
+      res.status(500).json({ data: "", msg: "Could not retrieve instructors", rcode: -9 });
     });
 };
 module.exports.getInstructorwithSportsName = async function (req, res) {
-  InstructorModel.find(req.query)
+  InstructorModel.find(await scopedInstructorQuery(req))
     .populate("sports.sport")
     .then((data) => {
       res.json({ data: data, msg: "Instructor Retrived", rcode: 200 });
     })
-    .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+    .catch(() => {
+      res.status(500).json({ data: "", msg: "Could not retrieve instructors", rcode: -9 });
     });
 };
 module.exports.getInstructorwithAll = async function (req, res) {
-  let data = await InstructorModel.find(req.query)
+  let data = await InstructorModel.find(await scopedInstructorQuery(req))
     .populate("sports.sport")
     .populate("userId");
   res.json({ data: data, msg: "Instructor Retrived", rcode: 200 });
-
-  // .then((data) => {
-  // })
-  // .catch((err) => {
-  //   res.json({ data: err, msg: "smw", rcode: -9 });
-  // });
 };
 
 module.exports.updateInstructor = async function (req, res) {
@@ -79,6 +101,19 @@ module.exports.updateInstructor = async function (req, res) {
 
   let Instructor = await InstructorModel.findOne({ _id: id });
 
+  if (!Instructor) {
+    return res
+      .status(404)
+      .json({ data: "", msg: "Instructor not found", rcode: 404 });
+  }
+  if (!(await canAccessComplex(req.user, Instructor.SportComplexId))) {
+    return res.status(403).json({
+      data: "",
+      msg: "Instructor is outside your scope",
+      rcode: -10,
+    });
+  }
+
   if (req.body.userId !== undefined) {
     Instructor.userId = req.body.userId;
   }
@@ -102,6 +137,38 @@ module.exports.updateInstructor = async function (req, res) {
 
 module.exports.CountForInstructer = async function (req, res) {
   try {
+    const q = sanitizeFilters(req.query, ["sportsComplexId", "instructorId"]);
+    const sportsComplexId = q.sportsComplexId;
+    if (!sportsComplexId) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "sportsComplexId is required", rcode: -9 });
+    }
+    if (!(await canAccessComplex(req.user, sportsComplexId))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
+    let instructorId = q.instructorId;
+    if (req.user.Role === ROLE.COACH) {
+      const own = await InstructorModel.findOne({ userId: req.user._id });
+      if (!own) {
+        return res.status(403).json({
+          data: "",
+          msg: "Instructor profile is not assigned",
+          rcode: -10,
+        });
+      }
+      instructorId = own._id;
+    }
+    if (!instructorId) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "instructorId is required", rcode: -9 });
+    }
+
     const data = await paymentModel.aggregate([
       {
         $lookup: {
@@ -146,7 +213,7 @@ module.exports.CountForInstructer = async function (req, res) {
           $and: [
             {
               sportsComplexId: new mongoose.Types.ObjectId(
-                req.query.sportsComplexId
+                sportsComplexId
               ),
             },
             // {
@@ -177,7 +244,7 @@ module.exports.CountForInstructer = async function (req, res) {
       {
         $match: {
           "instructorInfo.userId": new mongoose.Types.ObjectId(
-            req.query.instructorId
+            instructorId
           ),
         },
       },

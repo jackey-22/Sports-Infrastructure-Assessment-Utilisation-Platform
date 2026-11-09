@@ -37,16 +37,16 @@ function ViewComplaint({ route, navigation }) {
   const RemarkBy = (rowData, status, currentlevel) => {
     if (rowData.level < currentlevel) {
       if (rowData.level === 0) {
-        return `Complaint Forwarded to Manager (${rowData.userId.Name})`;
+        return `Complaint Forwarded to Manager (${rowData.userId?.Name || ""})`;
       } else if (rowData.level === 1)
-        return `Complaint Forwarded to Authority (${rowData.userId.Name})`;
+        return `Complaint Forwarded to Authority (${rowData.userId?.Name || ""})`;
       else if (rowData.level === 2) return `Complaint Forwarded to Admin`;
     } else {
       if (status === 0) {
         if (rowData.level === 0) {
-          return `Complaint Forwarded to Manager (${rowData.userId.Name})`;
+          return `Complaint Forwarded to Manager (${rowData.userId?.Name || ""})`;
         } else if (rowData.level === 1)
-          return `Complaint Forwarded to Authority (${rowData.userId.Name})`;
+          return `Complaint Forwarded to Authority (${rowData.userId?.Name || ""})`;
         else if (rowData.level === 2) return `Complaint Forwarded to Admin`;
       } else {
         return "Complaint Solved";

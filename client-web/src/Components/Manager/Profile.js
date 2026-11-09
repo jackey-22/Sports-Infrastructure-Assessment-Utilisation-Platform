@@ -64,94 +64,71 @@ const Profile = () => {
     setUrl(AuthorityData.SportComplexId);
   }, []);
 
-  return (
-    <div className="text-lg px-7 py-7 flex ">
-      <div className="w-4/5 space-y-2">
-        <div className="flex">
-          <div className="text-gray-700 font-[Fantasy] text-5xl underline underline-offset-8 decoration-2">
-            {" "}
-            {lodaer && Profile.Name}
-          </div>
-        </div>
-        <div className="text-2xl font-bold pt-7 ">General info</div>
-        <div className="flex">
-          <div className="w-1/3">Sports Complex Name </div>
-          <div className="text-gray-700 flex">
-            :{" "}
-            {lodaer && (
-              <div className="px-4">{Profile.SportComplexId.name}</div>
-            )}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">E-mail</div>
-          <div className="text-gray-700 flex">
-            :{lodaer && <div className="px-4">{AuthorityData.Email}</div>}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">Contact Number </div>
-          <div className="text-gray-700 flex">
-            : {lodaer && <div className="px-4">{AuthorityData.ContactNum}</div>}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">Data of Birth </div>
-          <div className="text-gray-700 flex">
-            : {lodaer && <div className="px-4">{AuthorityData.DOB}</div>}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">Area </div>
-          <div className="text-gray-700 flex">
-            :{" "}
-            {lodaer && (
-              <div className="px-4">{Profile.SportComplexId.area}</div>
-            )}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">Taluka </div>
-          <div className="text-gray-700 flex">
-            :{" "}
-            {lodaer && (
-              <div className="px-4">{Profile.SportComplexId.taluka}</div>
-            )}
-          </div>
-        </div>
-        <div className="flex">
-          <div className="w-1/3">Operational Since </div>
-          <div className="text-gray-700 flex">
-            :{" "}
-            {lodaer && (
-              <div className="px-4">
-                {Profile.SportComplexId.operationalSince}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+  const complex = lodaer && Profile && Profile.SportComplexId ? Profile.SportComplexId : {};
+  const rows = [
+    ["Name", lodaer ? Profile.Name : ""],
+    ["Sports complex", complex.name || ""],
+    ["Email", AuthorityData.Email || ""],
+    ["Contact", AuthorityData.ContactNum || ""],
+    ["Date of birth", AuthorityData.DOB || ""],
+    ["Area", complex.area || ""],
+    ["Taluka", complex.taluka || ""],
+    ["Operational since", complex.operationalSince || ""],
+  ];
 
-      <div className="">
-        <button
-          onClick={GenerateQRCode}
-          className="mt-2 p-2 bg-black text-white"
-        >
-          Generate QR code for your Complex
-        </button>
-        {qr && (
-          <>
-            <img className="w-1/2" src={qr} alt="qrcode" />
-            <button className="realtive z-10  rounded-lg h-12 p-2 m-4 bg-[#196bde] text-white overflow-hidden hover:shadow-md hover:shadow-gray-800 hover:border-gray-300">
-              <a href={qr} download="qrcode.png">
+  return (
+    <div className="px-4 py-6 sm:px-6">
+      <p className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+        Facility Manager
+      </p>
+      <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-brand-dark">
+        Profile
+      </h1>
+      <p className="mt-1 text-sm text-slate-600">
+        Your account and the complex assigned to you.
+      </p>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="rounded-2xl border border-slate-200 bg-white">
+          <dl className="divide-y divide-slate-100">
+            {rows.map(([label, value]) => (
+              <div key={label} className="grid gap-1 px-5 py-3 sm:grid-cols-3 sm:gap-3">
+                <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+                <dd className="text-sm font-semibold text-slate-800 sm:col-span-2">{value || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-extrabold text-brand-dark">Complex QR</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Athletes can scan this code for the complex.
+          </p>
+          <button
+            type="button"
+            onClick={GenerateQRCode}
+            className="mt-4 min-h-11 w-full rounded-lg bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-dark"
+          >
+            Generate QR code
+          </button>
+          {qr ? (
+            <div className="mt-4">
+              <img className="mx-auto w-44 rounded-lg border border-slate-200" src={qr} alt="Complex QR code" />
+              <a
+                href={qr}
+                download="qrcode.png"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 text-sm font-bold text-brand-dark"
+              >
                 Download
               </a>
-            </button>
-          </>
-        )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
 };
 
 export default Profile;
+

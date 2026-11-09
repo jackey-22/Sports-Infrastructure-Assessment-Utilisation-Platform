@@ -12,6 +12,7 @@ const UserModel = require("./Model/UsersModel");
 const SportsComplexModel = require("./Model/SportsComplexModel");
 const ComplaintTypeModel = require("./Model/ComplaintTypeModel");
 const ComplaintModel = require("./Model/ComplaintModel");
+const { hashPassword } = require("./Utils/password");
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/sfic";
 
@@ -110,7 +111,7 @@ async function seed() {
       adminUser = await UserModel.create({
         Name: "Dr. Arvind Patel, IAS (Director General)",
         Email: "admin@sag.gujarat.gov.in",
-        Password: "admin",
+        Password: hashPassword("admin"),
         ContactNum: "+91 79 2328 7411",
         DOB: "1975-04-12",
         Role: 5, // State Admin
@@ -125,7 +126,7 @@ async function seed() {
       dsoAhmedabad = await UserModel.create({
         Name: "Shri Bhavik Solanki (DSO Ahmedabad)",
         Email: "dso.ahmedabad@sag.gujarat.gov.in",
-        Password: "dso",
+        Password: hashPassword("dso"),
         ContactNum: "+91 79 2216 4800",
         DOB: "1982-08-20",
         Role: 4, // District Authority
@@ -145,7 +146,7 @@ async function seed() {
       dsoVadodara = await UserModel.create({
         Name: "Shri K. L. Parmar (DSO Vadodara)",
         Email: "dso.vadodara@sag.gujarat.gov.in",
-        Password: "dso",
+        Password: hashPassword("dso"),
         ContactNum: "+91 265 278 9120",
         DOB: "1980-03-15",
         Role: 4,
@@ -164,7 +165,7 @@ async function seed() {
       managerKhokhra = await UserModel.create({
         Name: "Rajesh Vaghela (Complex Manager)",
         Email: "manager.khokhra@sag.gujarat.gov.in",
-        Password: "manager",
+        Password: hashPassword("manager"),
         ContactNum: "+91 79 2216 4801",
         DOB: "1988-11-05",
         Role: 3, // Manager
@@ -179,7 +180,7 @@ async function seed() {
       managerSama = await UserModel.create({
         Name: "Mehul Choksi (Complex Manager)",
         Email: "manager.sama@sag.gujarat.gov.in",
-        Password: "manager",
+        Password: hashPassword("manager"),
         ContactNum: "+91 265 278 9121",
         DOB: "1986-07-22",
         Role: 3,
@@ -194,7 +195,7 @@ async function seed() {
       athleteAarav = await UserModel.create({
         Name: "Aarav Trivedi (Badminton Athlete)",
         Email: "athlete.aarav@gmail.com",
-        Password: "athlete",
+        Password: hashPassword("athlete"),
         ContactNum: "+91 98980 12345",
         DOB: "2002-09-14",
         Role: 0,
@@ -202,7 +203,20 @@ async function seed() {
         IsActive: 1
       });
     }
-    console.log("   Seeded 6 primary official and demo users.");
+    let coachKhokhra = await UserModel.findOne({ Email: "coach.khokhra@sag.gujarat.gov.in" });
+    if (!coachKhokhra) {
+      coachKhokhra = await UserModel.create({
+        Name: "Nirav Joshi (Badminton Coach)",
+        Email: "coach.khokhra@sag.gujarat.gov.in",
+        Password: hashPassword("coach"),
+        ContactNum: "+91 79 2216 4810",
+        DOB: "1990-04-18",
+        Role: 2,
+        DistrictId: districtDocs["Ahmedabad"]?._id,
+        IsActive: 1
+      });
+    }
+    console.log("   Seeded 7 primary official and demo users.");
 
     // 5. Seed Sports Complexes across Gujarat with GIS Coords & Condition Assessments
     console.log("5. Seeding Gujarat Sports Complexes with GIS and FCI Ratings...");
@@ -409,7 +423,24 @@ async function seed() {
         complex = await SportsComplexModel.create(payload);
       } else {
         await SportsComplexModel.updateOne({ _id: complex._id }, payload);
+        complex = await SportsComplexModel.findById(complex._id);
       }
+      if (cData.managerId) {
+        const managerUser = await UserModel.findById(cData.managerId).select("Role");
+        if (managerUser && managerUser.Role === 3) {
+          await UserModel.updateOne(
+            { _id: managerUser._id },
+            { $set: { SportComplexId: complex._id } }
+          );
+        }
+      }
+    }
+    const khokhraComplex = await SportsComplexModel.findOne({ name: "SAG Khokhra Sports Complex" });
+    if (khokhraComplex && coachKhokhra) {
+      await UserModel.updateOne(
+        { _id: coachKhokhra._id },
+        { $set: { SportComplexId: khokhraComplex._id } }
+      );
     }
     console.log(`   Seeded ${complexesData.length} Gujarat Sports Complexes with GeoJSON coords.`);
 
@@ -422,6 +453,7 @@ async function seed() {
     console.log("  • DSO Vadodara:        dso.vadodara@sag.gujarat.gov.in  / dso");
     console.log("  • Complex Manager:     manager.khokhra@sag.gujarat.gov.in / manager");
     console.log("  • Citizen Athlete:     athlete.aarav@gmail.com     / athlete");
+    console.log("  • Facility Coach:      coach.khokhra@sag.gujarat.gov.in / coach");
     console.log("=================================================\n");
 
     process.exit(0);

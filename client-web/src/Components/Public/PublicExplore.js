@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Map as MapIcon,
   List,
@@ -8,8 +8,6 @@ import {
   Crosshair,
   SlidersHorizontal,
   X,
-  ChevronDown,
-  Zap,
 } from "lucide-react";
 import PublicNavbar from "./PublicNavbar";
 import ExploreFilters from "./ExploreFilters";
@@ -20,18 +18,12 @@ import FacilityDetailPanel from "./FacilityDetailPanel";
 import FacilityConditionAudit from "../Assessment/FacilityConditionAudit";
 import InstitutionalBookingModal from "../Utilisation/InstitutionalBookingModal";
 import CitizenBookingModal from "./CitizenBookingModal";
-import {
-  DEMO_USERS,
-} from "../../data/gujaratSportsData";
 import { getPublicFacilities } from "../../data/adminFacilityData";
 import {
   CONDITION_OPTIONS,
   getFacilityType,
   sortFacilities,
 } from "./exploreUtils";
-import { useDispatch } from "react-redux";
-import { UserActions } from "../../store/UserData";
-import { useCookies } from "react-cookie";
 
 const VIEW_OPTIONS = [
   { id: "map", label: "Map", full: "Map view", icon: MapIcon },
@@ -40,9 +32,6 @@ const VIEW_OPTIONS = [
 ];
 
 export default function PublicExplore() {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [, setCookies] = useCookies(["token"]);
   const [searchParams] = useSearchParams();
   const listScrollRef = useRef(null);
   const suppressAutoSelectRef = useRef(false);
@@ -58,7 +47,6 @@ export default function PublicExplore() {
   const [activeFacility, setActiveFacility] = useState(null);
   const [detailFacility, setDetailFacility] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nearMeActive, setNearMeActive] = useState(false);
 
@@ -199,44 +187,6 @@ export default function PublicExplore() {
         showToast("Couldn't get location — try again or pick a district.", "error");
       },
       { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const handleDemoLogin = (user) => {
-    const mockUser = {
-      _id: "demo_" + user.roleId,
-      Email: user.email,
-      Name: user.name,
-      Role: user.roleId,
-      District: user.district,
-    };
-    const mockToken = "mock_jwt_token_role_" + user.roleId;
-    dispatch(UserActions.getuserdata(mockUser));
-    setCookies("token", mockToken, { maxAge: 86400, path: "/" });
-    localStorage.setItem("token", mockToken);
-    if (user.roleId === 5) navigate("/admin");
-    else if (user.roleId === 4) navigate("/authority");
-    else if (user.roleId === 3) navigate("/manager");
-    else navigate("/");
-  };
-
-  const handleSaveAudit = (facilityId, newAudit) => {
-    setFacilities((prev) =>
-      prev.map((f) => {
-        if (f.id !== facilityId) return f;
-        return {
-          ...f,
-          condition: {
-            ...f.condition,
-            score: newAudit.score,
-            grade: newAudit.grade,
-            inspector: newAudit.inspector,
-            lastInspectionDate: newAudit.date,
-            maintenanceUrgency: newAudit.maintenanceUrgency,
-            notes: newAudit.notes,
-          },
-        };
-      })
     );
   };
 
@@ -561,34 +511,6 @@ export default function PublicExplore() {
             </>
           )}
         </div>
-
-        {/* Collapsed reviewer tools */}
-        <div className="mt-auto pt-4 border-t border-slate-200">
-          <button
-            type="button"
-            onClick={() => setDemoOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-primary"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            Reviewer tools
-            <ChevronDown className={`w-3.5 h-3.5 transition ${demoOpen ? "rotate-180" : ""}`} />
-          </button>
-          {demoOpen && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {DEMO_USERS.map((user, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleDemoLogin(user)}
-                  className="px-2.5 py-1 rounded-full border border-slate-200 bg-white hover:border-brand-primary/40 text-[11px] font-bold text-slate-700"
-                  title={user.description}
-                >
-                  {user.roleName.split(" ")[0]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Mobile filter sheet */}
@@ -633,7 +555,6 @@ export default function PublicExplore() {
         <FacilityConditionAudit
           facility={auditModalFacility}
           onClose={() => setAuditModalFacility(null)}
-          onSaveAudit={handleSaveAudit}
         />
       )}
 
@@ -652,9 +573,8 @@ export default function PublicExplore() {
         <CitizenBookingModal
           facility={citizenBookingFacility}
           onClose={() => setCitizenBookingFacility(null)}
-          onConfirm={(pass) => {
-            console.log("Citizen booking confirmed:", pass);
-            showToast("Pass ready — show your QR at the venue.", "ok");
+          onConfirm={() => {
+            showToast("Enquiry recorded. No booking or pass was created.", "ok");
           }}
         />
       )}

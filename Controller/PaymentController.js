@@ -4,41 +4,105 @@ const athleteModel = require("./../Model/athleteModel");
 const SportsComplexModel = require("./../Model/SportsComplexModel");
 const SportComplex = require("./../Model/SportsComplexModel");
 const mongoose = require("mongoose");
-module.exports.addPayment = async function (req, res) {
-  let Payment = new PaymentModel(req.body);
+const { ROLE } = require("../Utils/roles");
+const {
+  sanitizeFilters,
+  canAccessComplex,
+  canAccessAthlete,
+  districtComplexIds,
+} = require("../Utils/scope");
 
-  let data = await Payment.save();
-  let athlete = await athleteModel
-    .findOne({ _id: data.athleteId })
-    .populate("userId");
-  // console.log(athlete);
-  athlete.createdBy = req.body.supervisorId;
-  athlete.payments.push(data._id);
-  let data1 = await athlete.save();
-  // console.log(data1);
-  if (athlete.userId) {
-    setReminder(
-      Date.now(),
-      "Congratulations!!!",
-      "You are Added in Sports Complex",
-      athlete.userId
-    );
+async function paymentScope(user) {
+  if (!user) return { _id: null };
+  if (user.Role === ROLE.ADMIN) return {};
+  if (user.Role === ROLE.ATHLETE) {
+    const athletes = await athleteModel
+      .find({ userId: user._id })
+      .select("_id")
+      .lean();
+    return { athleteId: { $in: athletes.map((a) => a._id) } };
   }
-  res.json({
-    data: data,
-    data1: data1,
-    msg: "Payment Generated",
-    rcode: 200,
-  });
+  if (user.Role === ROLE.AUTHORITY) {
+    return {
+      sportsComplexId: { $in: await districtComplexIds(user.DistrictId) },
+    };
+  }
+  return { sportsComplexId: user.SportComplexId || null };
+}
+
+module.exports.addPayment = async function (req, res) {
+  try {
+    const body = {};
+    [
+      "sports",
+      "athleteId",
+      "duration",
+      "instructorId",
+      "timeSlot",
+      "from",
+      "sportsComplexId",
+    ].forEach((key) => {
+      if (req.body[key] !== undefined) body[key] = req.body[key];
+    });
+    body.paymentTakenBy = req.user._id;
+    if ([ROLE.SUPERVISOR, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role)) {
+      body.sportsComplexId = req.user.SportComplexId;
+    }
+
+    const athlete = await athleteModel.findById(body.athleteId);
+    if (!athlete) {
+      return res
+        .status(404)
+        .json({ data: "", msg: "Athlete not found", rcode: 404 });
+    }
+    if (!(await canAccessAthlete(req.user, athlete))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Athlete is outside your scope",
+        rcode: -10,
+      });
+    }
+
+    let data = await new PaymentModel(body).save();
+    athlete.createdBy = req.user._id;
+    athlete.payments.push(data._id);
+    let data1 = await athlete.save();
+    if (athlete.userId) {
+      setReminder(
+        Date.now(),
+        "Congratulations!!!",
+        "You are Added in Sports Complex",
+        [athlete.userId]
+      );
+    }
+    return res.json({
+      data: data,
+      data1: data1,
+      msg: "Payment Generated",
+      rcode: 200,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ data: "", msg: "Could not add payment", rcode: -9 });
+  }
 };
 
 module.exports.getAllPayments = async function (req, res) {
-  PaymentModel.find(req.query)
+  const filters = sanitizeFilters(req.query, [
+    "_id",
+    "athleteId",
+    "sportsComplexId",
+    "sports",
+    "instructorId",
+  ]);
+  const scope = await paymentScope(req.user);
+  PaymentModel.find({ ...filters, ...scope })
     .then((data) => {
       res.json({ data: data, msg: "Payment Retrived", rcode: 200 });
     })
-    .catch((err) => {
-      res.json({ data: err.msg, msg: "smw", rcode: -9 });
+    .catch(() => {
+      res.status(500).json({ data: "", msg: "Could not retrieve payments", rcode: -9 });
     });
 };
 
@@ -68,7 +132,15 @@ module.exports.getAllPaymentswithsportwithinstructor = async function (
     return days;
   };
 
-  const d = await PaymentModel.find(req.query)
+  const filters = sanitizeFilters(req.query, [
+    "_id",
+    "athleteId",
+    "sportsComplexId",
+    "sports",
+    "instructorId",
+  ]);
+  const scope = await paymentScope(req.user);
+  const d = await PaymentModel.find({ ...filters, ...scope })
     .populate("sports")
     .populate({
       path: "instructorId",
@@ -88,6 +160,21 @@ module.exports.getAllPaymentswithsportwithinstructor = async function (
 module.exports.updatePayment = async function (req, res) {
   const id = req.params.id;
   let Payment = await PaymentModel.findOne({ _id: id });
+  if (!Payment) {
+    return res
+      .status(404)
+      .json({ data: "", msg: "Payment not found", rcode: 404 });
+  }
+  if (!(await canAccessAthlete(req.user, {
+    userId: null,
+    SportComplexId: Payment.sportsComplexId,
+  }))) {
+    return res.status(403).json({
+      data: "",
+      msg: "Payment is outside your scope",
+      rcode: -10,
+    });
+  }
 
   if (req.body.duration !== undefined) {
     Payment.duration = req.body.duration;
@@ -115,12 +202,26 @@ module.exports.CountOFAllPaymentswithsportwithinstructor = async function (
   res
 ) {
   try {
+    let sportsComplexId = req.query.sportsComplexId;
+    if ([ROLE.SUPERVISOR, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role)) {
+      sportsComplexId = req.user.SportComplexId;
+    }
+    if (!sportsComplexId) {
+      return res
+        .status(400)
+        .json({ data: "", msg: "sportsComplexId is required", rcode: -9 });
+    }
+    if (!(await canAccessComplex(req.user, sportsComplexId))) {
+      return res.status(403).json({
+        data: "",
+        msg: "Facility is outside your scope",
+        rcode: -10,
+      });
+    }
     let data = await PaymentModel.aggregate([
       {
         $match: {
-          sportsComplexId: new mongoose.Types.ObjectId(
-            req.query.sportsComplexId
-          ), // Replace with the sports complex ID you want to match
+          sportsComplexId: new mongoose.Types.ObjectId(sportsComplexId),
         },
       },
       {
@@ -191,6 +292,9 @@ module.exports.CountOFAllPaymentswithsportwithinstructor = async function (
 module.exports.getPaymentTimeslotCount = async (req, res) => {
   let sports = req.query.sports;
   let sportsComplex = req.query.sportsComplex;
+  if ([ROLE.SUPERVISOR, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role)) {
+    sportsComplex = req.user.SportComplexId;
+  }
   let timeSlotFrom = req.query.timeSlotFrom;
   let timeSlotTo = req.query.timeSlotTo;
   let payment = await PaymentModel.find({
@@ -232,6 +336,24 @@ module.exports.getPaymentTimeslotCount = async (req, res) => {
 
 module.exports.getAthletePayments = async (req, res) => {
   let athleteId = req.query.athleteId;
+  if (!athleteId) {
+    return res
+      .status(400)
+      .json({ data: "", msg: "athleteId is required", rcode: -9 });
+  }
+  const athlete = await athleteModel.findById(athleteId);
+  if (!athlete) {
+    return res
+      .status(404)
+      .json({ data: "", msg: "Athlete not found", rcode: 404 });
+  }
+  if (!(await canAccessAthlete(req.user, athlete))) {
+    return res.status(403).json({
+      data: "",
+      msg: "Athlete is outside your scope",
+      rcode: -10,
+    });
+  }
   let payment = await PaymentModel.find({ athleteId: athleteId })
     .populate("sportsComplexId")
     .populate("sports")

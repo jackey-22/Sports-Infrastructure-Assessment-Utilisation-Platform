@@ -1,300 +1,179 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Building2,
-  Trophy,
-  Users,
-  ShieldCheck,
-  TrendingUp,
-  MapPin,
-  AlertTriangle,
-  School,
-  Activity,
-  ArrowUpRight,
-  Calendar,
-  CheckCircle,
-  Clock,
-  Sparkles,
-  Zap,
-  Check
-} from "lucide-react";
+import { School } from "lucide-react";
 import { GUJARAT_FACILITIES, SAMPLE_INSTITUTIONAL_BOOKINGS } from "../data/gujaratSportsData";
 import FacilityConditionAudit from "../Components/Assessment/FacilityConditionAudit";
+import AdminInsights from "../Components/Admin/Dashboard/AdminInsights";
+import { Card, SectionHeader } from "../Components/Admin/Common/AdminUI";
 
+// Statewide Admin home. AdminInsights owns the filterable KPI/chart overview;
+// the facility condition index and institutional allocation queue below are the
+// pre-existing operational panels this page already carried.
 export default function AdminDashboard() {
-  const [data, setData] = useState({
-    totalComplex: 38,
-    totalSports: 14,
-    totalAthletes: 18450,
-    avgCondition: 81.4,
-    utilizationRate: 76.5,
-  });
   const [auditFacility, setAuditFacility] = useState(null);
   const [institutionalBookings, setInstitutionalBookings] = useState(SAMPLE_INSTITUTIONAL_BOOKINGS);
 
-  useEffect(() => {
-    fetch("http://localhost:9999/AdminViewDetails")
-      .then((res) => res.json())
-      .then((result) => {
-        if (result && result.totalComplex) {
-          setData((prev) => ({
-            ...prev,
-            totalComplex: result.totalComplex || prev.totalComplex,
-            totalSports: result.totalSport || prev.totalSports,
-          }));
-        }
-      })
-      .catch((err) => console.log("Using live cached SAG dataset", err));
-  }, []);
-
   const handleApproveBooking = (id) => {
     setInstitutionalBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: "Approved by State SAG" } : b))
+      prev.map((booking) =>
+        booking.id === id
+          ? { ...booking, status: "Approved by State SAG" }
+          : booking
+      )
     );
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6 max-w-7xl mx-auto font-sans">
-      {/* 1. Header with Government Credentials */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">
-            <span>🏛️</span> Sports, Youth & Cultural Activities Department &bull; Govt. of Gujarat
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-            State Sports Infrastructure Executive Console
-          </h1>
-          <p className="text-slate-400 text-xs mt-1">
-            Macro-level planning, GIS assessment monitoring & institutional allocation across 33 Gujarat districts
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      <AdminInsights />
 
-        <div className="flex flex-wrap gap-2.5">
-          <Link
-            to="/explore"
-            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
-          >
-            <span>🗺️</span> Open Statewide GIS Map
-          </Link>
-          <Link
-            to="/admin/analysis"
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1.5"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
-            Detailed Analytics
-          </Link>
-        </div>
-      </div>
-
-      {/* 2. Executive Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Mapped Sports Venues
-            </span>
-            <div className="text-3xl font-black text-white mt-1">{data.totalComplex}</div>
-            <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 mt-1">
-              <CheckCircle className="w-3.5 h-3.5" /> All 33 Districts Active
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl">
-            🏛️
-          </div>
-        </div>
-
-        <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Avg Condition Score (FCI)
-            </span>
-            <div className="text-3xl font-black text-white mt-1">{data.avgCondition}%</div>
-            <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 mt-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Grade A/B Benchmark
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
-            🛡️
-          </div>
-        </div>
-
-        <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Weekly Athlete Footfall
-            </span>
-            <div className="text-3xl font-black text-white mt-1">18,450+</div>
-            <span className="text-[11px] font-bold text-indigo-400 flex items-center gap-1 mt-1">
-              <Activity className="w-3.5 h-3.5" /> Real-Time Attendance
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-xl">
-            🏃
-          </div>
-        </div>
-
-        <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Capacity Utilisation
-            </span>
-            <div className="text-3xl font-black text-white mt-1">{data.utilizationRate}%</div>
-            <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1 mt-1">
-              <Clock className="w-3.5 h-3.5" /> 23.5% Off-Peak Open
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
-            📊
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Main Grid: Infrastructure Assessment & Institutional Approval Queue */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Infrastructure Assessment Priority Table */}
-        <div className="lg:col-span-7 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-          <div className="p-5 border-b border-slate-800 flex justify-between items-center">
-            <div>
-              <h2 className="font-extrabold text-white text-base flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                Gujarat Infrastructure Condition & Maintenance Index
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Live monitoring of facility degradation, turf quality, and inspection urgency
-              </p>
-            </div>
-            <Link
-              to="/admin/allfacility"
-              className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
-            >
-              View All Facilities &rarr;
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-800">
-                <tr>
-                  <th className="p-4">Facility & District</th>
-                  <th className="p-4">FCI Score</th>
-                  <th className="p-4">Grade</th>
-                  <th className="p-4">Maintenance Status</th>
-                  <th className="p-4 text-right">Audit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {GUJARAT_FACILITIES.slice(0, 6).map((fac) => (
-                  <tr key={fac.id} className="hover:bg-slate-800/50 transition">
-                    <td className="p-4">
-                      <div className="font-bold text-white">{fac.name}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {fac.district} &bull; {fac.taluka}
-                      </div>
-                    </td>
-                    <td className="p-4 font-black text-slate-200">{fac.condition.score}%</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full font-black text-[10px] border shadow-sm ${
-                          fac.condition.score >= 85
-                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                            : fac.condition.score >= 70
-                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                            : fac.condition.score >= 55
-                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                            : "bg-red-500/20 text-red-400 border-red-500/30"
-                        }`}
-                      >
-                        {fac.condition.grade.split(" ")[0]}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-300 text-[11px]">
-                      {fac.condition.maintenanceUrgency}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => setAuditFacility(fac)}
-                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition shadow-sm"
-                      >
-                        Inspect
-                      </button>
-                    </td>
+      <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          <Card className="overflow-hidden lg:col-span-7">
+            <SectionHeader
+              title="Gujarat infrastructure condition index"
+              description="Facility degradation, turf quality and inspection urgency from the existing assessment dataset."
+              action={
+                <Link
+                  to="/admin"
+                  className="text-[11px] font-bold text-emerald-700 hover:text-brand-dark"
+                >
+                  View all facilities →
+                </Link>
+              }
+            />
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
+                    <th scope="col" className="px-4 py-2.5 font-bold">Facility &amp; district</th>
+                    <th scope="col" className="px-4 py-2.5 font-bold">FCI score</th>
+                    <th scope="col" className="px-4 py-2.5 font-bold">Grade</th>
+                    <th scope="col" className="px-4 py-2.5 font-bold">Maintenance status</th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-bold">Audit</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right Column: Educational Institutions & Tournament Booking Clearances */}
-        <div className="lg:col-span-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-          <div className="p-5 border-b border-slate-800 flex justify-between items-center">
-            <div>
-              <h2 className="font-extrabold text-white text-base flex items-center gap-2">
-                <School className="w-4 h-4 text-emerald-400" />
-                Educational Tournament Allocations
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                School, College & Khel Mahakumbh grounds reservation queue
-              </p>
+                </thead>
+                <tbody className="divide-y divide-slate-100/80">
+                  {GUJARAT_FACILITIES.slice(0, 6).map((facility) => (
+                    <tr key={facility.id} className="transition hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-brand-dark">{facility.name}</div>
+                        <div className="mt-0.5 text-[11px] text-slate-400">
+                          {facility.district} · {facility.taluka}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-extrabold text-slate-700">
+                        {facility.condition.score}%
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold ${
+                            facility.condition.score >= 85
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                              : facility.condition.score >= 70
+                              ? "border-sky-500/30 bg-sky-500/10 text-sky-700"
+                              : facility.condition.score >= 55
+                              ? "border-amber-500/30 bg-amber-500/10 text-amber-700"
+                              : "border-red-500/30 bg-red-500/10 text-red-700"
+                          }`}
+                        >
+                          {facility.condition.grade.split(" ")[0]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-slate-600">
+                        {facility.condition.maintenanceUrgency}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setAuditFacility(facility)}
+                          className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 font-bold text-brand-dark transition hover:bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-              {institutionalBookings.length} Active
-            </span>
-          </div>
+          </Card>
 
-          <div className="p-4 space-y-3 max-h-[480px] overflow-y-auto">
-            {institutionalBookings.map((b) => (
-              <div
-                key={b.id}
-                className="p-4 rounded-2xl border border-slate-800 bg-slate-950/60 hover:bg-slate-950 transition space-y-2 text-xs"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-extrabold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md">
-                      {b.institutionType}
-                    </span>
-                    <h3 className="font-bold text-white mt-1 text-sm">{b.institutionName}</h3>
-                  </div>
-                  <span
-                    className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
-                      b.status.includes("Approved")
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                        : "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                    }`}
-                  >
-                    {b.status}
-                  </span>
-                </div>
-
-                <div className="text-slate-400 space-y-0.5">
-                  <div><strong className="text-slate-300">Event:</strong> {b.eventType} ({b.sport})</div>
-                  <div><strong className="text-slate-300">Venue:</strong> {b.complexName}</div>
-                  <div><strong className="text-slate-300">Dates:</strong> {b.startDate} to {b.endDate} &bull; {b.participants} Athletes</div>
-                </div>
-
-                <div className="pt-2.5 border-t border-slate-800 flex justify-between items-center">
-                  <span className="text-[11px] text-slate-500">Contact: {b.contactPerson}</span>
-                  {!b.status.includes("Approved") && (
-                    <button
-                      onClick={() => handleApproveBooking(b.id)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition shadow-md shadow-emerald-600/20"
+          <Card className="overflow-hidden lg:col-span-5">
+            <SectionHeader
+              title="Educational tournament allocations"
+              description="School, college and Khel Mahakumbh ground reservation queue."
+              action={
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                  {institutionalBookings.length} active
+                </span>
+              }
+            />
+            <div className="max-h-[520px] space-y-3 overflow-y-auto p-4">
+              {institutionalBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs transition hover:bg-slate-50"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600">
+                        <School className="h-3 w-3" aria-hidden="true" />
+                        {booking.institutionType}
+                      </span>
+                      <h3 className="mt-1 text-sm font-bold text-brand-dark">
+                        {booking.institutionName}
+                      </h3>
+                    </div>
+                    <span
+                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                        booking.status.includes("Approved")
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700"
+                      }`}
                     >
-                      Clear & Allocate
-                    </button>
-                  )}
+                      {booking.status}
+                    </span>
+                  </div>
+
+                  <div className="space-y-0.5 text-slate-400">
+                    <div>
+                      <strong className="text-slate-600">Event:</strong> {booking.eventType} ({booking.sport})
+                    </div>
+                    <div>
+                      <strong className="text-slate-600">Venue:</strong> {booking.complexName}
+                    </div>
+                    <div>
+                      <strong className="text-slate-600">Dates:</strong> {booking.startDate} to {booking.endDate} ·{" "}
+                      {booking.participants} athletes
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2.5">
+                    <span className="text-[11px] text-slate-500">
+                      Contact: {booking.contactPerson}
+                    </span>
+                    {!booking.status.includes("Approved") && (
+                      <button
+                        type="button"
+                        onClick={() => handleApproveBooking(booking.id)}
+                        className="rounded-lg border border-brand-primary bg-brand-primary px-3 py-1 font-bold text-white transition hover:bg-[#006634] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                      >
+                        Clear &amp; allocate
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
 
-      {/* Audit Modal */}
       {auditFacility && (
         <FacilityConditionAudit
           facility={auditFacility}
           onClose={() => setAuditFacility(null)}
-          onSaveAudit={() => setAuditFacility(null)}
         />
       )}
     </div>

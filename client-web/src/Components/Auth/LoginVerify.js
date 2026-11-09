@@ -1,4 +1,5 @@
 import { redirect } from "react-router-dom";
+import { readDemoToken, homeForRole } from "./demoAuth";
 
 const LoginVerify = async () => {
   const token = localStorage.getItem("token");
@@ -6,36 +7,30 @@ const LoginVerify = async () => {
     return null;
   }
 
-  // Handle mock/demo token
-  if (token.startsWith("mock_jwt_token_role_")) {
-    const roleId = parseInt(token.replace("mock_jwt_token_role_", ""), 10);
-    if (roleId === 5) return redirect("/admin");
-    if (roleId === 4) return redirect("/authority");
-    if (roleId === 3) return redirect("/manager");
-    return null;
+  // Offline demo session: skip the backend and go straight to the role home.
+  const demoUser = readDemoToken(token);
+  if (demoUser) {
+    return redirect(homeForRole(demoUser.Role));
   }
 
   try {
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    const raw = JSON.stringify({ token: token });
-    const requestOptions = {
+    const response = await fetch("http://localhost:9999/verify", {
       method: "POST",
-      headers: myHeaders,
-      body: raw,
-    };
-    const response = await fetch(
-      "http://localhost:9999/verify",
-      requestOptions
-    );
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     const result = await response.json();
-    if (result && result.rcode === 200) {
+    if (response.ok && result && result.rcode === 200) {
       if (result.data.Role === 5) {
         return redirect("/admin");
       } else if (result.data.Role === 4) {
         return redirect("/authority");
       } else if (result.data.Role === 3) {
-        return redirect("/manager");
+        return redirect("/manager/overview");
+      } else if (result.data.Role === 2) {
+        return redirect("/coach/dashboard");
+      } else if (result.data.Role === 0) {
+        return redirect("/citizen/dashboard");
       }
     } else {
       localStorage.removeItem("token");

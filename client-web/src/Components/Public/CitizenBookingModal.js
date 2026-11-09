@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckCircle, QrCode, Calendar, Clock, CreditCard, User, Sparkles } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 export default function CitizenBookingModal({
   facility,
@@ -11,8 +11,7 @@ export default function CitizenBookingModal({
   const [selectedSport, setSelectedSport] = useState(facility?.sports[0]?.name || "Badminton");
   const [selectedDate, setSelectedDate] = useState("2026-11-03");
   const [selectedTime, setSelectedTime] = useState("07:00 AM - 08:00 AM");
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [bookingPassId, setBookingPassId] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   if (!facility) return null;
 
@@ -20,11 +19,8 @@ export default function CitizenBookingModal({
 
   const handleBooking = (e) => {
     e.preventDefault();
-    const passId = "SAG-EPASS-" + Math.floor(100000 + Math.random() * 900000);
-    setBookingPassId(passId);
-    setIsSuccess(true);
+    setIsSubmitted(true);
     onConfirm({
-      passId,
       athleteName,
       phone,
       facilityName: facility.name,
@@ -43,7 +39,7 @@ export default function CitizenBookingModal({
             <div className="text-xs uppercase tracking-wider font-semibold text-blue-200">
               Sports Authority of Gujarat &bull; Public Pay & Play
             </div>
-            <h3 className="text-xl font-bold mt-1">Book Sports Court / Facility Slot</h3>
+            <h3 className="text-xl font-bold mt-1">Court / Facility Slot Enquiry</h3>
             <p className="text-blue-100 text-xs mt-0.5">{facility.name}</p>
           </div>
           <button
@@ -55,28 +51,24 @@ export default function CitizenBookingModal({
         </div>
 
         <div className="p-6">
-          {isSuccess ? (
+          {isSubmitted ? (
             <div className="text-center py-4 space-y-4">
-              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle className="w-10 h-10" />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-800">Slot Confirmed & Digital Pass Issued!</h4>
-                <p className="text-xs text-slate-500 mt-1">Show this QR Pass at the venue security desk for turnstile entry.</p>
+                <h4 className="text-lg font-bold text-slate-800">Enquiry recorded</h4>
               </div>
 
-              {/* Digital Pass Ticket */}
-              <div className="bg-slate-50 border-2 border-dashed border-indigo-200 rounded-2xl p-5 text-left relative overflow-hidden">
+              {/* Enquiry summary */}
+              <div className="bg-slate-50 border-2 border-dashed border-amber-200 rounded-2xl p-5 text-left relative overflow-hidden">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-3 mb-3">
                   <div>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                      DIGITAL ENTRY PASS
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                      ENQUIRY SUMMARY
                     </span>
                     <h5 className="font-extrabold text-slate-800 text-sm mt-1">{facility.name}</h5>
                     <p className="text-[11px] text-slate-500">{facility.location}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-mono font-bold text-slate-700">{bookingPassId}</span>
                   </div>
                 </div>
 
@@ -90,24 +82,19 @@ export default function CitizenBookingModal({
                     <p className="font-semibold text-slate-800">{selectedSport}</p>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px] uppercase font-bold">Date & Time</span>
+                    <span className="text-slate-400 text-[10px] uppercase font-bold">Date & Time Requested</span>
                     <p className="font-semibold text-slate-800">{selectedDate} &bull; {selectedTime}</p>
                   </div>
                   <div>
                     <span className="text-slate-400 text-[10px] uppercase font-bold">Fee Status</span>
-                    <p className="font-semibold text-emerald-600">{currentSport?.feePerHour} (Paid Online)</p>
+                    <p className="font-semibold text-slate-800">
+                      {currentSport?.feePerHour} (payable at venue — not paid)
+                    </p>
                   </div>
                 </div>
 
-                {/* QR Code Graphic Mock */}
-                <div className="flex items-center justify-center pt-2 border-t border-slate-200">
-                  <div className="bg-white p-2 border border-slate-300 rounded-lg shadow-sm flex items-center gap-2">
-                    <QrCode className="w-12 h-12 text-slate-800" />
-                    <div className="text-[10px] text-slate-500 font-mono">
-                      SCAN FOR QR ATTENDANCE<br />
-                      VERIFIED BY SAG CLOUD
-                    </div>
-                  </div>
+                <div className="flex items-center justify-center pt-2 border-t border-slate-200 text-[11px] text-slate-500">
+                  No QR pass is issued in this version.
                 </div>
               </div>
 
@@ -115,7 +102,7 @@ export default function CitizenBookingModal({
                 onClick={onClose}
                 className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow transition"
               >
-                Done
+                Close
               </button>
             </div>
           ) : (
@@ -203,8 +190,8 @@ export default function CitizenBookingModal({
                   <span className="text-slate-500">Government Subsidized Hourly Fee:</span>
                   <div className="font-extrabold text-slate-800 text-sm">{currentSport?.feePerHour || "₹100"} / slot</div>
                 </div>
-                <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-semibold text-[11px]">
-                  Instant Confirmation
+                <span className="bg-slate-200 text-slate-700 px-2 py-1 rounded font-semibold text-[11px]">
+                  Enquiry only
                 </span>
               </div>
 
@@ -220,8 +207,7 @@ export default function CitizenBookingModal({
                   type="submit"
                   className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow flex items-center gap-2"
                 >
-                  <CreditCard className="w-4 h-4" />
-                  Confirm & Generate Pass
+                  Record Enquiry
                 </button>
               </div>
             </form>

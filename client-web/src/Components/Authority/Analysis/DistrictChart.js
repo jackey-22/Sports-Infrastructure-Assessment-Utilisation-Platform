@@ -1,131 +1,64 @@
 import React, { useEffect, useState } from "react";
-import ReactApexChart from "react-apexcharts";
 import { useSelector } from "react-redux";
+import { BarChart } from "../../Admin/Common/AdminCharts";
+import { DEMO_DISTRICT_FACILITIES } from "../../../data/authority/authorityDemoData";
 
-const DistrictChart = (props) => {
+const DistrictChart = () => {
   const { DistrictId } = useSelector((state) => state.user.user);
-
-  const [chartData, setChartData] = useState({
-    series: [
-      {
-        name: "Student",
-        data: [30, 40, 35, 50, 49, 60, 70, 91, 125],
-      },
-    ],
-    options: {
-      chart: {
-        type: "bar",
-        height: 350,
-      },
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: "55%",
-          endingShape: "rounded",
-        },
-      },
-      dataLabels: {
-        enabled: true, // Enable data labels
-        offsetY: -10, // Adjust the vertical position of labels
-        style: {
-          fontSize: "12px",
-          fontWeight: "bold",
-          colors: ["#000"], // Text color
-        },
-      },
-      // dataLabels: {
-      //   enabled: false,
-      // },
-      xaxis: {
-        categories: [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-        ],
-      },
-      yaxis: {
-        title: {
-          text: "Number of Sport Complexes",
-          style: {
-            fontSize: "12px",
-            // fontWeight: "bold",
-            fontFamily: undefined,
-            color: "#263238",
-          }, // Your Y-axis title
-        },
-      },
-      colors: ["#FF5733"],
-      title: {
-        text: "District wise Facilities to Specific Sport Complex",
-        align: "center",
-        margin: 50,
-        offsetX: 0,
-        offsetY: 0,
-        floating: false,
-        style: {
-          fontSize: "26px",
-          fontWeight: "bold",
-          fontFamily: undefined,
-          color: "#263238",
-        },
-      },
-      fill: {
-        opacity: 1,
-      },
-    },
-  });
+  const [categories, setCategories] = useState(
+    DEMO_DISTRICT_FACILITIES.categories
+  );
+  const [series, setSeries] = useState([
+    { name: "Sports complexes", data: DEMO_DISTRICT_FACILITIES.values },
+  ]);
 
   useEffect(() => {
-    var requestOptions = {
+    let active = true;
+
+    function applyDemo() {
+      setCategories(DEMO_DISTRICT_FACILITIES.categories);
+      setSeries([
+        { name: "Sports complexes", data: DEMO_DISTRICT_FACILITIES.values },
+      ]);
+    }
+
+    fetch(`http://localhost:9999/getSportsCount?districtId=${DistrictId}`, {
       method: "GET",
       redirect: "follow",
-    };
-
-    fetch(
-      `http://localhost:9999/getSportsCount?districtId=${DistrictId}`,
-      requestOptions
-    )
+    })
       .then((response) => response.json())
       .then((result) => {
-        const data = result.sportsCount;
-        console.log(data);
-        const categories = data.map((s) => s._id);
-        const seriesData = data.map((s) => s.sportComplexCount);
-
-        setChartData({
-          ...chartData,
-          series: [
-            {
-              data: seriesData,
-            },
-          ],
-          options: {
-            ...chartData.options,
-            xaxis: {
-              ...chartData.options.xaxis,
-              categories: categories,
-            },
+        if (!active) return;
+        if (!Array.isArray(result.sportsCount) || result.sportsCount.length === 0) {
+          applyDemo();
+          return;
+        }
+        setCategories(result.sportsCount.map((sport) => sport._id));
+        setSeries([
+          {
+            name: "Sports complexes",
+            data: result.sportsCount.map((sport) => sport.sportComplexCount),
           },
-        });
+        ]);
       })
-      .catch((error) => console.log("error", error));
-  }, [props.selectedata]);
+      .catch((error) => {
+        if (active) applyDemo();
+        console.log("error", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [DistrictId]);
 
   return (
-    <div className="chart m-8">
-      <ReactApexChart
-        options={chartData.options}
-        series={chartData.series}
-        type="bar"
-        height={chartData.options.chart.height}
-      />
-    </div>
+    <BarChart
+      series={series}
+      categories={categories}
+      colors={["#007D40"]}
+      height={Math.max(280, categories.length * 34 + 80)}
+      horizontal
+    />
   );
 };
 

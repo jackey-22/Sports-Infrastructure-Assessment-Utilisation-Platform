@@ -12,6 +12,7 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import ipconfig from "../../ipconfig";
 import messaging from "@react-native-firebase/messaging";
@@ -60,7 +61,7 @@ function Profile({ navigation }) {
       // );
     });
     let i;
-    if (Atheltedata) i = Atheltedata[0].baseUrl.slice(1);
+    if (Atheltedata?.[0]?.baseUrl) i = Atheltedata[0].baseUrl.slice(1);
     setimage(i);
   }, [image, Atheltedata]);
   const handleLogout = () => {

@@ -19,11 +19,18 @@ module.exports.passwordGenerate = function (length) {
 // Create a transporter object using the default SMTP transport
 
 module.exports.sendEmail = function (email, password) {
+  const mailUser = process.env.EMAIL;
+  const mailPass = process.env.PASSWORD;
+  if (!mailUser || !mailPass) {
+    console.error("Email is not configured; generated password was not sent.");
+    return;
+  }
+
   const transporter = nodemailer.createTransport({
     service: "Gmail", // Use your email service provider here
     auth: {
-      user: "goheluday6445@gmail.com", // Your email address
-      pass: "bypqzlyujtzqvcxx", // Your email password or application-specific password
+      user: mailUser,
+      pass: mailPass,
     },
   });
 
@@ -41,7 +48,7 @@ module.exports.sendEmail = function (email, password) {
 
   // Define email data
   const mailOptions = {
-    from: "udaygohel6445@gmail.com",
+    from: mailUser,
     to: email, // Recipient's email address
     subject: "Hello from Node.js",
     html: emailContent,

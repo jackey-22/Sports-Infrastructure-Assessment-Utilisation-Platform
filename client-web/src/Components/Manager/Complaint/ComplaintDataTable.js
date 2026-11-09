@@ -12,13 +12,15 @@ import { useSelector } from "react-redux";
 import { ComplaintService } from "./ComplaintServices";
 import { useRef } from "react";
 import Swal from "sweetalert2";
+import LoadError from "../../Common/LoadError";
 
-export default function ComplaintDataTable() {
+export default function ComplaintDataTable({ scope = "incoming" }) {
   const { SportComplexId, _id } = useSelector((state) => state.user.user);
-  const [deleterefresh, setdeleterefresh] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loadError, setLoadError] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [filters, setFilters] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [globalFilterValues, setGlobalFilterValues] = useState({
     SportName: "",
     Category: "",
@@ -56,12 +58,32 @@ export default function ComplaintDataTable() {
   //     });
   //   };
   useEffect(() => {
-    ComplaintService.getCustomersXLarge(SportComplexId).then((data) => {
-      setCustomers(getCustomers(data));
+    let cancelled = false;
+
+    if (!SportComplexId) {
+      setLoadError(true);
       setLoading(false);
-    });
+      return;
+    }
+
+    ComplaintService.getCustomersXLarge(SportComplexId, scope, _id)
+      .then((data) => {
+        if (cancelled) return;
+        setCustomers(getCustomers(data));
+        setLoadError(false);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError(true);
+        setLoading(false);
+      });
     initFilters();
-  }, [deleterefresh]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey, scope, SportComplexId, _id]);
 
   const getCustomers = (data) => {
     return [...(data || [])].map((d) => {
@@ -172,17 +194,30 @@ export default function ComplaintDataTable() {
     )
       .then((response) => response.json())
       .then((result) => {
+        if (result.rcode !== 200) {
+          Swal.fire({
+            icon: "error",
+            title: "Could not resolve",
+            text: result.msg || "Please try again.",
+          });
+          return;
+        }
         Swal.fire({
           position: "top-end",
           icon: "success",
-          title: "Complaint Sloved Successfully",
+          title: "Complaint resolved",
           showConfirmButton: false,
           timer: 1500,
         });
-        console.log(result);
-        setdeleterefresh(!deleterefresh);
+        setRefreshKey((k) => k + 1);
       })
-      .catch((error) => console.log("error", error));
+      .catch(() => {
+        Swal.fire({
+          icon: "error",
+          title: "Could not resolve",
+          text: "Could not reach the server.",
+        });
+      });
   };
 
   const PassHandler = (rowdata) => {
@@ -208,17 +243,30 @@ export default function ComplaintDataTable() {
     )
       .then((response) => response.json())
       .then((result) => {
-        console.log(result);
+        if (result.rcode !== 200) {
+          Swal.fire({
+            icon: "error",
+            title: "Could not forward",
+            text: result.msg || "Please try again.",
+          });
+          return;
+        }
         Swal.fire({
           position: "top-end",
           icon: "success",
-          title: "Complaint Pass To Authority Successfully",
+          title: "Complaint forwarded to the authority",
           showConfirmButton: false,
           timer: 1500,
         });
-        setdeleterefresh(!deleterefresh);
+        setRefreshKey((k) => k + 1);
       })
-      .catch((error) => console.log("error", error));
+      .catch(() => {
+        Swal.fire({
+          icon: "error",
+          title: "Could not forward",
+          text: "Could not reach the server.",
+        });
+      });
   };
 
   const [remarks, setRemarks] = useState({});
@@ -278,6 +326,7 @@ export default function ComplaintDataTable() {
     return currentPage * 10 + rowIndex + 1;
   };
   const nameBodyTemplate = (data) => {
+    if (!data.userId) return <div>Unknown user</div>;
     if (data.userId.Role === 0)
       return <div>{data.userId.Name + " (Athelte)"}</div>;
     if (data.userId.Role === 1)
@@ -290,16 +339,15 @@ export default function ComplaintDataTable() {
       return <div>{data.userId.Name + " (Authority)"}</div>;
   };
   const RemarkBy = (rowData) => {
-    if (rowData.level === 0) return `Supervisor ${rowData.userId.Name}`;
-    if (rowData.level === 1) return `Manager ${rowData.userId.Name}`;
-    if (rowData.level === 2) return `Authority ${rowData.userId.Name}`;
+    if (rowData.level === 0) return `Supervisor ${rowData.userId?.Name || ""}`;
+    if (rowData.level === 1) return `Manager ${rowData.userId?.Name || ""}`;
+    if (rowData.level === 2) return `Authority ${rowData.userId?.Name || ""}`;
     else {
       return "";
     }
   };
 
   const remarksBodyTemplate = (rowData) => {
-    console.log(rowData);
     if (rowData.remarks) {
       return rowData.remarks.map((item, index) => (
         <div className="border">
@@ -375,6 +423,9 @@ export default function ComplaintDataTable() {
         </div>
       )}
       <div className="card">
+        {loadError && (
+          <LoadError onRetry={() => setRefreshKey((k) => k + 1)} />
+        )}
         <DataTable
           value={customers}
           paginator
@@ -433,9 +484,17 @@ export default function ComplaintDataTable() {
             filterField="type.Type"
             style={{ minWidth: "12rem" }}
           />
-          <Column header="Action" body={actionBodyTemplate} />
+          {scope === "mine" ? (
+            <Column
+              header="Status"
+              body={(rowData) => (rowData.status === 1 ? "Resolved" : "Open")}
+            />
+          ) : (
+            <Column header="Action" body={actionBodyTemplate} />
+          )}
         </DataTable>
       </div>
     </div>
   );
 }
+

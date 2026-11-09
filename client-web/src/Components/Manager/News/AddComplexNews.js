@@ -71,7 +71,7 @@ const AddComplexNews = () => {
   });
   return (
     <>
-    <div className="bg-[#f8f9fa] m-5 h-screen scrollbar">
+    <div className="px-4 py-6 sm:px-6">
       <div className="flex mx-5">
         <Button
           className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl "
@@ -84,12 +84,12 @@ const AddComplexNews = () => {
       </div>
       <div className="flex items-center justify-center m-5 ">
         <div className="w-full max-w-2xl">
-          <h2 className="text-center text-2xl uppercase font-semibold font-serif text-gray-800">
+          <h2 className="font-display text-xl font-extrabold tracking-tight text-brand-dark">
             Add New Events
           </h2>
           <form
             onSubmit={handleSubmit}
-            className="bg-white shadow-md rounded-md px-8 pt-6 pb-8 mb-4 mt-5 shadow-gray-700"
+            className="mt-5 rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm sm:px-8"
           >
             <div className="mb-4">
               <label
@@ -99,7 +99,7 @@ const AddComplexNews = () => {
                 Title
               </label>
               <input
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="w-full min-h-11 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
                 name="Title"
                 type="text"
                 placeholder="Title"
@@ -121,7 +121,7 @@ const AddComplexNews = () => {
                 Description
               </label>
               <input
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="w-full min-h-11 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
                 name="Description"
                 type="text"
                 placeholder="Description"
@@ -143,7 +143,7 @@ const AddComplexNews = () => {
                 Image
               </label>
               <input
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="w-full min-h-11 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
                 name="Image"
                 type="file"
                 id="fileInput"
@@ -159,7 +159,7 @@ const AddComplexNews = () => {
 
             <div className="flex items-center justify-center">
               <button
-                className="bg-blue-500 uppercase hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                className="min-h-11 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
                 type="submit"
                 // onClick={console.log("Hello")}
               >
@@ -175,3 +175,4 @@ const AddComplexNews = () => {
 };
 
 export default AddComplexNews;
+

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Rating } from "react-native-ratings";
 import ipconfig from "../../ipconfig";
+import { getChartUrl } from "../../helpers/chartToken";
 const RatingModal = (props) => {
     const ip = ipconfig.ip;
     const [modalVisible, setModalVisible] = useState(props.rateModal);
@@ -17,14 +18,19 @@ const RatingModal = (props) => {
     const [remarks, setremarks] = useState("");
     const ratinghandler = () => {
         var requestOptions = {
-            method: "GET",
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                athleteId: props.athelteid,
+                sportId: props.sportid,
+                sportsComplexId: props.sportcomplex,
+                rating: rating,
+                remarks: remarks,
+            }),
             redirect: "follow",
         };
 
-        fetch(
-            `http://${ip}:9999/addRating?athleteId=${props.athelteid}&sportId=${props.sportid}&sportsComplexId=${props.sportcomplex}&rating=${rating}&remarks=${remarks}`,
-            requestOptions
-        )
+        fetch(`http://${ip}:9999/addRating`, requestOptions)
             .then((response) => response.text())
             .then((result) => {
                 alert("Done");

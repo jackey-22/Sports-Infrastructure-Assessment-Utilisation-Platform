@@ -1,4 +1,7 @@
 import { redirect } from "react-router-dom";
+import store from "../../store";
+import { UserActions } from "../../store/UserData";
+import { readDemoToken } from "./demoAuth";
 
 const Verify = async (role) => {
   const token = localStorage.getItem("token");
@@ -6,41 +9,36 @@ const Verify = async (role) => {
     return redirect("/login");
   }
 
-  // Seamless support for mock/demo role preview
-  if (token.startsWith("mock_jwt_token_role_")) {
-    const roleId = parseInt(token.replace("mock_jwt_token_role_", ""), 10);
-    if (roleId === role) {
-      return { Role: roleId, Email: "demo@sag.gujarat.gov.in" };
-    } else {
-      return redirect("/login");
+  // Offline demo session: restore the demo user without calling the backend.
+  const demoUser = readDemoToken(token);
+  if (demoUser) {
+    if (demoUser.Role === role) {
+      store.dispatch(UserActions.getuserdata(demoUser));
+      return demoUser;
     }
+    localStorage.removeItem("token");
+    return redirect("/login");
   }
 
   try {
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    const raw = JSON.stringify({ token: token });
-    const requestOptions = {
+    const response = await fetch("http://localhost:9999/verify", {
       method: "POST",
-      headers: myHeaders,
-      body: raw,
-    };
-    const response = await fetch(
-      "http://localhost:9999/verify",
-      requestOptions
-    );
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     const result = await response.json();
-    if (result && result.rcode === 200) {
+    if (response.ok && result && result.rcode === 200) {
       if (result.data.Role === role) {
+        // Restore the authenticated user into Redux after a page refresh.
+        store.dispatch(UserActions.getuserdata(result.data));
         return result.data;
-      } else {
-        return redirect("/login");
       }
     }
   } catch (error) {
     console.log("Auth verification connection error:", error);
   }
 
+  localStorage.removeItem("token");
   return redirect("/login");
 };
 

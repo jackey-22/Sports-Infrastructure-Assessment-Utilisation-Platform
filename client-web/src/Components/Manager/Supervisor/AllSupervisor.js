@@ -1,23 +1,27 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
-import { Button } from "@material-tailwind/react";
+import { Link } from "react-router-dom";
 import SupervisorDataTable from "./SupervisorDataTable";
+import { Button, Card, PageHeader, PageShell } from "../Common/ManagerUI";
 
 const AllSupervisor = () => {
   return (
-    <div className="px-4">
-      <div>
-        <NavLink
-          to={"/manager/addsupervisor"}
-          className="flex justify-end mb-4"
-        >
-          <Button className="items-end cta-btn font-semibold py-4 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl ">
-            Add Supervisor
+    <PageShell>
+      <PageHeader
+        eyebrow="Facility Manager"
+        title="Supervisors"
+        description="Staff who receive complaints and attendance at this complex."
+        actions={
+          <Button as={Link} to="/manager/addsupervisor">
+            Add supervisor
           </Button>
-        </NavLink>
-      </div>
-      <SupervisorDataTable />
-    </div>
+        }
+      />
+      <Card>
+        <div className="overflow-x-auto p-2 sm:p-4">
+          <SupervisorDataTable />
+        </div>
+      </Card>
+    </PageShell>
   );
 };
 

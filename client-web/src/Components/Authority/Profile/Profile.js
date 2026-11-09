@@ -25,61 +25,42 @@ const Profile = () => {
       .catch((error) => console.log("error", error));
   }, []);
 
+  const rows = [
+    ["District", lodaer ? Profile.DistrictId?.District : ""],
+    ["Email", AuthorityData.Email],
+    ["Contact number", AuthorityData.ContactNum],
+    ["Date of birth", AuthorityData.DOB],
+  ];
+
   return (
-    <div className="text-lg py-6 px-10 space-y-2">
-      <div className="flex">
-        <div className="text-gray-700 font-[Fantasy] text-5xl underline underline-offset-8 decoration-2">
-          {lodaer && Profile.Name}
-        </div>
-      </div>
+    <div className="px-4 py-6 sm:px-6">
+      <p className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+        District Authority
+      </p>
+      <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-brand-dark">
+        {lodaer && Profile.Name ? Profile.Name : "Profile"}
+      </h1>
+      <p className="mt-1 text-sm text-slate-600">
+        Your account and the district assigned to you.
+      </p>
 
-      <div className="text-2xl font-bold pt-7 ">General info</div>
-
-      <div className="flex">
-        <div className="w-1/5">District</div>{" "}
-        <div className="flex text-gray-700">
-          :{" "}
-          {lodaer && <div className="px-4">{Profile.DistrictId.District}</div>}{" "}
-        </div>
+      <div className="mt-5 max-w-3xl rounded-2xl border border-slate-200 bg-white">
+        <dl className="divide-y divide-slate-100">
+          {rows.map(([label, value]) => (
+            <div
+              key={label}
+              className="grid gap-1 px-5 py-3 sm:grid-cols-3 sm:gap-3"
+            >
+              <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                {label}
+              </dt>
+              <dd className="text-sm font-semibold text-slate-800 sm:col-span-2">
+                {value || "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <div className="flex">
-        <div className="w-1/5">E-mail</div>
-        <div className="flex text-gray-700">
-          : {lodaer && <div className="px-4">{AuthorityData.Email}</div>}
-        </div>
-      </div>
-      <div className="flex">
-        <div className="w-1/5">Contact Number </div>
-        <div className="flex text-gray-700">
-          : {lodaer && <div className="px-4">{AuthorityData.ContactNum}</div>}
-        </div>
-      </div>
-      <div className="flex">
-        <div className="w-1/5">Data of Birth </div>{" "}
-        <div className="flex text-gray-700">
-          : {lodaer && <div className="px-4">{AuthorityData.DOB}</div>}
-        </div>
-      </div>
-      {/* <div className="flex">
-        <div className="w-1/5">Area </div>
-        <div className="flex text-gray-700">
-          : {lodaer && <div className="px-4">{}</div>}
-        </div>
-      </div> */}
-      {/* <div className="flex">
-        <div className="w-1/5">Taluka </div>{" "}
-        <div className="flex text-gray-700">
-          :{" "}
-          {lodaer && <div className="px-4">{Profile.DistrictId.District}</div>}
-        </div>
-      </div>
-      <div className="flex">
-        <div className="w-1/5">Operational Since </div>
-        <div className="flex text-gray-700">
-          :{" "}
-          {lodaer && <div className="px-4">{Profile.DistrictId.District}</div>}
-        </div>
-      </div> */}
     </div>
   );
 };

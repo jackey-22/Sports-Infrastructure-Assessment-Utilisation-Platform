@@ -90,33 +90,16 @@ const SignUp = ({ navigation }) => {
             setErrormsg("All fields are required !");
             return;
         }
-        console.log(fdata);
+        if (!fdata.photo) {
+            setErrormsg("Profile photo is required");
+            return;
+        }
 
-        var myHeaders = new Headers();
-        myHeaders.append("Content-Type", "application/json");
-
-        let type = mime.getType(fdata.photo).split("/")[1];
-
-        var requestOptions = {
-            method: "POST",
-            headers: myHeaders,
-            body: JSON.stringify({ ...fdata, photoType: type, Role: 0 }),
-            redirect: "follow",
-        };
-
-        let res = await fetch(`http://${ip}:9999/signup`, requestOptions);
-        let data = await res.json();
-        if (data.rcode == 200) {
-            // let photoTo = fdata.photo.split("/");
-            // photoTo.pop();
-            // console.log(data.myPhotoName);
-            // photoTo.push(data.myPhotoName);
-            // photoTo = photoTo.join("/");
-            // let move = await FileSystem.moveAsync({
-            //   from: fdata.photo,
-            //   to: photoTo,
-            // });
-            let response = await FileSystem.uploadAsync(
+        // Upload first: the server returns a random safe filename, which is
+        // then stored on the athlete profile during signup.
+        let uploadResponse;
+        try {
+            uploadResponse = await FileSystem.uploadAsync(
                 `http://${ip}:9999/uploadPhoto`,
                 fdata.photo,
                 {
@@ -125,14 +108,48 @@ const SignUp = ({ navigation }) => {
                     uploadType: FileSystem.FileSystemUploadType.MULTIPART,
                 }
             );
+        } catch (error) {
+            setErrormsg("Could not upload profile photo");
+            return;
+        }
+
+        let uploadData = {};
+        try {
+            uploadData = JSON.parse(uploadResponse.body);
+        } catch (error) {
+            uploadData = {};
+        }
+        if (uploadResponse.status !== 200 || !uploadData.filename) {
+            setErrormsg(uploadData.msg || "Could not upload profile photo");
+            return;
+        }
+
+        var myHeaders = new Headers();
+        myHeaders.append("Content-Type", "application/json");
+
+        const mimeType = mime.getType(fdata.photo);
+        let type = mimeType ? mimeType.split("/")[1] : "";
+
+        var requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            body: JSON.stringify({
+                ...fdata,
+                photo: uploadData.filename,
+                photoType: type,
+                Role: 0,
+            }),
+            redirect: "follow",
+        };
+
+        let res = await fetch(`http://${ip}:9999/signup`, requestOptions);
+        let data = await res.json();
+        if (data.rcode == 200) {
             Alert.alert("Alert Title", "Account Created Successfully", [
-                // {
-                //     text: 'Cancel',
-                //     onPress: () => console.log('Cancel Pressed'),
-                //     style: 'cancel',
-                // },
                 { text: "OK", onPress: () => navigation.navigate("Login") },
             ]);
+        } else {
+            setErrormsg(data.msg || "Could not create account");
         }
     };
 

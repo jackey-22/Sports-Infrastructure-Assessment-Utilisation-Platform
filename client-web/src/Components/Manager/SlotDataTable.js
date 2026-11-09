@@ -1,330 +1,351 @@
-import React, { useState, useEffect } from "react";
-import Swal from "sweetalert2";
-import "primereact/resources/themes/lara-light-indigo/theme.css";
-import { FilterMatchMode } from "primereact/api";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { InputText } from "primereact/inputtext";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar";
-import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { useRef } from "react";
+import React, { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  Clock3,
+  RotateCcw,
+  Search,
+  Timer,
+  Trophy,
+} from "lucide-react";
 import { SlotServices } from "./SlotTableServices";
+import { formatDate, formatNumber } from "../../utils/manager/managerUtils";
+import { useAdminQuery, useTableState } from "../../hooks/manager/useManagerQuery";
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  Field,
+  KpiCard,
+  Pagination,
+  TableSkeleton,
+  inputClass,
+  selectClass,
+} from "./Common/ManagerUI";
+
+const PERIOD_TONES = {
+  Active: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  Upcoming: "border-sky-200 bg-sky-50 text-sky-800",
+  Finished: "border-slate-200 bg-slate-100 text-slate-600",
+};
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function initials(name) {
+  return String(name || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+function dateOnly(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function periodState(start, end) {
+  if (!start) return "—";
+  if (TODAY < start) return "Upcoming";
+  if (TODAY > (end || start)) return "Finished";
+  return "Active";
+}
+
+function formatSlot(row) {
+  if (!row.from && !row.to) return "—";
+  return `${row.from || "—"} – ${row.to || "—"}`;
+}
+
+function normaliseSlot(row) {
+  const start = dateOnly(row.Startdate) || dateOnly(row.createdAt);
+  const end = dateOnly(row.Enddate) || dateOnly(row.updatedAt);
+  return {
+    id: String(row._id || `${row.Email || row.Name}-${start}-${row.from || ""}`),
+    name: row.Name || "Unnamed guest",
+    email: row.Email || "",
+    contact: row.ContactNum || "",
+    sport: (row.sport && row.sport.SportName) || "Not specified",
+    from: (row.timeslot && row.timeslot.from) || "",
+    to: (row.timeslot && row.timeslot.to) || "",
+    duration: Number(row.duration) || 0,
+    start,
+    end,
+    state: periodState(start, end),
+  };
+}
+
 export default function SlotDataTable() {
-  const { _id } = useSelector((state) => state.user.user);
-  const [deleterefresh, setdeleterefresh] = useState(true);
-  const [customers, setCustomers] = useState([]);
-  const [filters, setFilters] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [globalFilterValues, setGlobalFilterValues] = useState({
-    SportName: "",
-    Category: "",
+  const [filters, setFilters] = useState({ search: "", sport: "", state: "" });
+
+  const { data, loading, error, reload } = useAdminQuery(
+    () => SlotServices.getCustomersXLarge(),
+    []
+  );
+
+  const rows = useMemo(
+    () => (Array.isArray(data) ? data.map(normaliseSlot) : []),
+    [data]
+  );
+
+  const sportOptions = useMemo(
+    () => [...new Set(rows.map((row) => row.sport))].sort(),
+    [rows]
+  );
+
+  const visibleRows = useMemo(() => {
+    const query = filters.search.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (filters.sport && row.sport !== filters.sport) return false;
+      if (filters.state && row.state !== filters.state) return false;
+      if (!query) return true;
+      return `${row.name} ${row.email} ${row.contact} ${row.sport}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [rows, filters]);
+
+  const table = useTableState(visibleRows, {
+    pageSize: 10,
+    sortKey: "name",
+    sortDir: "asc",
   });
 
-  //   const DeleteHandler = (rowdata) => {
-  //     Swal.fire({
-  //       title: "Are you sure?",
-  //       text: "You won't be able to revert this!",
-  //       icon: "warning",
-  //       showCancelButton: true,
-  //       confirmButtonColor: "#3085d6",
-  //       cancelButtonColor: "#d33",
-  //       confirmButtonText: "Yes, Delete it!",
-  //     }).then((result) => {
-  //       if (result.isConfirmed) {
-  //         var myHeaders = new Headers();
-  //         myHeaders.append("token", cookies.token);
-  //         var requestOptions = {
-  //           method: "DELETE",
-  //           headers: myHeaders,
-  //           redirect: "follow",
-  //         };
-  //         fetch(`http://localhost:9999/deleteblog/${rowdata._id}`, requestOptions)
-  //           .then((response) => response.text())
-  //           .then((result) => {
-  //             setdeleterefresh(!deleterefresh);
-  //           })
-  //           .catch((error) => console.log("error", error));
-  //         console.log("Deleted !!");
-  //         Swal.fire("Deleted!", "Your file has been deleted.", "success");
-  //       }
-  //     });
-  //   };
+  const activeCount = rows.filter((row) => row.state === "Active").length;
+  const sportsBooked = new Set(rows.map((row) => row.sport)).size;
+  const averageDuration = useMemo(() => {
+    const withDuration = rows.filter((row) => row.duration > 0);
+    if (!withDuration.length) return "—";
+    const total = withDuration.reduce((sum, row) => sum + row.duration, 0);
+    return `${Math.round((total / withDuration.length) * 10) / 10} days`;
+  }, [rows]);
 
-  useEffect(() => {
-    SlotServices.getCustomersXLarge(_id).then((data) => {
-      setCustomers(getCustomers(data));
-      setLoading(false);
-    });
-    initFilters();
-  }, [deleterefresh]);
+  const isFiltered = Boolean(filters.search || filters.sport || filters.state);
 
-  const getCustomers = (data) => {
-    return [...(data || [])].map((d) => {
-      d.date = new Date(d.date);
-      return d;
-    });
-  };
+  function update(patch) {
+    setFilters((current) => ({ ...current, ...patch }));
+  }
 
-  const clearFilter = () => {
-    initFilters();
-  };
+  function reset() {
+    setFilters({ search: "", sport: "", state: "" });
+  }
 
-  const onGlobalFilterChange = (e) => {
-    const value = e.target.value;
-    let _filters = { ...filters };
-
-    _filters["global"].value = value;
-    // Update the global filter value for all fields
-    setGlobalFilterValues({
-      SportName: value,
-      Category: value,
-    });
-
-    setFilters(_filters);
-  };
-
-  const initFilters = () => {
-    setFilters({
-      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    });
-
-    // Set the global filter values for all fields to empty strings
-    setGlobalFilterValues({
-      Name: "",
-      ContactNum: "",
-      Email: "",
-    });
-  };
-
-  const renderHeader = () => {
-    return (
-      <div className="flex justify-between mr-2">
-        <Button
-          type="button"
-          label="Clear"
-          outlined
-          className="px-4 py-2 rounded-lg text-blue-800 ring-0 border-2 border-blue-700 hover:bg-gray-200"
-          onClick={clearFilter}
-        />
-        <span className="p-input-icon-left">
-          <InputText
-            value={globalFilterValues.Name}
-            onChange={onGlobalFilterChange}
-            placeholder="Keyword Search"
-            className="p-2 ring-1 ring-opacity-50 ring-black focus:ring-blue-600 focus:ring-2 focus:ring-opacity-70 hover:ring-opacity-100 hover:ring-blue-400"
-          />
-        </span>
-      </div>
-    );
-  };
-
-  const dateBodyTemplate = (rowData) => {
-    const date = new Date(rowData.createdAt);
-    return formatDate(date);
-  };
-  const dateBodyupdatweTemplate = (rowData) => {
-    const date = new Date(rowData.updatedAt);
-    return formatDate(date);
-  };
-
-  const formatDate = (value) => {
-    if (value instanceof Date) {
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, "0");
-      const day = String(value.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-    return "";
-  };
-
-  const dateFilterTemplate = (options) => {
-    return (
-      <Calendar
-        value={options.value}
-        onChange={(e) => options.filterCallback(e.value, options.index)}
-        dateFormat="mm/dd/yy"
-        placeholder="mm/dd/yyyy"
-        mask="99/99/9999"
-      />
-    );
-  };
-
-  //   const actionBodyTemplate = (rowData) => {
-  //     return (
-  //       <div className="flex justify-between">
-  //         <Link to={"/admin/blogsedit"} state={{ data: rowData }}>
-  //           <button
-  //             type="button"
-  //             className="text-blue-500 hover:text-blue-700 p-1"
-  //           >
-  //             {/* Your SVG icon for editing */}
-  //           </button>
-  //         </Link>
-  //         <button
-  //           type="button"
-  //           onClick={() => DeleteHandler(rowData)}
-  //           className="text-red-500 hover:text-red-700 p-1"
-  //         >
-  //           {/* Your SVG icon for deleting */}
-  //         </button>
-  //       </div>
-  //     );
-  //   };
-
-  const header = renderHeader();
-  const [first, setFirst] = useState(0);
-
-  const calculateIndex = (currentPage, rowIndex) => {
-    return currentPage * 10 + rowIndex + 1;
-  };
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalImages, setModalImages] = useState([]);
-  const [selectedRowData, setSelectedRowData] = useState(null);
-  const modalOverlayRef = useRef(null);
-
-  const openModal = (rowdata) => {
-    setModalImages(rowdata.images);
-    setSelectedRowData(rowdata);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalImages([]);
-    setSelectedRowData(null);
-    setIsModalOpen(false);
-  };
-
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (
-        modalOverlayRef.current &&
-        !modalOverlayRef.current.contains(event.target)
-      ) {
-        closeModal();
-      }
-    };
-
-    if (isModalOpen) {
-      document.addEventListener("mousedown", handleOutsideClick);
-    } else {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [isModalOpen]);
-
-  return (
-    <div>
-      {isModalOpen && (
-        <div
-          ref={modalOverlayRef}
-          className="fixed inset-0 z-50 flex items-center justify-center modal-overlay bg-gray-900 bg-opacity-80"
-        >
-          <div className="modal-above-screen bg-white rounded-lg p-4 relative">
-            <span
-              className="close absolute top-2 right-2 text-3xl cursor-pointer"
-              onClick={closeModal}
-            >
-              &times;
-            </span>
-            <div className="modal-body p-4 flex justify-center items-center">
-              {modalImages.map((item, index) => (
-                <img
-                  key={index}
-                  src={item}
-                  alt="Sport Facility Pic"
-                  className="w-40 h-40 object-cover mx-2"
-                />
-              ))}
-            </div>
+  const columns = [
+    {
+      key: "name",
+      header: "Guest",
+      sortKey: "name",
+      render: (row) => (
+        <div className="flex min-w-[210px] items-center gap-3">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-xs font-extrabold text-sky-700"
+            aria-hidden="true"
+          >
+            {initials(row.name)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-bold text-slate-800">{row.name}</p>
+            <p className="truncate text-[11px] text-slate-500">
+              {row.email || "Email not recorded"}
+            </p>
           </div>
         </div>
-      )}
-      <div className="card">
-        <DataTable
-          value={customers}
-          paginator
-          showGridlines
-          stripedRows
-          rows={10}
-          rowsPerPageOptions={[10, 25, 50]}
-          loading={loading}
-          dataKey="_id"
-          filters={filters}
-          globalFilterFields={["sport.SportName", "sport.Category", "fees"]}
-          header={header}
-          emptyMessage="No Data found."
-        >
-          <Column
-            field="index"
-            header="Index"
-            style={{ width: "4rem" }}
-            body={(rowData) => {
-              const rowIndex = customers.indexOf(rowData);
-              return calculateIndex(Math.floor(first / 10), rowIndex);
-            }}
-          />
+      ),
+    },
+    {
+      key: "contact",
+      header: "Contact number",
+      render: (row) => (
+        <span className="whitespace-nowrap text-slate-700">
+          {row.contact || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "sport",
+      header: "Sport",
+      sortKey: "sport",
+      render: (row) => (
+        <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+          {row.sport}
+        </span>
+      ),
+    },
+    {
+      key: "timeslot",
+      header: "Time slot",
+      render: (row) => (
+        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700">
+          <Clock3 className="h-3 w-3 text-slate-500" aria-hidden="true" />
+          {formatSlot(row)}
+        </span>
+      ),
+    },
+    {
+      key: "duration",
+      header: "Duration",
+      sortKey: "duration",
+      render: (row) => (
+        <span className="whitespace-nowrap text-slate-700">
+          {row.duration > 0
+            ? `${formatNumber(row.duration)} ${row.duration === 1 ? "day" : "days"}`
+            : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "period",
+      header: "Period",
+      sortKey: "start",
+      render: (row) => (
+        <div className="min-w-[150px]">
+          <p className="whitespace-nowrap text-slate-700">
+            {formatDate(row.start)}
+            {row.end && row.end !== row.start ? ` – ${formatDate(row.end)}` : ""}
+          </p>
+          <span
+            className={`mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+              PERIOD_TONES[row.state] || PERIOD_TONES.Finished
+            }`}
+          >
+            {row.state}
+          </span>
+        </div>
+      ),
+    },
+  ];
 
-          <Column
-            header="Name"
-            field="Name"
-            filterField="Name"
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="Email"
-            field="Email"
-            filterField="Category"
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="Contact Number"
-            field="ContactNum"
-            filterField="Category"
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="Days "
-            field="duration"
-            filterField="Category"
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="Start Date"
-            field="createdAt"
-            filterField="Category"
-            body={(e) => {
-              return dateBodyTemplate(e);
-            }}
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="End Date"
-            field="updatedAt"
-            filterField="Category"
-            body={(e) => {
-              return dateBodyupdatweTemplate(e);
-            }}
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="SportComplex"
-            field="SportComplexId.name"
-            filterField="Category"
-            style={{ minWidth: "12rem" }}
-          />
-          <Column
-            header="Facility"
-            field="sport.SportName"
-            filterField="Category"
-            style={{ minWidth: "12rem" }}
-          />
-        </DataTable>
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Guest bookings"
+          value={formatNumber(rows.length)}
+          caption="Booked at this complex"
+          icon={CalendarDays}
+          tone="green"
+        />
+        <KpiCard
+          label="Active now"
+          value={formatNumber(activeCount)}
+          caption="Within the booked period"
+          icon={Clock3}
+          tone="blue"
+        />
+        <KpiCard
+          label="Sports booked"
+          value={formatNumber(sportsBooked)}
+          caption="Across all guest slots"
+          icon={Trophy}
+          tone="amber"
+        />
+        <KpiCard
+          label="Average duration"
+          value={averageDuration}
+          caption="Per guest booking"
+          icon={Timer}
+          tone="slate"
+        />
       </div>
-    </div>
+
+      <Card className="mb-4">
+        <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4 sm:px-5">
+          <Field label="Search" htmlFor="slot-search" className="sm:col-span-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500"
+                aria-hidden="true"
+              />
+              <input
+                id="slot-search"
+                type="search"
+                value={filters.search}
+                onChange={(event) => update({ search: event.target.value })}
+                placeholder="Guest name, email, contact number or sport"
+                className={`${inputClass} pl-9`}
+              />
+            </div>
+          </Field>
+
+          <Field label="Sport" htmlFor="slot-sport">
+            <select
+              id="slot-sport"
+              className={selectClass}
+              value={filters.sport}
+              onChange={(event) => update({ sport: event.target.value })}
+            >
+              <option value="">All sports</option>
+              {sportOptions.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Period" htmlFor="slot-state">
+            <select
+              id="slot-state"
+              className={selectClass}
+              value={filters.state}
+              onChange={(event) => update({ state: event.target.value })}
+            >
+              <option value="">All periods</option>
+              <option value="Active">Active</option>
+              <option value="Upcoming">Upcoming</option>
+              <option value="Finished">Finished</option>
+            </select>
+          </Field>
+        </div>
+        <div className="flex justify-end border-t border-slate-100 px-4 py-3 sm:px-5">
+          <Button variant="secondary" onClick={reset} disabled={!isFiltered}>
+            <RotateCcw className="h-4 w-4" /> Reset filters
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        {loading && !data ? (
+          <TableSkeleton rows={6} columns={6} />
+        ) : error ? (
+          <ErrorState message={error.message} onRetry={reload} />
+        ) : (
+          <>
+            <DataTable
+              caption="Guest bookings and time slots at this sports complex"
+              columns={columns}
+              rows={table.pageRows}
+              sort={table.sort}
+              onSort={table.toggleSort}
+              empty={
+                isFiltered ? (
+                  <EmptyState
+                    title="No guest bookings match these filters"
+                    description="Try a different guest name, sport or period."
+                    action={<Button onClick={reset}>Reset filters</Button>}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No guest time slots yet"
+                    description="Guest bookings made against the courts at this complex will appear here."
+                  />
+                )
+              }
+            />
+            {table.total > 0 ? (
+              <Pagination
+                page={table.page}
+                pageCount={table.pageCount}
+                pageSize={table.pageSize}
+                total={table.total}
+                setPage={table.setPage}
+                setPageSize={table.setPageSize}
+              />
+            ) : null}
+          </>
+        )}
+      </Card>
+    </>
   );
 }

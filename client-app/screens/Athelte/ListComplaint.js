@@ -106,11 +106,11 @@ const ListComplaint = () => {
                 <View style={styles.row}>
                   <View style={styles.column1}>
                     <Text style={styles.label}>Type</Text>
-                    <Text style={styles.label}>{item.type.Type}</Text>
+                    <Text style={styles.label}>{item.type?.Type || "-"}</Text>
                   </View>
                   <View style={styles.column2}>
                     <Text style={styles.label}>
-                      {item.createdAt.split("T")[0]}
+                      {item.createdAt ? item.createdAt.split("T")[0] : ""}
                     </Text>
                   </View>
                   <View>

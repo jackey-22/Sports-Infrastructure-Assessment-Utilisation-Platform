@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Swal from "sweetalert2";
 import "primereact/resources/themes/lara-light-indigo/theme.css";
+import LoadError from "../../Common/LoadError";
 import { FilterMatchMode } from "primereact/api";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -8,61 +8,34 @@ import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Calendar } from "primereact/calendar";
 import { Link } from "react-router-dom";
-import { useCookies } from "react-cookie";
 import { useSelector } from "react-redux";
 import { AthelteServices } from "./AthelteServices";
 
 export default function AthelteDataTable() {
   const { SportComplexId } = useSelector((state) => state.user.user);
-  const [deleterefresh, setdeleterefresh] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loadError, setLoadError] = useState(false);
   const [customers, setCustomers] = useState(null);
   const [filters, setFilters] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [globalFilterValues, setGlobalFilterValues] = useState({
     Name: "",
     ContactNum: "",
     Email: "",
     District: "",
   });
-  const [cookies] = useCookies(["token"]);
-
-  const DeleteHandler = (rowdata) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, Delete it!",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        var myHeaders = new Headers();
-        myHeaders.append("token", cookies.token);
-        var requestOptions = {
-          method: "DELETE",
-          headers: myHeaders,
-          redirect: "follow",
-        };
-        fetch(`http://localhost:9999/deleteblog/${rowdata._id}`, requestOptions)
-          .then((response) => response.text())
-          .then((result) => {
-            setdeleterefresh(!deleterefresh);
-          })
-          .catch((error) => console.log("error", error));
-        console.log("Deleted !!");
-        Swal.fire("Deleted!", "Your file has been deleted.", "success");
-      }
-    });
-  };
 
   useEffect(() => {
     AthelteServices.getCustomersXLarge(SportComplexId).then((data) => {
       setCustomers(getCustomers(data));
+      setLoadError(false);
+      setLoading(false);
+    }).catch(() => {
+      setLoadError(true);
       setLoading(false);
     });
     initFilters();
-  }, [deleterefresh]);
+  }, [refreshKey]);
 
   const getCustomers = (data) => {
     return [...(data || [])].map((d) => {
@@ -165,13 +138,6 @@ export default function AthelteDataTable() {
             {/* Your SVG icon for editing */}
           </button>
         </Link>
-        <button
-          type="button"
-          onClick={() => DeleteHandler(rowData)}
-          className="text-red-500 hover:text-red-700 p-1"
-        >
-          {/* Your SVG icon for deleting */}
-        </button>
       </div>
     );
   };
@@ -185,6 +151,7 @@ export default function AthelteDataTable() {
 
   return (
     <div className="card">
+      {loadError && <LoadError onRetry={() => setRefreshKey((k) => k + 1)} />}
       <DataTable
         value={customers}
         paginator
@@ -285,3 +252,4 @@ export default function AthelteDataTable() {
     </div>
   );
 }
+

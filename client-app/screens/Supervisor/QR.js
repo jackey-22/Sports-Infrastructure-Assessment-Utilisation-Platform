@@ -4,20 +4,23 @@ import React, { useEffect, useState } from "react";
 import { BarCodeScanner } from "expo-barcode-scanner";
 import { useSelector } from "react-redux";
 import ipconfig from "../../ipconfig";
+
+// A supervisor scans an athlete's ID-card QR (which carries the athlete's user
+// id) to record that athlete's entry/exit at the supervisor's own complex.
+// POST /addSession/:complexId re-checks server-side that the complex is within
+// the caller's scope.
 export default function QR({ navigation }) {
   const userdata = useSelector((state) => state.user.User);
   const ip = ipconfig.ip;
   const [hasPermission, setHasPermission] = useState(false);
   const [scanData, setScanData] = useState(undefined);
-  const [supervisorId, setsupervisorId] = useState("");
-  // const [complexid, setcomplexid] = useState("");
-  // const [athleteid, setathleteid] = useState("");
+
   useEffect(() => {
     (async () => {
       const { status } = await BarCodeScanner.requestPermissionsAsync();
       setHasPermission(status === "granted");
     })();
-  }, [userdata]);
+  }, []);
 
   if (!hasPermission) {
     return (
@@ -29,32 +32,37 @@ export default function QR({ navigation }) {
 
   const handleBarCodeScanned = ({ type, data }) => {
     setScanData(data);
-    if (data === userdata._id) {
-      console.log(`Data: ${data}`);
-      console.log(`Type: ${type}`);
-      Alert.alert("Scan Successfully", "Athlete Verified", [
-        // {
-        //     text: 'Cancel',
-        //     onPress: () => console.log('Cancel Pressed'),
-        //     style: 'cancel',
-        // },
-        {
-          text: "OK",
-          onPress: () => {
-            navigation.navigate("ComplexDetails");
-          },
-        },
-      ]);
-    } else {
-      Alert.alert("Alert !!!!", "This Athlete is not from your complex. ", [
-        // {
-        //     text: 'Cancel',
-        //     onPress: () => console.log('Cancel Pressed'),
-        //     style: 'cancel',
-        // },
-        { text: "OK", onPress: () => console.log("OK Pressed") },
-      ]);
-    }
+    const myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    fetch(`http://${ip}:9999/addSession/${userdata.SportComplexId}`, {
+      method: "POST",
+      headers: myHeaders,
+      body: JSON.stringify({ userId: data }),
+      redirect: "follow",
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        if (result.rcode === 200) {
+          Alert.alert("Entry recorded", "Athlete entry marked for this complex.", [
+            { text: "OK", onPress: () => navigation.navigate("ComplexDetails") },
+          ]);
+        } else if (result.rcode === 205) {
+          Alert.alert("Exit recorded", "Athlete exit marked for this complex.", [
+            { text: "OK", onPress: () => navigation.navigate("ComplexDetails") },
+          ]);
+        } else {
+          Alert.alert(
+            "Not verified",
+            result.msg || "This QR code is not a valid athlete ID.",
+            [{ text: "OK", onPress: () => console.log("OK Pressed") }]
+          );
+        }
+      })
+      .catch(() => {
+        Alert.alert("Connection error", "Could not reach the server.", [
+          { text: "OK", onPress: () => console.log("OK Pressed") },
+        ]);
+      });
   };
 
   return (

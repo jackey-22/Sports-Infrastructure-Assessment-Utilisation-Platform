@@ -68,9 +68,9 @@ const AddComplaint = () => {
     },
   });
   return (
-    <div className="flex items-center justify-center bg-[#f8f9fa] h-screen scrollbar m-5">
+    <div className="flex items-center justify-center min-h-screen scrollbar m-5">
       <div className="w-full max-w-2xl">
-        <h2 className="text-center text-2xl uppercase font-semibold font-serif text-gray-800">
+        <h2 className="text-center text-2xl uppercase font-semibold font-display text-gray-800">
           Add New Complaint
         </h2>
         <form
@@ -149,7 +149,7 @@ const AddComplaint = () => {
           ) : null}
           <div className="flex items-center justify-center">
             <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="bg-brand-primary hover:bg-brand-dark text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
               type="submit"
               // onClick={console.log("Hello")}
             >

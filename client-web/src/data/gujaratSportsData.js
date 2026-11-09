@@ -682,58 +682,7 @@ export const GUJARAT_FACILITIES = [
   }
 ];
 
-export const DEMO_USERS = [
-  {
-    roleName: "State Administrator (SAG Head)",
-    roleId: 5,
-    email: "admin@sag.gujarat.gov.in",
-    password: "admin",
-    name: "Dr. Arvind Patel, IAS (Director General, SAG)",
-    district: "State Headquarters (Gandhinagar)",
-    badgeColor: "bg-purple-600 text-white",
-    description: "Macro-level Gujarat infrastructure planning, budget approval, and statewide GIS utilization analytics."
-  },
-  {
-    roleName: "District Sports Officer (DSO Authority)",
-    roleId: 4,
-    email: "dso.ahmedabad@sag.gujarat.gov.in",
-    password: "dso",
-    name: "Shri Bhavik Solanki (DSO Ahmedabad)",
-    district: "Ahmedabad District",
-    badgeColor: "bg-blue-600 text-white",
-    description: "District-level facility condition audits, maintenance approval, and institutional tournament allocations."
-  },
-  {
-    roleName: "Sports Complex Manager",
-    roleId: 3,
-    email: "manager.khokhra@sag.gujarat.gov.in",
-    password: "manager",
-    name: "Rajesh Vaghela (Khokhra Sports Complex)",
-    district: "Ahmedabad (Maninagar Taluka)",
-    badgeColor: "bg-emerald-600 text-white",
-    description: "Day-to-day court slot scheduling, facility condition inspection logging, and coach/supervisor roster."
-  },
-  {
-    roleName: "Coach / Instructor",
-    roleId: 2,
-    email: "coach.patel@gujarat.org",
-    password: "coach",
-    name: "Coach Nayan Patel (State Badminton Trainer)",
-    district: "Vadodara / Sama Complex",
-    badgeColor: "bg-amber-600 text-white",
-    description: "Talent batch reservations, athlete training performance tracking, and equipment requisitions."
-  },
-  {
-    roleName: "Citizen / Athlete",
-    roleId: 0,
-    email: "athlete.aarav@gmail.com",
-    password: "athlete",
-    name: "Aarav Trivedi (Competitive Badminton Athlete)",
-    district: "Ahmedabad",
-    badgeColor: "bg-teal-600 text-white",
-    description: "Public facility discovery, interactive map search, pay-and-play booking, and condition feedback."
-  }
-];
+
 
 export const SAMPLE_INSTITUTIONAL_BOOKINGS = [
   {

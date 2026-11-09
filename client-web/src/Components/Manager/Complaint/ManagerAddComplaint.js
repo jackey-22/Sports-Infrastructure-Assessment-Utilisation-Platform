@@ -4,49 +4,82 @@ import { compalintSchemas } from "../../../Schemas";
 import { useSelector } from "react-redux";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { Button, Card, Field, PageHeader, PageShell, inputClass, selectClass } from "../Common/ManagerUI";
+
 const initialValues = {
   type: "",
   description: "",
   Thumbnail: [],
 };
+
 const ManagerAddComplaint = () => {
   const navigate = useNavigate();
-  const ComplaintType = useSelector((s) => s.complaintType.complaintType);
+  const ComplaintType = useSelector((s) => s.complaintType.complaintType) || [];
   const { _id, SportComplexId } = useSelector((s) => s.user.user);
+
   const handleOneFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
     setFieldValue("Thumbnail", selectedFiles);
   };
-  const submitHandler = (values) => {
-    var fileInput = document.getElementById("fileInput");
-    var formdata = new FormData();
+
+  const submitHandler = async (values, actions) => {
+    if (!_id || !SportComplexId) {
+      actions.setSubmitting(false);
+      Swal.fire({
+        icon: "error",
+        title: "Cannot submit",
+        text: "Your manager session or sports complex is unavailable. Please log in again.",
+      });
+      return;
+    }
+
+    const formdata = new FormData();
     formdata.append("type", values.type);
     formdata.append("Description", values.description);
     formdata.append("userId", _id);
     formdata.append("sportsComplex", SportComplexId);
     formdata.append("level", "2");
     formdata.append("status", "0");
-    formdata.append("picture", fileInput.files[0], values.Thumbnail[0].name);
+    if (values.Thumbnail[0]) {
+      formdata.append("picture", values.Thumbnail[0], values.Thumbnail[0].name);
+    }
 
-    var requestOptions = {
-      method: "POST",
-      body: formdata,
-      redirect: "follow",
-    };
+    let result;
+    try {
+      const response = await fetch("http://localhost:9999/addComplaint", {
+        method: "POST",
+        body: formdata,
+        redirect: "follow",
+      });
+      if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+      result = await response.json();
+    } catch (error) {
+      actions.setSubmitting(false);
+      Swal.fire({
+        icon: "error",
+        title: "Submission failed",
+        text: "The complaint could not be saved. Please try again.",
+      });
+      return;
+    }
 
-    fetch("http://localhost:9999/addComplaint", requestOptions)
-      .then((response) => response.text())
-      .then((result) => {
-        Swal.fire({
-          position: "top-end",
-          icon: "success",
-          title: "Complaint Added Successfully",
-          showConfirmButton: false,
-          timer: 1500,
-        });
-        navigate("/admin/allcomplaints");
-      })
-      .catch((error) => console.log("error", error));
+    actions.setSubmitting(false);
+    if (result.rcode === 200) {
+      Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "Complaint forwarded to the district authority",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      navigate("/manager/allcomplaint");
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "Submission failed",
+        text: result.msg || "The server rejected the complaint. Please try again.",
+      });
+    }
   };
 
   const {
@@ -56,109 +89,82 @@ const ManagerAddComplaint = () => {
     handleBlur,
     handleChange,
     handleSubmit,
+    isSubmitting,
     setFieldValue,
   } = useFormik({
-    initialValues: initialValues,
+    initialValues,
     validationSchema: compalintSchemas,
-    onSubmit: (values, action) => {
-      console.log(values);
-      submitHandler(values);
-
-      // action.resetForm();
-    },
+    onSubmit: submitHandler,
   });
+
   return (
-    <div className="flex items-center justify-center bg-[#f8f9fa] m-5 h-screen scrollbar">
-      <div className="w-full max-w-2xl">
-        <h2 className="text-center text-2xl uppercase font-semibold font-serif text-gray-800">
-          Add New Complaint
-        </h2>
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 mt-8 shadow-gray-700"
-        >
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="type"
-            >
-              Complaint Type
-            </label>
+    <PageShell>
+      <PageHeader
+        eyebrow="Facility Manager"
+        title="Submit a grievance"
+        description="Send a facility complaint to the district authority. A photo helps the inspection."
+      />
+      <Card>
+        <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4 px-5 py-6 sm:px-8">
+          <Field label="Complaint type" htmlFor="type">
             <select
               name="type"
               id="type"
               value={values.type}
-              className=" border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className={selectClass}
               onChange={handleChange}
               onBlur={handleBlur}
             >
-              <option value="">Select any One</option>
-              {ComplaintType.map((item, index) => (
-                <option key={index} value={item._id}>
+              <option value="">Select a type</option>
+              {ComplaintType.map((item) => (
+                <option key={item._id} value={item._id}>
                   {item.Type}
                 </option>
               ))}
             </select>
             {errors.type && touched.type ? (
-              <small className="text-ligth text-red-600">{errors.type}</small>
+              <p className="mt-1 text-xs font-semibold text-red-700">{errors.type}</p>
             ) : null}
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="description"
-            >
-              Description
-            </label>
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          </Field>
+
+          <Field label="Description" htmlFor="description" hint="What is wrong, and where in the complex.">
+            <textarea
+              className={`${inputClass} min-h-28`}
               name="description"
-              type="text"
-              placeholder="Description"
+              id="description"
+              placeholder="Describe the issue"
               value={values.description}
               onChange={handleChange}
               onBlur={handleBlur}
             />
             {errors.description && touched.description ? (
-              <small className="text-ligth text-red-600">
-                {errors.description}
-              </small>
+              <p className="mt-1 text-xs font-semibold text-red-700">{errors.description}</p>
             ) : null}
-          </div>
-          <div className="mb-4">
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="Thumbnail"
-            >
-              Image
-            </label>
+          </Field>
+
+          <Field label="Photograph" htmlFor="fileInput" hint="JPEG or PNG. Optional.">
             <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className={inputClass}
               name="Thumbnail"
               type="file"
               id="fileInput"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               onChange={handleOneFileChange}
               onBlur={handleBlur}
             />
-          </div>
-          {errors.Thumbnail && touched.Thumbnail ? (
-            <small className="text-ligth text-red-600">
-              {errors.Thumbnail}
-            </small>
-          ) : null}
-          <div className="flex items-center justify-center">
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              type="submit"
-              // onClick={console.log("Hello")}
-            >
-              Submit
-            </button>
+            {errors.Thumbnail && touched.Thumbnail ? (
+              <p className="mt-1 text-xs font-semibold text-red-700">{errors.Thumbnail}</p>
+            ) : null}
+          </Field>
+
+          <div className="flex justify-end pt-2">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting…" : "Submit grievance"}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 };
 
