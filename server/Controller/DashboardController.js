@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const SportsComplex = require("../Model/SportsComplexModel");
 const Sport = require("../Model/SportModel");
 const User = require("../Model/UsersModel");
@@ -9,6 +8,7 @@ const BookingPayment = require("../Model/BookingPaymentModel");
 const Complaint = require("../Model/ComplaintModel");
 const Grant = require("../Model/GrantModel");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
+const Review = require("../Model/ReviewModel");
 const { ROLE } = require("../Utils/roles");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
@@ -35,11 +35,13 @@ function grantStats(grants) {
   let allocated = 0; let utilised = 0; let pendingProofs = 0; let queries = 0;
   grants.forEach((grant) => {
     allocated += Number(grant.allocatedAmount) || 0;
+    let verifiedUsage = 0;
     (grant.progressUpdates || []).forEach((progress) => {
-      if (progress.reviewStatus === "Verified") utilised += Number(progress.amountUsed) || 0;
+      if (progress.reviewStatus === "Verified") verifiedUsage = Math.max(verifiedUsage, Number(progress.amountUsed) || 0);
       if (progress.reviewStatus === "Pending") pendingProofs += 1;
       if (progress.reviewStatus === "Query Raised") queries += 1;
     });
+    utilised += verifiedUsage;
   });
   return { count: grants.length, allocated, utilised, pendingProofs, queries };
 }
@@ -55,7 +57,7 @@ async function buildDashboard({ facility = null }) {
   const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
   const today = indiaDate();
 
-  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, trendBookings, payments, complaints, grants, assessments] = await Promise.all([
+  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, trendBookings, payments, complaints, grants, assessmentCount, reviews] = await Promise.all([
     facility ? [facility] : SportsComplex.find().populate("district", "District").lean(),
     facility ? FacilitySportConfig.distinct("sport", { facility: facility._id, status: "Active" }).then((ids) => ids.length) : Sport.countDocuments({ status: "Active" }),
     Instructor.countDocuments({ ...coachFilter, status: "Active" }),
@@ -63,15 +65,16 @@ async function buildDashboard({ facility = null }) {
     FacilitySportConfig.find({ ...facilityFilter, status: "Active" }).populate("sport", "SportName").lean(),
     Guest.find(bookingFacilityFilter).select("Startdate bookingStatus paymentStatus memberCount reservedUnits").lean(),
     Guest.find({ ...bookingFacilityFilter, createdAt: { $gte: trendStart } }).select("createdAt").lean(),
-    BookingPayment.find({ ...facilityFilter, createdAt: { $gte: trendStart } }).populate("sport", "SportName").populate("facility", "name").sort({ createdAt: -1 }).lean(),
+    BookingPayment.find(facilityFilter).populate("sport", "SportName").populate("facility", "name").sort({ createdAt: -1 }).lean(),
     Complaint.find(complaintFilter).select("workflowStatus status dueAt createdAt subject sportsComplex").sort({ createdAt: -1 }).lean(),
     Grant.find(grantFilter).select("allocatedAmount status progressUpdates facility title").lean(),
-    FacilityAssessment.find(assessmentFilter).sort({ createdAt: -1 }).limit(20).lean(),
+    FacilityAssessment.countDocuments(assessmentFilter),
+    Review.find(facilityFilter).select("targetType rating facility").lean(),
   ]);
 
   const monthMap = new Map(months.map((item) => [item.key, item]));
   trendBookings.forEach((booking) => { const item = monthMap.get(monthKey(new Date(booking.createdAt))); if (item) item.bookings += 1; });
-  payments.filter((payment) => payment.status === "Paid").forEach((payment) => { const item = monthMap.get(monthKey(new Date(payment.paidAt || payment.createdAt))); if (item) item.revenue += Number(payment.amount) || 0; });
+  payments.filter((payment) => payment.status === "Paid" && new Date(payment.paidAt || payment.createdAt) >= trendStart).forEach((payment) => { const item = monthMap.get(monthKey(new Date(payment.paidAt || payment.createdAt))); if (item) item.revenue += Number(payment.amount) || 0; });
 
   const paidPayments = payments.filter((payment) => payment.status === "Paid");
   const revenue = paidPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
@@ -89,6 +92,18 @@ async function buildDashboard({ facility = null }) {
   const escalated = complaints.filter((item) => item.workflowStatus === "Escalated").length;
   const overdue = openComplaints.filter((item) => item.dueAt && new Date(item.dueAt) < now).length;
   const grantSummary = grantStats(grants);
+  const ratingSummary = reviews.reduce((summary, review) => {
+    summary.count += 1;
+    summary.total += Number(review.rating) || 0;
+    summary.byType[review.targetType].count += 1;
+    summary.byType[review.targetType].total += Number(review.rating) || 0;
+    return summary;
+  }, { count: 0, total: 0, byType: { facility: { count: 0, total: 0 }, sport: { count: 0, total: 0 }, coach: { count: 0, total: 0 } } });
+  const ratings = {
+    count: ratingSummary.count,
+    average: ratingSummary.count ? ratingSummary.total / ratingSummary.count : 0,
+    byType: Object.fromEntries(Object.entries(ratingSummary.byType).map(([key, value]) => [key, { count: value.count, average: value.count ? value.total / value.count : 0 }])),
+  };
   const configuredFacilityIds = new Set(configs.map((config) => String(config.facility)));
   const recent = await Guest.find(bookingFacilityFilter)
     .populate("SportComplexId", "name")
@@ -123,7 +138,8 @@ async function buildDashboard({ facility = null }) {
       escalatedGrievances: escalated,
       overdueGrievances: overdue,
       grants: grantSummary,
-      assessments: assessments.length,
+      assessments: assessmentCount,
+      ratings,
     },
     trend: months,
     topSports: [...sportMap.values()].sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings).slice(0, 8),
