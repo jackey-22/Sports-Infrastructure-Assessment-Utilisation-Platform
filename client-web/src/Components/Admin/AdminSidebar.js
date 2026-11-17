@@ -30,6 +30,7 @@ const PLATFORM = [
   },
   { to: "/admin/insights/grievances", label: "Grievances", icon: MessageSquareWarning },
   { to: "/admin/insights/transactions", label: "Transactions", icon: Receipt },
+  { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },
   { to: "/admin/insights/grants", label: "Grants", icon: Wallet },
   { to: "/admin/insights/assessments", label: "Facility assessments", icon: ClipboardCheck },
 ];

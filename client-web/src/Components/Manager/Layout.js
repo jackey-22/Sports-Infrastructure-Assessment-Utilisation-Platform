@@ -40,7 +40,7 @@ const NAV_ITEMS = [
 ];
 
 const OPS_ITEMS = [
-  { to: "/manager/transactions", label: "Transactions", icon: Building2 },
+  { to: "/manager/transactions", label: "Bookings & payments", icon: Building2 },
   { to: "/manager/grants", label: "Grants", icon: ShieldCheck },
   { to: "/manager/assessment", label: "Condition Assessment", icon: Activity },
 ];

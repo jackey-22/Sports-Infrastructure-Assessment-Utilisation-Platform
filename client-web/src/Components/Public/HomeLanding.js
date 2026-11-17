@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -15,11 +15,7 @@ import {
 } from "lucide-react";
 import PublicNavbar from "./PublicNavbar";
 import FacilityCard from "./FacilityCard";
-import {
-  GUJARAT_DISTRICTS,
-  SPORTS_LIST
-} from "../../data/gujaratSportsData";
-import { getPublicFacilities } from "../../data/adminFacilityData";
+import { getPublicFacilities } from "../../services/public/publicFacilityService";
 
 const POPULAR_SPORTS = ["Cricket", "Football", "Badminton", "Athletics & Track", "Swimming"];
 
@@ -33,8 +29,19 @@ const FEATURES = [
 export default function HomeLanding() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [facilities, setFacilities] = useState(getPublicFacilities);
+  const [facilities, setFacilities] = useState([]);
   const carouselRef = useRef(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    getPublicFacilities({ signal: controller.signal })
+      .then(setFacilities)
+      .catch((error) => {
+        if (error.name !== "AbortError") console.error("Could not load public facilities", error);
+      });
+    return () => controller.abort();
+  }, []);
+  const liveDistrictCount = useMemo(() => new Set(facilities.map((facility) => facility.district)).size, [facilities]);
+  const liveSportCount = useMemo(() => new Set(facilities.flatMap((facility) => facility.sports.map((sport) => sport.name))).size, [facilities]);
 
   const handleSearch = (e) => {
     e?.preventDefault?.();
@@ -148,17 +155,17 @@ export default function HomeLanding() {
         <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-lg border border-slate-100 px-4 sm:px-8 py-6 sm:py-7 grid grid-cols-2 lg:grid-cols-4 gap-6">
           <StatItem
             icon={Building2}
-            value="12,846"
+            value={String(facilities.length)}
             label="Total Facilities"
           />
           <StatItem
             icon={Map}
-            value={String(GUJARAT_DISTRICTS.length)}
+            value={String(liveDistrictCount)}
             label="Districts Covered"
           />
           <StatItem
             icon={Trophy}
-            value={`${SPORTS_LIST.length}+`}
+            value={String(liveSportCount)}
             label="Sports Supported"
           />
           <StatItem

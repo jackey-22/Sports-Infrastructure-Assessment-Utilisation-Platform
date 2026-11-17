@@ -51,6 +51,7 @@ const GuestSchema = new mongoose.Schema(
       ref: "facilitysportconfigs",
     },
     slotId: { type: mongoose.SchemaTypes.ObjectId },
+    coach: { type: mongoose.SchemaTypes.ObjectId, ref: "instructors", default: null },
     memberCount: { type: Number, min: 1, default: 1 },
     reservedUnits: { type: Number, min: 1, default: 1 },
     totalAmount: { type: Number, min: 0, default: 0 },
@@ -60,6 +61,14 @@ const GuestSchema = new mongoose.Schema(
       enum: ["Pending Payment", "Confirmed", "Cancelled"],
       default: "Pending Payment",
     },
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Paid", "Failed", "Refunded"],
+      default: "Pending",
+    },
+    razorpayOrderId: { type: String, index: true },
+    razorpayPaymentId: { type: String, index: true },
+    paidAt: Date,
     priceBreakdown: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }

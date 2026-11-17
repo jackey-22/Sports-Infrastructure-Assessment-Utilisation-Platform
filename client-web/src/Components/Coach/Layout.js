@@ -20,12 +20,14 @@ import {
   BarChart3,
   FileText,
   ClipboardList,
+  Receipt,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/coach/dashboard", label: "Dashboard", icon: Activity },
   { to: "/coach/athletes", label: "Assigned Athletes", icon: Users },
   { to: "/coach/rating-history", label: "Rating History", icon: ClipboardList },
+  { to: "/coach/bookings", label: "Bookings", icon: Receipt },
 ];
 
 const itemClass = ({ isActive }) =>

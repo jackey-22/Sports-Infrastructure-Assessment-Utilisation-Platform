@@ -14,7 +14,7 @@ const slotSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ["open-play", "coaching", "competition", "maintenance"],
+      enum: ["open-play", "coaching", "competition"],
       default: "open-play",
     },
     coach: { type: mongoose.SchemaTypes.ObjectId, ref: "instructors", default: null },

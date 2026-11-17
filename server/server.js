@@ -49,7 +49,7 @@ const FacilityAssessmentController = require("./Controller/FacilityAssessmentCon
 const CatalogManagementController = require("./Controller/CatalogManagementController");
 const FacilitySportConfigController = require("./Controller/FacilitySportConfigController");
 const PublicBookingController = require("./Controller/PublicBookingController");
-const OnlinePaymentRouter = require("./Routes/OnlinePaymentRoute");
+const BookingReportController = require("./Controller/BookingReportController");
 
 const {
   filtersportsforcomplex,
@@ -860,9 +860,18 @@ app.get(
 app.get("/gettimeslotforguest", GuestController.gettimeslotfrominstructor);
 app.get("/getPaymentTimeslotCount", PaymentController.getPaymentTimeslotCount);
 
-app.use("/onlinepayment", OnlinePaymentRouter);
 app.get("/api/public/sport-configs", PublicBookingController.listConfigs);
+app.get("/api/public/facilities", PublicBookingController.listFacilities);
 app.post("/api/public/bookings", PublicBookingController.createBooking);
+app.post(
+  "/api/public/bookings/:id/payment/verify",
+  PublicBookingController.verifyBookingPayment
+);
+app.get(
+  "/api/booking-payments/report",
+  requireRole(ROLE.ADMIN, ROLE.MANAGER, ROLE.COACH),
+  BookingReportController.report
+);
 
 app.get(
   "/api/manager/facility",

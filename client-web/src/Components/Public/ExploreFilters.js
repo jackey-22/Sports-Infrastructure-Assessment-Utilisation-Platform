@@ -6,7 +6,6 @@ import {
   PRIMARY_SPORTS,
   countByFacilityType,
 } from "./exploreUtils";
-import { GUJARAT_DISTRICTS, SPORTS_LIST } from "../../data/gujaratSportsData";
 
 const SPORT_ICONS = {
   Cricket: "🏏",
@@ -31,12 +30,13 @@ export default function ExploreFilters({
   typeCountFacilities = [],
   variant = "sidebar",
   onClose,
+  districtOptions = [],
+  sportOptions = [],
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const typeCounts = countByFacilityType(typeCountFacilities);
-  const extraSports = SPORTS_LIST.filter(
-    (s) => !PRIMARY_SPORTS.includes(s.name)
-  ).map((s) => s.name);
+  const primarySports = PRIMARY_SPORTS.filter((sport) => sportOptions.includes(sport));
+  const extraSports = sportOptions.filter((sport) => !PRIMARY_SPORTS.includes(sport));
 
   const shellClass =
     variant === "sheet"
@@ -77,7 +77,7 @@ export default function ExploreFilters({
           className="w-full py-2.5 px-3 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary cursor-pointer"
         >
           <option value="All Districts">All Districts</option>
-          {GUJARAT_DISTRICTS.map((d) => (
+          {districtOptions.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
@@ -100,7 +100,7 @@ export default function ExploreFilters({
           >
             All
           </button>
-          {PRIMARY_SPORTS.map((sport) => {
+          {primarySports.map((sport) => {
             const active = selectedSports.includes(sport);
             return (
               <button
@@ -160,7 +160,6 @@ export default function ExploreFilters({
             <div className="flex flex-wrap gap-1.5">
               {extraSports.map((sport) => {
                 const active = selectedSports.includes(sport);
-                const meta = SPORTS_LIST.find((s) => s.name === sport);
                 return (
                   <button
                     key={sport}
@@ -172,7 +171,7 @@ export default function ExploreFilters({
                         : "bg-white text-slate-600 border-slate-200 hover:border-brand-primary/40"
                     }`}
                   >
-                    <span aria-hidden>{meta?.icon || "🏅"}</span>
+                    <span aria-hidden>{SPORT_ICONS[sport] || "🏅"}</span>
                     {sport}
                   </button>
                 );

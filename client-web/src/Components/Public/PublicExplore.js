@@ -18,7 +18,7 @@ import FacilityDetailPanel from "./FacilityDetailPanel";
 import FacilityConditionAudit from "../Assessment/FacilityConditionAudit";
 import InstitutionalBookingModal from "../Utilisation/InstitutionalBookingModal";
 import CitizenBookingModal from "./CitizenBookingModal";
-import { getPublicFacilities } from "../../data/adminFacilityData";
+import { getPublicFacilities } from "../../services/public/publicFacilityService";
 import {
   CONDITION_OPTIONS,
   getFacilityType,
@@ -36,7 +36,9 @@ export default function PublicExplore() {
   const listScrollRef = useRef(null);
   const suppressAutoSelectRef = useRef(false);
 
-  const [facilities, setFacilities] = useState(getPublicFacilities);
+  const [facilities, setFacilities] = useState([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(true);
+  const [facilitiesError, setFacilitiesError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("All Districts");
   const [selectedSports, setSelectedSports] = useState([]);
@@ -58,6 +60,25 @@ export default function PublicExplore() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
   }, []);
+
+  const loadFacilities = useCallback(async (signal) => {
+    setFacilitiesLoading(true);
+    setFacilitiesError("");
+    try {
+      const rows = await getPublicFacilities({ signal });
+      setFacilities(rows);
+    } catch (error) {
+      if (error.name !== "AbortError") setFacilitiesError(error.message);
+    } finally {
+      if (!signal?.aborted) setFacilitiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadFacilities(controller.signal);
+    return () => controller.abort();
+  }, [loadFacilities]);
 
   useEffect(() => {
     const q = searchParams.get("q");
@@ -155,7 +176,7 @@ export default function PublicExplore() {
     setSelectedConditions([]);
     setSortBy("relevance");
     setNearMeActive(false);
-    setFacilities(getPublicFacilities());
+    loadFacilities();
   };
 
   const toggleInList = (list, value, setter) => {
@@ -172,7 +193,7 @@ export default function PublicExplore() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        const sorted = [...getPublicFacilities()].sort((a, b) => {
+        const sorted = [...facilities].sort((a, b) => {
           const distA = Math.hypot(a.latitude - latitude, a.longitude - longitude);
           const distB = Math.hypot(b.latitude - latitude, b.longitude - longitude);
           return distA - distB;
@@ -191,6 +212,8 @@ export default function PublicExplore() {
   };
 
   const filterProps = {
+    districtOptions: [...new Set(facilities.map((facility) => facility.district).filter(Boolean))].sort(),
+    sportOptions: [...new Set(facilities.flatMap((facility) => facility.sports.map((sport) => sport.name)).filter(Boolean))].sort(),
     selectedDistrict,
     onDistrictChange: setSelectedDistrict,
     selectedSports,
@@ -250,7 +273,7 @@ export default function PublicExplore() {
       label: "Near me",
       onRemove: () => {
         setNearMeActive(false);
-        setFacilities(getPublicFacilities());
+        loadFacilities();
       },
     });
   }
@@ -291,7 +314,7 @@ export default function PublicExplore() {
               : "flex-1 overflow-y-auto space-y-3 pr-1"
           }
         >
-          {items.map((facility) => (
+          {facilitiesLoading ? <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500">Loading facilities from the platform…</div> : facilitiesError ? <div className="col-span-full rounded-2xl border border-red-200 bg-red-50 p-6 text-center"><p className="font-bold text-red-700">Could not load facilities</p><p className="mt-1 text-xs text-red-600">{facilitiesError}</p><button type="button" onClick={() => loadFacilities()} className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white">Retry</button></div> : items.map((facility) => (
             <ExploreListCard
               key={facility.id}
               facility={facility}
@@ -303,7 +326,7 @@ export default function PublicExplore() {
             />
           ))}
 
-          {!peek && filteredFacilities.length === 0 && (
+          {!peek && !facilitiesLoading && !facilitiesError && filteredFacilities.length === 0 && (
             <div className="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200">
               <p className="font-bold text-brand-dark">No matching facilities</p>
               <p className="text-xs text-slate-500 mt-1">

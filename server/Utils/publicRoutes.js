@@ -18,8 +18,8 @@ const PUBLIC_ROUTES = [
   { method: "GET", path: "/getUpdatesForAthlete" },
   { method: "GET", path: "/gettimeslotforguest" },
   { method: "POST", path: "/addGuest" },
-  { method: "POST", path: "/onlinepayment/intent" },
   { method: "GET", path: "/api/public/sport-configs" },
+  { method: "GET", path: "/api/public/facilities" },
   { method: "POST", path: "/api/public/bookings" },
 ];
 
@@ -27,6 +27,7 @@ const PUBLIC_ROUTES = [
 // an Authorization header, so these stay public and are documented as a
 // remaining limitation in the Phase 2B report.
 const PUBLIC_PREFIXES = [
+  { method: "POST", prefix: "/api/public/bookings/" },
   { method: "GET", prefix: "/athelteperformance/" },
   { method: "GET", prefix: "/comparativeathelteperformance/" },
 ];

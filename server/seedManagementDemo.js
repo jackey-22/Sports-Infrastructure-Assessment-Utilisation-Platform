@@ -90,7 +90,6 @@ const CONFIGS = [
       { label: "Ladies batch", startTime: "07:15", endTime: "08:15", days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], capacity: 32, audience: "women", purpose: "open-play", coachEmail: "" },
       { label: "Competitive coaching", startTime: "16:00", endTime: "18:00", days: ["Mon", "Wed", "Fri", "Sat"], capacity: 24, audience: "members", purpose: "coaching", coachEmail: "neha.shah@sag.gujarat.gov.in" },
       { label: "Evening public swim", startTime: "18:15", endTime: "19:15", days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], capacity: 40, audience: "mixed", purpose: "open-play", coachEmail: "" },
-      { label: "Pool maintenance", startTime: "13:00", endTime: "14:00", days: ["Sun"], capacity: 1, audience: "members", purpose: "maintenance", coachEmail: "", bookable: false },
     ],
   },
   {

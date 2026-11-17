@@ -53,7 +53,6 @@ import AuthorityAnalysis from "./Components/Authority/Analysis/AuthorityAnalysis
 import Slot from "./Components/Manager/Slot";
 
 // Phase 2C.2 Manager modules
-import ManagerTransactionList from "./Components/Manager/Transaction/ManagerTransactionList";
 import ManagerGrantList from "./Components/Manager/Grant/ManagerGrantList";
 import ManagerGrantDetail from "./Components/Manager/Grant/ManagerGrantDetail";
 import ManagerProofSubmission from "./Components/Manager/Grant/ManagerProofSubmission";
@@ -86,6 +85,7 @@ import GrantList from "./Components/Admin/Grant/GrantList";
 import AdminAssessmentList from "./Components/Admin/Assessment/AdminAssessmentList";
 import GrantAllocation from "./Components/Admin/Grant/GrantAllocation";
 import GrantDetail from "./Components/Admin/Grant/GrantDetail";
+import BookingPaymentReport from "./Components/Booking/BookingPaymentReport";
 
 const routes = createBrowserRouter([
   {
@@ -121,6 +121,7 @@ const routes = createBrowserRouter([
       { index: true, element: <AdminDashboard /> },
       { path: "grievances", element: <GrievanceList /> },
       { path: "transactions", element: <TransactionList /> },
+      { path: "bookings", element: <BookingPaymentReport role="admin" /> },
       { path: "grants", element: <GrantList /> },
       { path: "grants/allocate", element: <GrantAllocation /> },
       { path: "grants/:grantId", element: <GrantDetail /> },
@@ -250,7 +251,7 @@ const routes = createBrowserRouter([
       },
       {
         path: "transactions",
-        element: <ManagerTransactionList />,
+        element: <BookingPaymentReport role="manager" />,
         errorElement: <ErrorPage />,
       },
       {
@@ -346,6 +347,11 @@ const routes = createBrowserRouter([
       {
         path: "rating-history",
         element: <CoachRatingHistory />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "bookings",
+        element: <BookingPaymentReport role="coach" />,
         errorElement: <ErrorPage />,
       },
     ],
