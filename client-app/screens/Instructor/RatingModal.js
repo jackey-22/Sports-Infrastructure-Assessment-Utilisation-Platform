@@ -8,36 +8,21 @@ import {
   Alert,
 } from "react-native";
 import { Rating } from "react-native-ratings";
-import ipconfig from "../../ipconfig";
+import { api } from "../../src/api/client";
 const RatingModal = (props) => {
-  const ip = ipconfig.ip;
   const [modalVisible, setModalVisible] = useState(props.rateModal);
   const [rating, setRating] = useState(1);
-  console.log(props.rateID);
   const ratinghandler = () => {
-    var myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-
-    var raw = JSON.stringify({
+    api.post("/ratingByInstructor", {
       ratingId: props.rateID,
-      rating: rating,
-    });
-
-    var requestOptions = {
-      method: "POST",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow",
-    };
-
-    fetch(`http://${ip}:9999/ratingByInstructor`, requestOptions)
-      .then((response) => response.text())
-      .then((result) => {
+      rating,
+    })
+      .then(() => {
         alert("Rating Added Successfully");
         props.refreshHandler();
         setModalVisible(false);
       })
-      .catch((error) => console.log("error", error));
+      .catch((error) => alert(error.message || "Could not save rating"));
   };
   function ratingCompleted(rating) {
     setRating(rating);
