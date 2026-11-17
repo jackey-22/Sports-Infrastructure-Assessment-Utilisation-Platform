@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator, StatusBar, StyleSheet } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { colors } from "./src/theme/colors";
+import { logout, restoreSession as restoreStoredSession } from "./src/services/authService";
 
 // Auth & Public Screens
 import LoginScreen from "./src/screens/Auth/LoginScreen";
@@ -27,13 +27,8 @@ export default function App() {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const token = await AsyncStorage.getItem("token");
-        const storedUserData = await AsyncStorage.getItem("userData");
-
-        if (token && storedUserData) {
-          const parsed = JSON.parse(storedUserData);
-          setCurrentUser(parsed);
-        }
+        const session = await restoreStoredSession();
+        if (session) setCurrentUser(session);
       } catch (e) {
         console.warn("Session restore error", e);
       } finally {
@@ -51,8 +46,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem("token");
-      await AsyncStorage.removeItem("userData");
+      await logout();
     } catch (e) {
       // ignore
     }
@@ -117,6 +111,7 @@ export default function App() {
         <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
         <GujaratExploreMapScreen
           onSelectFacility={(fac) => setPublicFacility(fac)}
+          onBack={() => setIsPublicMode(false)}
         />
       </StripeProvider>
     );

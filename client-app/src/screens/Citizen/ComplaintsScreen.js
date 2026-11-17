@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../theme/colors";
 import CitizenHeader from "../../components/common/CitizenHeader";
+import { citizenService } from "../../services/citizen/citizenService";
 
 const CATEGORIES = [
   { id: "cat_1", label: "Turf & Surface Degradation", iconName: "grass", iconType: "material" },
@@ -63,7 +64,13 @@ const INITIAL_COMPLAINTS = [
 ];
 
 export const ComplaintsScreen = ({ onBack, onLogout }) => {
-  const [complaints, setComplaints] = useState(INITIAL_COMPLAINTS);
+  const [complaints, setComplaints] = useState([]);
+  const [complaintTypes, setComplaintTypes] = useState(CATEGORIES.map((item) => ({
+    id: item.id,
+    name: item.label,
+  })));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0].label);
   const [subject, setSubject] = useState("Court 2 Badminton Net Cable Slack");
@@ -71,6 +78,43 @@ export const ComplaintsScreen = ({ onBack, onLogout }) => {
   const [facility, setFacility] = useState("SAG Khokhra Sports Complex");
   const [photos, setPhotos] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const mapComplaintForView = (item) => ({
+    ...item,
+    categoryIcon: item.category && item.category.toLowerCase().includes("floodlight") ? "flash" : "grass",
+    subject: item.subject || item.category || "Infrastructure grievance",
+    facility: item.facilityName || "Sports Complex",
+    date: item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : "Recently",
+    statusType: item.status === "Resolved" ? "resolved" : "action_taken",
+    images: item.photo ? (Array.isArray(item.photo) ? item.photo : [item.photo]) : [],
+    extraCount: 0,
+  });
+
+  const loadComplaints = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [rows, types] = await Promise.all([
+        citizenService.listComplaints(),
+        citizenService.listComplaintTypes(),
+      ]);
+      setComplaints(rows.map(mapComplaintForView));
+      if (types.length) {
+        setComplaintTypes(types);
+        setSelectedCategory((current) =>
+          types.some((type) => type.name === current) ? current : types[0].name
+        );
+      }
+    } catch (requestError) {
+      setError(requestError.message || "Could not load grievances.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadComplaints();
+  }, []);
 
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -107,37 +151,42 @@ export const ComplaintsScreen = ({ onBack, onLogout }) => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!subject.trim()) {
       Alert.alert("Required", "Please provide a summary / subject.");
       return;
     }
+    if (!description.trim()) {
+      Alert.alert("Required", "Please describe the issue before submitting.");
+      return;
+    }
 
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      const newGrievance = {
-        id: `comp_${Date.now()}`,
-        category: selectedCategory,
-        categoryIcon: selectedCategory.includes("Floodlight") ? "flash" : "grass",
-        subject,
-        description: description || "Reported infrastructure issue for prompt ground resolution.",
-        facility,
-        date: "Today",
-        status: "Action Taken",
-        statusType: "action_taken",
-        images: photos.length > 0 ? photos : [
-          "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=300&q=80"
-        ],
-        extraCount: photos.length > 2 ? photos.length - 2 : 0,
-      };
-
-      setComplaints([newGrievance, ...complaints]);
+    try {
+      const selectedType = complaintTypes.find((type) => type.name === selectedCategory);
+      const photoUri = photos[0];
+      const photoFile = photoUri
+        ? {
+            uri: photoUri,
+            name: `grievance-${Date.now()}.jpg`,
+            type: "image/jpeg",
+          }
+        : null;
+      await citizenService.submitComplaint({
+        typeId: selectedType?.id || selectedCategory,
+        description,
+        photoFile,
+      });
       setIsModalOpen(false);
       setDescription("");
       setPhotos([]);
+      await loadComplaints();
       Alert.alert("Grievance Submitted", "Ticket has been dispatched to ground manager and supervisor.");
-    }, 1200);
+    } catch (submitError) {
+      Alert.alert("Could not submit grievance", submitError.message || "Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -197,6 +246,11 @@ export const ComplaintsScreen = ({ onBack, onLogout }) => {
 
         {/* 4. GRIEVANCES LIST CARDS */}
         <View style={styles.grievanceList}>
+          {loading ? <Text style={styles.stateText}>Loading your grievances…</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {!loading && !error && complaints.length === 0 ? (
+            <Text style={styles.stateText}>No grievances submitted yet.</Text>
+          ) : null}
           {complaints.map((item) => (
             <View key={item.id} style={styles.grievanceCard}>
               {/* Category & Status Row */}
@@ -776,6 +830,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: "#007D40",
+  },
+  stateText: {
+    color: "#64748b",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 24,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 18,
   },
 
   // 6. Modal Styles (Right Screen)

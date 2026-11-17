@@ -12,7 +12,7 @@ import {
 } from "../../data/manager/managerDemoData";
 import { demoStore } from "../../data/demoStore";
 import { adminService } from "../../services/admin/adminService";
-import { api } from "../../API/client";
+import { api } from "../../api/client";
 
 const DEMO_LATENCY_MS = 220;
 const wait = (value) =>

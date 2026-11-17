@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,18 +14,38 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-ico
 import QRCode from "react-native-qrcode-svg";
 import { colors } from "../../theme/colors";
 import CitizenHeader from "../../components/common/CitizenHeader";
+import { citizenService } from "../../services/citizen/citizenService";
 
 const { width } = Dimensions.get("window");
 
 export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
+  const [identity, setIdentity] = useState(null);
+  const [identityError, setIdentityError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    citizenService.getIdentity()
+      .then((result) => {
+        if (active) setIdentity(result);
+      })
+      .catch((error) => {
+        if (active) setIdentityError(error.message || "Could not load athlete profile.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const athleteData = {
-    name: user?.Name || "Khushi Patel",
-    dob: "14 Jun 2004",
-    gender: "Female",
-    mobile: user?.Phone || "+91 98765 43210",
+    name: identity?.user?.Name || user?.Name || "Athlete",
+    dob: identity?.user?.DOB || "Not provided",
+    gender: "Not provided",
+    mobile: identity?.user?.ContactNum || user?.ContactNum || "Not provided",
     primarySport: "Badminton",
-    regDate: "26 Oct 2026",
-    athleteId: "ATH-GJ-2026-004381",
+    regDate: identity?.athlete?.createdAt
+      ? new Date(identity.athlete.createdAt).toLocaleDateString()
+      : "Not provided",
+    athleteId: identity?.athleteId || "Not linked",
     activityScore: "89%",
     overallPerf: "4.6 / 5",
   };
@@ -55,6 +75,7 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
           showLogout
           watermarkIcon="run-fast"
         />
+        {identityError ? <Text style={styles.identityError}>{identityError}</Text> : null}
 
         {/* 2. WELCOME CARD */}
         <View style={styles.welcomeCard}>
@@ -446,6 +467,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#64748b",
     marginBottom: 1,
+  },
+  identityError: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    color: colors.status.danger,
+    fontSize: 12,
   },
   welcomeName: {
     fontSize: 18,

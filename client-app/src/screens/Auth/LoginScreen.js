@@ -16,68 +16,31 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
+import { login } from "../../services/authService";
 import ipconfig from "../../../ipconfig";
 
 // Demo accounts matching client-web/src/Components/Auth/demoAuth.js
 const DEMO_PROFILES = [
   {
-    role: 5,
-    name: "Dr. Hasmukh Patel",
-    title: "State Director & SAG Admin",
-    badge: "ROLE 5 · ADMIN",
-    badgeBg: "#fee2e2",
-    badgeColor: "#b91c1c",
-    email: "admin@sag.gujarat.gov.in",
-    district: "State Headquarters (Gandhinagar)",
-  },
-  {
-    role: 4,
-    name: "Vikram Rathore",
-    title: "District Sports Officer (DSO)",
-    badge: "ROLE 4 · AUTHORITY",
-    badgeBg: "#fef3c7",
-    badgeColor: "#b45309",
-    email: "dso.ahmedabad@sag.gujarat.gov.in",
-    district: "Ahmedabad District",
-  },
-  {
-    role: 3,
-    name: "Rajesh Vaghela",
-    title: "Sports Complex Manager",
-    badge: "ROLE 3 · MANAGER",
-    badgeBg: "#dcfce7",
-    badgeColor: "#15803d",
-    email: "manager.khokhra@sag.gujarat.gov.in",
+    role: 2,
+    name: "Nirav Joshi",
+    title: "Badminton Coach",
+    badge: "COACH",
+    badgeBg: "#f3e8ff",
+    badgeColor: "#7e22ce",
+    email: "coach.khokhra@sag.gujarat.gov.in",
+    password: "coach",
     district: "Khokhra Sports Complex",
   },
   {
-    role: 2,
-    name: "Coach Nitesh Shah",
-    title: "Senior Badminton Coach",
-    badge: "ROLE 2 · COACH",
-    badgeBg: "#f3e8ff",
-    badgeColor: "#7e22ce",
-    email: "coach.badminton@sag.gujarat.gov.in",
-    district: "Khokhra & Naranpura",
-  },
-  {
-    role: 1,
-    name: "Mahesh Desai",
-    title: "Ground Gate Supervisor",
-    badge: "ROLE 1 · SUPERVISOR",
-    badgeBg: "#e0f2fe",
-    badgeColor: "#0369a1",
-    email: "supervisor.khokhra@sag.gujarat.gov.in",
-    district: "Khokhra Complex Gate A",
-  },
-  {
     role: 0,
-    name: "Aarav Patel",
-    title: "Citizen Athlete & Trainee",
-    badge: "ROLE 0 · CITIZEN",
+    name: "Aarav Trivedi",
+    title: "Athlete / Citizen",
+    badge: "ATHLETE · CITIZEN",
     badgeBg: "#e8f5ee",
     badgeColor: "#007D40",
-    email: "aarav.patel@gmail.com",
+    email: "athlete.aarav@gmail.com",
+    password: "athlete",
     district: "Ahmedabad",
   },
 ];
@@ -121,35 +84,14 @@ export const LoginScreen = ({ onLoginSuccess, onExplorePublic }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`http://${ipconfig.ip}:9999/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const resData = await response.json();
-      if (response.ok && resData.token) {
-        await AsyncStorage.setItem("token", resData.token);
-        // Verify token to get user payload
-        const verifyRes = await fetch(`http://${ipconfig.ip}:9999/verify`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: resData.token }),
-        });
-        const verifyData = await verifyRes.json();
-        const userData = verifyData.data || { Role: 0, Email: email };
-        await AsyncStorage.setItem("userData", JSON.stringify(userData));
-
-        if (onLoginSuccess) {
-          onLoginSuccess(userData);
-        }
-      } else {
-        Alert.alert("Login Failed", resData.message || resData.msg || "Invalid credentials.");
+      const userData = await login(email, password);
+      if (onLoginSuccess) {
+        onLoginSuccess(userData);
       }
     } catch (err) {
       Alert.alert(
-        "Connection Error",
-        `Could not reach server at ${ipconfig.ip}:9999. You can use the 1-Tap Demo Switcher below to test all role facilities offline.`
+        err?.status === 401 ? "Login Failed" : "Connection Error",
+        err?.message || `Could not reach server at ${ipconfig.ip}:9999.`
       );
     } finally {
       setLoading(false);
@@ -163,23 +105,36 @@ export const LoginScreen = ({ onLoginSuccess, onExplorePublic }) => {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Header Branding */}
-          <View style={styles.brandHeader}>
-            <Image
-              source={require("../../../assets/Logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.govTitle}>GOVERNMENT OF GUJARAT</Text>
-            <Text style={styles.appTitle}>KhelGujarat GIS Portal</Text>
+          {/* Hero branding */}
+          <View style={styles.hero}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.logoFrame}>
+                <Image
+                  source={require("../../../assets/Logo.png")}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.heroCopy}>
+                <Text style={styles.govTitle}>GOVERNMENT OF GUJARAT</Text>
+                <Text style={styles.heroEyebrow}>SPORTS AUTHORITY OF GUJARAT</Text>
+              </View>
+              <View style={styles.securePill}>
+                <Ionicons name="shield-checkmark-outline" size={13} color="#bbf7d0" />
+                <Text style={styles.secureText}>SECURE</Text>
+              </View>
+            </View>
+            <Text style={styles.appTitle}>Welcome to KhelGujarat</Text>
             <Text style={styles.tagline}>
-              Sports Infrastructure Assessment, Utilization & Mapping Platform
+              One portal for sports facilities, training and athlete services.
             </Text>
           </View>
 
           {/* Credentials Card */}
           <View style={styles.card}>
-            <Text style={styles.cardHeader}>Sign in to your account</Text>
+            <Text style={styles.cardEyebrow}>ACCOUNT ACCESS</Text>
+            <Text style={styles.cardHeader}>Sign in to continue</Text>
+            <Text style={styles.cardIntro}>Use your registered email and password to access your dashboard.</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>OFFICIAL EMAIL / CITIZEN ID</Text>
@@ -248,14 +203,16 @@ export const LoginScreen = ({ onLoginSuccess, onExplorePublic }) => {
             )}
           </View>
 
-          {/* 1-Tap Quick Demo Role Switcher */}
+          {/* Quick Actions */}
           <View style={styles.demoSection}>
             <View style={styles.demoHeaderRow}>
-              <Ionicons name="flash" size={16} color={colors.gov.accent} />
-              <Text style={styles.demoSectionTitle}>1-TAP DEMO ROLE SWITCHER</Text>
+              <View style={styles.quickIcon}>
+                <Ionicons name="flash" size={15} color={colors.gov.accent} />
+              </View>
+              <Text style={styles.demoSectionTitle}>QUICK ACTIONS</Text>
             </View>
             <Text style={styles.demoSectionDesc}>
-              Instantly test and inspect all 6 state portal facilities without typing credentials:
+              Try the portal with a ready-to-use Coach or Athlete/Citizen account.
             </Text>
 
             <View style={styles.demoProfilesGrid}>
@@ -279,9 +236,18 @@ export const LoginScreen = ({ onLoginSuccess, onExplorePublic }) => {
                   <Text style={styles.demoRoleTitle} numberOfLines={1} ellipsizeMode="tail">
                     {profile.title}
                   </Text>
-                  <Text style={styles.demoDistrict} numberOfLines={1} ellipsizeMode="tail">
-                    {profile.district}
-                  </Text>
+                  <View style={styles.credentialRow}>
+                    <Ionicons name="mail-outline" size={13} color={colors.slate[500]} />
+                    <Text style={styles.credentialText} numberOfLines={1}>{profile.email}</Text>
+                  </View>
+                  <View style={styles.credentialRow}>
+                    <Ionicons name="key-outline" size={13} color={colors.slate[500]} />
+                    <Text style={styles.credentialText}>Password: {profile.password}</Text>
+                  </View>
+                  <View style={styles.demoAction}>
+                    <Text style={styles.demoActionText}>Use this account</Text>
+                    <Ionicons name="arrow-forward" size={15} color={colors.gov.primary} />
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -301,8 +267,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 36,
+    backgroundColor: colors.slate[50],
+  },
+  hero: {
+    backgroundColor: colors.brand.dark,
+    paddingHorizontal: 22,
+    paddingTop: Platform.OS === "android" ? 22 : 14,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logoFrame: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
   },
   brandHeader: {
     alignItems: "center",
@@ -316,22 +303,46 @@ const styles = StyleSheet.create({
   govTitle: {
     fontSize: 10,
     fontWeight: "800",
-    color: colors.gov.accent,
+    color: "#fcd34d",
     letterSpacing: 1,
   },
-  appTitle: {
-    fontSize: 24,
+  heroCopy: {
+    flex: 1,
+  },
+  heroEyebrow: {
+    color: "#d1fae5",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    marginTop: 3,
+  },
+  securePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  secureText: {
+    color: "#bbf7d0",
+    fontSize: 8,
     fontWeight: "800",
-    color: colors.brand.dark,
+    marginLeft: 4,
+  },
+  appTitle: {
+    fontSize: 27,
+    fontWeight: "800",
+    color: "#ffffff",
     letterSpacing: -0.5,
-    marginTop: 2,
+    marginTop: 24,
   },
   tagline: {
-    fontSize: 12,
-    color: colors.slate[500],
-    textAlign: "center",
+    fontSize: 13,
+    color: "#d1fae5",
+    lineHeight: 19,
     marginTop: 4,
-    paddingHorizontal: 16,
+    maxWidth: 310,
   },
   card: {
     backgroundColor: "#ffffff",
@@ -339,7 +350,9 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: colors.slate[200],
-    marginBottom: 24,
+    marginHorizontal: 16,
+    marginTop: -18,
+    marginBottom: 20,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -353,10 +366,23 @@ const styles = StyleSheet.create({
     }),
   },
   cardHeader: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: colors.slate[800],
-    marginBottom: 16,
+    marginTop: 3,
+  },
+  cardEyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: colors.gov.primary,
+    letterSpacing: 1,
+  },
+  cardIntro: {
+    fontSize: 12,
+    color: colors.slate[500],
+    lineHeight: 18,
+    marginTop: 5,
+    marginBottom: 17,
   },
   inputGroup: {
     marginBottom: 14,
@@ -418,20 +444,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   demoSection: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
+    paddingHorizontal: 16,
   },
   demoHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
   },
+  quickIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fef3c7",
+  },
   demoSectionTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
     color: colors.slate[800],
     letterSpacing: 0.5,
@@ -439,18 +469,30 @@ const styles = StyleSheet.create({
   demoSectionDesc: {
     fontSize: 12,
     color: colors.slate[500],
-    marginBottom: 14,
+    marginBottom: 12,
     lineHeight: 18,
   },
   demoProfilesGrid: {
     gap: 10,
   },
   demoCard: {
-    backgroundColor: colors.slate[50],
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 15,
     borderWidth: 1,
     borderColor: colors.slate[200],
+    marginBottom: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   demoCardTop: {
     flexDirection: "row",
@@ -479,11 +521,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.gov.primary,
     fontWeight: "600",
+    marginBottom: 10,
   },
   demoDistrict: {
     fontSize: 11,
     color: colors.slate[500],
     marginTop: 2,
+  },
+  credentialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 5,
+  },
+  credentialText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.slate[600],
+    marginLeft: 7,
+  },
+  demoAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.slate[100],
+    marginTop: 12,
+    paddingTop: 10,
+  },
+  demoActionText: {
+    color: colors.gov.primary,
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
 

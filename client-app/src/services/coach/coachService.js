@@ -1,95 +1,131 @@
-// Coach feature service layer. Phase 2D.2 reads and writes the shared in-memory
-// demo store (src/data/demoStore.js), so a submitted rating appears in the
-// athlete profile, the rating history and the coach dashboard at the same time.
-//
-// IMPORTANT: There is no backend contract for coach-to-athlete rating. The
-// existing `addRating` endpoint is for citizens/athletes rating their own
-// facility record, and the mobile app's `ratingByInstructor` endpoint is not
-// implemented in the backend. All rating interactions here are demo-only.
-import {
-  COACH,
-  COACH_FACILITY,
-} from "../../data/coach/coachDemoData";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "../../api/client";
+import { COACH_ROSTER } from "../../data/coach/coachRoster";
 import { demoStore } from "../../data/demoStore";
+import { COACH, COACH_FACILITY } from "../../data/coach/coachDemoData";
 
-const DEMO_LATENCY_MS = 220;
-const wait = (value) =>
-  new Promise((resolve) => setTimeout(() => resolve(value), DEMO_LATENCY_MS));
+async function isDemoSession() {
+  const token = await AsyncStorage.getItem("token");
+  return Boolean(token && token.startsWith("demo_"));
+}
 
-function coachDashboard() {
-  const athletes = demoStore.listAthletes();
-  const ratings = demoStore.listRatings();
-  const total = athletes.length;
-  const avgRating =
-    ratings.length > 0
-      ? Math.round(
-          (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10
-        ) / 10
-      : 0;
-  const recentRatings = [...ratings]
-    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-    .slice(0, 5);
-  const sportDistribution = athletes.reduce((acc, a) => {
-    acc[a.sport] = (acc[a.sport] || 0) + 1;
-    return acc;
-  }, {});
-
+function mapAthlete(row) {
+  const user = row.userId && typeof row.userId === "object" ? row.userId : {};
+  const sport = row.sport || row.sports?.[0]?.sport?.SportName || "Assigned sport";
   return {
-    coach: COACH,
-    facility: COACH_FACILITY,
-    facilityUtilisation: COACH_FACILITY.utilisation,
-    totalAthletes: total,
-    activeAthletes: athletes.filter((a) => a.status === "Active").length,
-    pendingRatings: athletes.filter((a) => a.ratingStatus === "Pending").length,
-    ratedAthletes: athletes.filter((a) => a.ratingStatus === "Rated").length,
-    averageRating: avgRating,
-    totalRatings: ratings.length,
-    recentRatings,
-    sportDistribution,
+    id: String(row._id || row.id),
+    name: user.Name || row.name || "Athlete",
+    email: user.Email || "",
+    sport,
+    ageGroup: row.ageGroup || row.category || "Athlete",
+    overall: Number(row.rating || row.overall || 0),
+    lastRated: row.updatedAt || row.ratedAt || null,
+    sessions: Number(row.sessions || 0),
+    ratingId: row.ratingId || row._id,
+    ratingStatus: row.ratingStatus || "Pending",
+    raw: row,
   };
 }
 
+function demoAthletes() {
+  return COACH_ROSTER.map((athlete) => ({ ...athlete, demo: true }));
+}
+
 export const coachService = {
-  // GET /api/coach/dashboard
-  getDashboard() {
-    return wait(coachDashboard());
+  async listAthletes() {
+    if (await isDemoSession()) return demoAthletes();
+    const result = await api.get("/getAthletes");
+    return (result.data || []).map(mapAthlete);
   },
 
-  // GET /api/coach/athletes
-  // Query: search, sport, ageGroup, status, ratingStatus, page, pageSize
-  listAthletes() {
-    return wait(demoStore.listAthletes());
+  async getAthlete(id) {
+    const athletes = await this.listAthletes();
+    return athletes.find((athlete) => athlete.id === String(id)) || null;
   },
 
-  // GET /api/coach/athletes/:id
-  getAthlete(id) {
-    return wait(demoStore.listAthletes().find((row) => row.id === id) || null);
+  async getDashboard() {
+    if (await isDemoSession()) {
+      const athletes = demoStore.listAthletes();
+      const ratings = demoStore.listRatings();
+      return {
+        coach: COACH,
+        facility: COACH_FACILITY,
+        totalAthletes: athletes.length,
+        activeAthletes: athletes.filter((row) => row.status === "Active").length,
+        pendingRatings: athletes.filter((row) => row.ratingStatus === "Pending").length,
+        ratedAthletes: athletes.filter((row) => row.ratingStatus === "Rated").length,
+        averageRating: ratings.length
+          ? Math.round((ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length) * 10) / 10
+          : 0,
+      };
+    }
+
+    const athletes = await this.listAthletes();
+    const ratings = await this.listRatingHistory();
+    const rated = athletes.filter((row) => row.ratingStatus === "Rated");
+    return {
+      totalAthletes: athletes.length,
+      activeAthletes: athletes.length,
+      pendingRatings: athletes.length - rated.length,
+      ratedAthletes: rated.length,
+      averageRating: ratings.length
+        ? Math.round((ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length) * 10) / 10
+        : 0,
+    };
   },
 
-  // GET /api/coach/rating-history
-  // Query: search, sport, rating, page, pageSize
-  listRatingHistory() {
-    return wait(demoStore.listRatings());
+  async listRatingHistory() {
+    if (await isDemoSession()) return demoStore.listRatings();
+    const result = await api.get("/ratingForAll");
+    return (result.ratings || result.data || []).map((row) => ({
+      id: String(row._id || row.id),
+      athleteId: String(row.athleteId?._id || row.athleteId || ""),
+      athleteName: row.athleteId?.userId?.Name || row.athleteName || "Athlete",
+      rating: Number(row.rating || 0),
+      remarks: row.remarks || "",
+      createdAt: row.createdAt || row.updatedAt || null,
+      raw: row,
+    }));
   },
 
-  // GET /api/coach/rating-history/:id
-  getRating(id) {
-    return wait(demoStore.listRatings().find((row) => row.id === id) || null);
+  async listPendingRatings(instructorId) {
+    if (await isDemoSession()) {
+      return demoStore.listAthletes()
+        .filter((row) => row.ratingStatus === "Pending")
+        .map((row) => ({ ...row, demo: true }));
+    }
+    if (!instructorId) throw new Error("Coach instructor profile is not linked.");
+    const result = await api.get(
+      `/ratingForInstructor?instructorId=${encodeURIComponent(instructorId)}`
+    );
+    return (result.ratings || []).map((row) => ({
+      ...mapAthlete(row.athleteId || {}),
+      ratingId: String(row._id),
+      raw: row,
+    }));
   },
 
-  // POST /api/coach/ratings — demo-only. No backend endpoint exists. Persists to
-  // the shared store so the athlete profile and rating history reflect it.
-  submitRating(input) {
-    const rating = demoStore.submitRating(input);
-    return wait({ demo: true, rating });
+  async listRateableAthletes() {
+    if (await isDemoSession()) return demoAthletes();
+    const instructorResult = await api.get("/getInstructorswithuser");
+    const instructor = instructorResult.data?.[0];
+    if (!instructor?._id) {
+      throw new Error("Coach instructor profile is not linked.");
+    }
+    return this.listPendingRatings(instructor._id);
   },
 
-  // GET /api/coach/capabilities — demo-only role-bound capabilities.
-  getCapabilities() {
-    return wait({
-      canRateAthletes: true,
-      canEditRating: false,
-      canViewRatingHistory: true,
+  async submitRating({ ratingId, rating, remarks, parameters }) {
+    if (await isDemoSession()) {
+      return { demo: true, rating: demoStore.submitRating({ ratingId, rating, remarks }) };
+    }
+    if (!ratingId) throw new Error("A backend rating record is required.");
+    const result = await api.post("/ratingByInstructor", {
+      ratingId,
+      rating: Math.round(Number(rating)),
+      remarks,
+      parameters,
     });
+    return { demo: false, ...result };
   },
 };

@@ -89,7 +89,7 @@ const EXPLORE_FACILITIES = [
   },
 ];
 
-export const GujaratExploreMapScreen = ({ navigation, onSelectFacility }) => {
+export const GujaratExploreMapScreen = ({ navigation, onSelectFacility, onBack }) => {
   const [selectedDistrict, setSelectedDistrict] = useState("All");
   const [selectedSport, setSelectedSport] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -123,6 +123,8 @@ export const GujaratExploreMapScreen = ({ navigation, onSelectFacility }) => {
         <CitizenHeader
           title="Gujarat GIS Explore"
           subtitle="33 Districts Infrastructure Map"
+          onBack={onBack}
+          showBack={Boolean(onBack)}
           watermarkIcon="domain"
         />
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,50 +10,82 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
-import { SagHeader } from "../../components/common/SagHeader";
-import { StatCard } from "../../components/common/StatCard";
-
-const COACH_ATHLETES = [
-  { id: "ath_1", name: "Aarav Patel", sport: "Badminton", ageGroup: "U-19", overall: 4.64, lastRated: "2026-10-24", sessions: 28 },
-  { id: "ath_2", name: "Pooja Trivedi", sport: "Badminton", ageGroup: "U-17", overall: 4.20, lastRated: "2026-10-22", sessions: 25 },
-  { id: "ath_3", name: "Mehul Joshi", sport: "Badminton", ageGroup: "U-19", overall: 3.85, lastRated: "2026-10-15", sessions: 20 },
-  { id: "ath_4", name: "Ananya Desai", sport: "Badminton", ageGroup: "U-15", overall: 4.50, lastRated: "2026-10-28", sessions: 30 },
-  { id: "ath_5", name: "Kavita Parmar", sport: "Badminton", ageGroup: "U-17", overall: 4.10, lastRated: "2026-10-12", sessions: 22 },
-];
+import CitizenHeader from "../../components/common/CitizenHeader";
+import { coachService } from "../../services/coach/coachService";
 
 export const CoachDashboardScreen = ({ user, onLogout, onRateAthlete }) => {
   const [search, setSearch] = useState("");
+  const [athletes, setAthletes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filtered = COACH_ATHLETES.filter(
+  useEffect(() => {
+    let active = true;
+    coachService.listAthletes()
+      .then((rows) => {
+        if (active) setAthletes(rows);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || "Could not load athletes.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filtered = athletes.filter(
     (a) => a.name.toLowerCase().includes(search.toLowerCase()) || a.ageGroup.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <SagHeader
-        title="Coach Command Desk"
-        subtitle="SAG Coaching Cell • Senior Badminton"
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <CitizenHeader
+        title="Coach Dashboard"
+        subtitle="Manage athlete progress and evaluations"
         role={2}
         onLogout={onLogout}
+        showLogout
+        watermarkIcon="whistle"
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* KPI Stats */}
+        {/* Coach summary */}
+        <View style={styles.welcomeCard}>
+          <View style={styles.welcomeCopy}>
+            <Text style={styles.welcomeEyebrow}>GOOD MORNING, COACH</Text>
+            <Text style={styles.welcomeTitle} numberOfLines={1}>
+              {user?.Name || "Coach"}
+            </Text>
+            <Text style={styles.welcomeText}>
+              Keep athlete assessments current and help every player progress.
+            </Text>
+          </View>
+          <View style={styles.welcomeIcon}>
+            <Ionicons name="fitness-outline" size={28} color="#bbf7d0" />
+          </View>
+        </View>
+
         <View style={styles.statsRow}>
-          <StatCard
-            label="ENROLLED SQUAD"
-            value={COACH_ATHLETES.length}
-            subvalue="Badminton Athletes"
-            icon={<Ionicons name="people" size={18} color={colors.gov.primary} />}
-          />
-          <StatCard
-            label="EVALUATED"
-            value="80%"
-            subvalue="4 pending October rating"
-            trend="Active"
-            trendType="up"
-            icon={<Ionicons name="star" size={18} color={colors.gov.accent} />}
-          />
+          <View style={styles.metricCard}>
+            <View style={styles.metricIcon}>
+              <Ionicons name="people-outline" size={17} color={colors.gov.primary} />
+            </View>
+            <Text style={styles.metricValue}>{athletes.length}</Text>
+            <Text style={styles.metricLabel}>Athletes in roster</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <View style={[styles.metricIcon, styles.metricIconGold]}>
+              <Ionicons name="star-outline" size={17} color="#b45309" />
+            </View>
+            <Text style={styles.metricValue}>80%</Text>
+            <Text style={styles.metricLabel}>Evaluations complete</Text>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -67,9 +99,19 @@ export const CoachDashboardScreen = ({ user, onLogout, onRateAthlete }) => {
             onChangeText={setSearch}
           />
         </View>
+        {loading ? <Text style={styles.stateText}>Loading assigned athletes…</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Athletes List */}
-        <Text style={styles.sectionHeading}>ATHLETE ROSTER & 5-PILLAR EVALUATIONS</Text>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionHeading}>ATHLETE ROSTER</Text>
+            <Text style={styles.sectionSubheading}>5-pillar performance evaluations</Text>
+          </View>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{filtered.length} active</Text>
+          </View>
+        </View>
 
         {filtered.map((athlete) => (
           <View key={athlete.id} style={styles.athleteCard}>
@@ -112,24 +154,119 @@ const styles = StyleSheet.create({
     backgroundColor: colors.slate[50],
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 36,
+  },
+  welcomeCard: {
+    marginHorizontal: 16,
+    marginTop: -14,
+    marginBottom: 14,
+    borderRadius: 18,
+    padding: 17,
+    backgroundColor: colors.brand.dark,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  welcomeCopy: {
+    flex: 1,
+    marginRight: 12,
+  },
+  welcomeEyebrow: {
+    color: colors.brand.light,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+  },
+  welcomeTitle: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  welcomeText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
+  },
+  welcomeIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+  },
+  metricIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.brand.soft,
+  },
+  metricIconGold: {
+    backgroundColor: "#fef3c7",
+  },
+  metricValue: {
+    color: colors.slate[900],
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 8,
+  },
+  metricLabel: {
+    color: colors.slate[500],
+    fontSize: 11,
+    marginTop: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionSubheading: {
+    color: colors.slate[500],
+    fontSize: 12,
+    marginTop: 2,
+  },
+  countPill: {
+    backgroundColor: colors.brand.soft,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  countPillText: {
+    color: colors.gov.primary,
+    fontSize: 10,
+    fontWeight: "800",
   },
   statsRow: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 12,
+    marginHorizontal: 16,
+    marginBottom: 14,
   },
   searchBox: {
+    marginHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 13,
     paddingHorizontal: 12,
-    height: 44,
+    height: 46,
     borderWidth: 1,
     borderColor: colors.slate[200],
-    marginBottom: 14,
+    marginBottom: 18,
   },
   searchInput: {
     flex: 1,
@@ -139,17 +276,17 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 11,
     fontWeight: "800",
-    color: colors.slate[500],
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    color: colors.slate[700],
+    letterSpacing: 0.7,
   },
   athleteCard: {
+    marginHorizontal: 16,
     backgroundColor: "#ffffff",
     borderRadius: 16,
-    padding: 16,
+    padding: 15,
     borderWidth: 1,
     borderColor: colors.slate[200],
-    marginBottom: 12,
+    marginBottom: 10,
   },
   athleteTop: {
     flexDirection: "row",
@@ -163,21 +300,21 @@ const styles = StyleSheet.create({
   },
   athleteName: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.slate[900],
   },
   athleteSub: {
     fontSize: 12,
     color: colors.slate[500],
-    marginTop: 2,
+    marginTop: 3,
   },
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fef3c7",
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 8,
     gap: 4,
   },
   ratingBadgeText: {
@@ -189,19 +326,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 10,
+    paddingTop: 11,
     borderTopWidth: 1,
     borderTopColor: colors.slate[100],
   },
   lastRatedText: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.slate[400],
+    flex: 1,
+    marginRight: 8,
   },
   rateBtn: {
     backgroundColor: colors.gov.primary,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -209,6 +348,18 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "700",
+  },
+  stateText: {
+    color: colors.slate[500],
+    fontSize: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: colors.status.danger,
+    fontSize: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
 });
 

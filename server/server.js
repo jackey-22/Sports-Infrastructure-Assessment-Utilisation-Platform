@@ -717,7 +717,25 @@ app.post(
   "/ratingByInstructor",
   requireRole(ROLE.COACH, ROLE.MANAGER, ROLE.ADMIN),
   async (req, res) => {
-    let { ratingId, rating } = req.body;
+    let { ratingId, rating, remarks, parameters } = req.body || {};
+    if (
+      parameters !== undefined &&
+      (!Array.isArray(parameters) ||
+        parameters.some(
+          (item) =>
+            !item ||
+            typeof item.parameter !== "string" ||
+            !Number.isFinite(Number(item.value)) ||
+            Number(item.value) < 1 ||
+            Number(item.value) > 5
+        ))
+    ) {
+      return res.status(400).json({
+        data: "",
+        msg: "parameters must contain values between 1 and 5",
+        rcode: -9,
+      });
+    }
     let ratings = await athleteRatingModel
       .findOne({ _id: ratingId })
       .populate("athleteId");
@@ -747,6 +765,13 @@ app.post(
     }
     ratings.isEvaluated = 1;
     ratings.rating = rating;
+    if (typeof remarks === "string") ratings.remarks = remarks;
+    if (Array.isArray(parameters)) {
+      ratings.parameters = parameters.map((item) => ({
+        parameter: item.parameter,
+        value: Number(item.value),
+      }));
+    }
     await ratings.save();
     if (ratings.athleteId.userId) {
       setReminder(

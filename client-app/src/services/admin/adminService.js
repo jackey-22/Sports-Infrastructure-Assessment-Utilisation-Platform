@@ -11,7 +11,7 @@ import {
   DEMO_TODAY,
 } from "../../data/admin/adminDemoData";
 import { demoStore } from "../../data/demoStore";
-import { api } from "../../API/client";
+import { api } from "../../api/client";
 import {
   countBy,
   filterFacilities,

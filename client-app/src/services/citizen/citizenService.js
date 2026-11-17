@@ -16,7 +16,7 @@
 // No backend contract exists for: sport feedback, coach feedback, QR camera
 // scanning on web, or a per-user rating history (GET /getAllRatings is public
 // and unscoped). Those stay demo-only.
-import { api } from "../../API/client";
+import { api } from "../../api/client";
 import { linkedCitizenComplaints, registerComplaint } from "../../data/demoComplaints";
 import {
   CITIZEN_FEEDBACK_SUMMARY,
@@ -305,6 +305,11 @@ function demoFeedbackRows() {
 }
 
 export const citizenService = {
+  // GET /getuserwithathelte — authenticated athlete identity and profile.
+  async getIdentity() {
+    return loadIdentity();
+  },
+
   // Real attendance (recent window) + complaints, demo feedback.
   async getDashboard() {
     const [attendanceRows, complaintRows] = await Promise.all([

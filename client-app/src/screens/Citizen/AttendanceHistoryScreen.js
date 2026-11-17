@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import CitizenHeader from "../../components/common/CitizenHeader";
+import { citizenService } from "../../services/citizen/citizenService";
 
 const MOCK_ATTENDANCE = [
   {
@@ -77,6 +79,32 @@ const MOCK_ATTENDANCE = [
 
 export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
   const [activeTab, setActiveTab] = useState("logs"); // "logs" | "overview"
+  const [attendance, setAttendance] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadAttendance = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+    try {
+      const rows = await citizenService.listAttendance();
+      setAttendance(rows);
+    } catch (requestError) {
+      setError(requestError.message || "Could not load check-in history.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAttendance();
+  }, []);
+
+  const completed = attendance.filter((row) => row.status === "Completed").length;
+  const checkedIn = attendance.filter((row) => row.status === "Checked In").length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -84,6 +112,9 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         bounces={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadAttendance(true)} />
+        }
       >
         {/* 1. TOP CURVED HEADER — unified CitizenHeader */}
         <CitizenHeader
@@ -99,7 +130,7 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
             <View style={styles.summaryIconBox}>
               <Ionicons name="calendar" size={16} color="#007D40" />
             </View>
-            <Text style={styles.summaryNum}>24</Text>
+            <Text style={styles.summaryNum}>{attendance.length}</Text>
             <Text style={styles.summaryLabel} numberOfLines={1}>Sessions in Oct</Text>
           </View>
 
@@ -110,7 +141,9 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
             <View style={styles.summaryIconBox}>
               <Ionicons name="bar-chart" size={16} color="#007D40" />
             </View>
-            <Text style={styles.summaryNum}>92%</Text>
+            <Text style={styles.summaryNum}>
+              {attendance.length ? `${Math.round((completed / attendance.length) * 100)}%` : "—"}
+            </Text>
             <Text style={styles.summaryLabel} numberOfLines={1}>Monthly Rate</Text>
           </View>
 
@@ -121,7 +154,7 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
             <View style={[styles.summaryIconBox, { backgroundColor: "#ffedd5" }]}>
               <Ionicons name="flame" size={16} color="#ea580c" />
             </View>
-            <Text style={styles.summaryNum}>14</Text>
+            <Text style={styles.summaryNum}>{checkedIn}</Text>
             <Text style={styles.summaryLabel} numberOfLines={1}>Current Streak</Text>
           </View>
         </View>
@@ -172,34 +205,47 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
 
         {/* 5. CHECK-IN LOGS LIST */}
         <View style={styles.logsListContainer}>
-          {MOCK_ATTENDANCE.map((item) => (
+          {loading ? <Text style={styles.stateText}>Loading check-in history…</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {!loading && !error && attendance.length === 0 ? (
+            <Text style={styles.stateText}>No check-ins found for this period.</Text>
+          ) : null}
+          {attendance.map((item) => {
+            const date = item.date ? new Date(`${item.date}T00:00:00`) : null;
+            const dateDay = date && !Number.isNaN(date.getTime()) ? date.getDate() : "—";
+            const dateMonth = date && !Number.isNaN(date.getTime())
+              ? date.toLocaleString("en-US", { month: "short" }).toUpperCase()
+              : "";
+            const time = item.entry ? new Date(item.entry).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Time unavailable";
+            const status = item.status === "Completed" ? "COMPLETED" : "CHECKED IN";
+            return (
             <TouchableOpacity key={item.id} style={styles.logCard} activeOpacity={0.8}>
               {/* Left Date Badge */}
               <View style={styles.dateBadge}>
-                <Text style={styles.dateDay}>{item.dateDay}</Text>
-                <Text style={styles.dateMonth}>{item.dateMonth}</Text>
+                <Text style={styles.dateDay}>{dateDay}</Text>
+                <Text style={styles.dateMonth}>{dateMonth}</Text>
               </View>
 
               {/* Middle Information */}
               <View style={styles.logDetailsCol}>
                 <Text style={styles.complexName} numberOfLines={1} ellipsizeMode="tail">
-                  {item.complex}
+                  {item.facilityName || "Sports Complex"}
                 </Text>
 
                 <View style={styles.infoMetaRow}>
                   <Ionicons name="location-outline" size={13} color="#64748b" style={{ marginRight: 4 }} />
-                  <Text style={styles.infoMetaText} numberOfLines={1}>{item.court}</Text>
+                  <Text style={styles.infoMetaText} numberOfLines={1}>{item.durationMinutes ? `${item.durationMinutes} minutes` : "Attendance session"}</Text>
                 </View>
 
                 <View style={styles.infoMetaRow}>
                   <Ionicons name="time-outline" size={13} color="#64748b" style={{ marginRight: 4 }} />
-                  <Text style={styles.infoMetaText} numberOfLines={1}>{item.time}</Text>
+                  <Text style={styles.infoMetaText} numberOfLines={1}>{time}</Text>
                 </View>
 
                 <View style={styles.infoMetaRow}>
                   <Ionicons name="person-outline" size={13} color="#64748b" style={{ marginRight: 4 }} />
                   <Text style={styles.supervisorText} numberOfLines={1}>
-                    Gate Supervisor: {item.supervisor}
+                    {item.status === "Completed" ? "Session completed" : "Exit pending"}
                   </Text>
                 </View>
               </View>
@@ -208,13 +254,14 @@ export const AttendanceHistoryScreen = ({ onBack, onLogout }) => {
               <View style={styles.rightActionCol}>
                 <View style={styles.resolvedBadge}>
                   <Ionicons name="checkmark-circle" size={12} color="#15803d" style={{ marginRight: 4 }} />
-                  <Text style={styles.resolvedBadgeText}>{item.status}</Text>
+                  <Text style={styles.resolvedBadgeText}>{status}</Text>
                 </View>
 
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" style={{ marginTop: 12 }} />
               </View>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -506,6 +553,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#15803d",
     letterSpacing: 0.3,
+  },
+  stateText: {
+    color: "#64748b",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 24,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 18,
   },
 });
 
