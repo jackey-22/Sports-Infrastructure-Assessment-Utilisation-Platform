@@ -7,6 +7,7 @@ const colors = require("tailwindcss/colors");
 // no-ops, so dark screens painted white text on the light page background.
 module.exports = withMT({
   content: [
+    "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
     "path-to-your-node_modules/@material-tailwind/react/components/**/*.{js,ts,jsx,tsx}",
     "path-to-your-node_modules/@material-tailwind/react/theme/components/**/*.{js,ts,jsx,tsx}",

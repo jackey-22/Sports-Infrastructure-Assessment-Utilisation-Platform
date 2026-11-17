@@ -20,6 +20,12 @@ const SportsComplexSchema = new mongoose.Schema(
     },
     contactPhone: String,
     contactEmail: String,
+    status: {
+      type: String,
+      enum: ["Active", "Inactive", "Under Development", "Temporarily Closed"],
+      default: "Active",
+    },
+    images: { type: [String], default: [] },
     // Assessment & Condition Tracking (PS000012)
     conditionScore: { type: Number, default: 85 }, // 0 to 100
     conditionGrade: { type: String, default: "Grade A (Excellent)" },

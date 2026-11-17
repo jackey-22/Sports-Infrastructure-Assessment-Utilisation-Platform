@@ -14,7 +14,6 @@ const {
 const { signAccessToken } = require("../Utils/tokens");
 const { ROLE } = require("../Utils/roles");
 const { sanitizeFilters } = require("../Utils/scope");
-require("dotenv").config();
 
 const SIGNUP_ROLES = Object.values(ROLE);
 const MIN_PASSWORD_LENGTH = 8;

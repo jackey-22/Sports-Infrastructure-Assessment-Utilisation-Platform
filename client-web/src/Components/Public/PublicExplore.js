@@ -573,8 +573,8 @@ export default function PublicExplore() {
         <CitizenBookingModal
           facility={citizenBookingFacility}
           onClose={() => setCitizenBookingFacility(null)}
-          onConfirm={() => {
-            showToast("Enquiry recorded. No booking or pass was created.", "ok");
+          onConfirm={(booking) => {
+            showToast(`Booking ${booking.reference} created for ₹${booking.totalAmount}.`, "ok");
           }}
         />
       )}

@@ -5,13 +5,13 @@
 // Legacy components keep their own fetch calls; new integrations (starting
 // with Citizen) must go through this client.
 //
-// Base URL comes from CRA's REACT_APP_API_BASE_URL, falling back to the
+// Base URL comes from Vite's VITE_API_BASE_URL, falling back to the
 // development backend. Do not hardcode the host in service modules.
 
 const DEFAULT_BASE_URL = "http://localhost:9999";
 
 export const API_BASE_URL = (
-  process.env.REACT_APP_API_BASE_URL || DEFAULT_BASE_URL
+  import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL
 ).replace(/\/+$/, "");
 
 // Normalized error thrown by every client call. `status` is the HTTP status

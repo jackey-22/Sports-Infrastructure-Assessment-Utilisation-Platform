@@ -46,6 +46,21 @@ const GuestSchema = new mongoose.Schema(
       type: String,
       
     },
+    facilitySportConfig: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: "facilitysportconfigs",
+    },
+    slotId: { type: mongoose.SchemaTypes.ObjectId },
+    memberCount: { type: Number, min: 1, default: 1 },
+    reservedUnits: { type: Number, min: 1, default: 1 },
+    totalAmount: { type: Number, min: 0, default: 0 },
+    bookingReference: { type: String, index: true },
+    bookingStatus: {
+      type: String,
+      enum: ["Pending Payment", "Confirmed", "Cancelled"],
+      default: "Pending Payment",
+    },
+    priceBreakdown: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

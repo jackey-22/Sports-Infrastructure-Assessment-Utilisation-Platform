@@ -8,6 +8,8 @@ const instructorSchema = new mongoose.Schema(
     },
     userId: { type: mongoose.SchemaTypes.ObjectId, ref: "users" },
     createdBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users" },
+    qualification: { type: String, default: "" },
+    status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     sports: [
       {
         sport: { type: mongoose.SchemaTypes.ObjectId, ref: "sports" },

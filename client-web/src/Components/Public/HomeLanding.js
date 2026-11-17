@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import PublicNavbar from "./PublicNavbar";
 import FacilityCard from "./FacilityCard";
-import gujMapHero from "../../Assets/guj-map-hero-image.png";
 import {
   GUJARAT_DISTRICTS,
   SPORTS_LIST
@@ -124,16 +123,20 @@ export default function HomeLanding() {
               </div>
             </div>
 
-            {/* Gujarat map hero asset */}
+            {/* Lightweight map panel; avoids a large blocking hero asset. */}
             <div className="relative flex justify-center lg:justify-end animate-fade-in">
               <div className="relative w-full max-w-[640px]">
-                <img
-                  src={gujMapHero}
-                  alt="Gujarat sports facilities map collage"
-                  className="w-full h-auto drop-shadow-xl select-none pointer-events-none"
-                  style={{ mixBlendMode: "screen" }}
-                  draggable={false}
-                />
+                <div role="img" aria-label="Gujarat sports facilities map" className="relative min-h-[340px] overflow-hidden rounded-[2.5rem] border border-emerald-200 bg-gradient-to-br from-white via-brand-soft to-emerald-100 p-8 shadow-xl">
+                  <div className="absolute inset-0 opacity-30 hero-landmark-silhouette" />
+                  <div className="relative flex h-full min-h-[276px] flex-col items-center justify-center text-center">
+                    <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                      <Map className="h-14 w-14 text-brand-primary" aria-hidden="true" />
+                    </div>
+                    <p className="mt-6 font-display text-2xl font-extrabold text-brand-dark">33 districts, one sports map</p>
+                    <p className="mt-2 max-w-sm text-sm text-slate-600">Discover verified facilities, available sports and condition information across Gujarat.</p>
+                    <div className="mt-5 flex flex-wrap justify-center gap-2">{["Ahmedabad", "Gandhinagar", "Surat", "Vadodara"].map((district) => <span key={district} className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand-primary shadow-sm"><MapPin className="mr-1 inline h-3 w-3" />{district}</span>)}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

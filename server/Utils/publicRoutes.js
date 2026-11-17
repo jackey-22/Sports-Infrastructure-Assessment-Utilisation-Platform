@@ -19,6 +19,8 @@ const PUBLIC_ROUTES = [
   { method: "GET", path: "/gettimeslotforguest" },
   { method: "POST", path: "/addGuest" },
   { method: "POST", path: "/onlinepayment/intent" },
+  { method: "GET", path: "/api/public/sport-configs" },
+  { method: "POST", path: "/api/public/bookings" },
 ];
 
 // Public HTML report pages used inside mobile WebViews. WebViews cannot attach

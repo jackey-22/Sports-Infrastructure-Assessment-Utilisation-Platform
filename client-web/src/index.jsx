@@ -5,7 +5,9 @@ import { Provider } from "react-redux";
 import store from "./store";
 import App from "./App";
 
-const API_ORIGIN = "http://localhost:9999";
+const API_ORIGIN = (
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:9999"
+).replace(/\/+$/, "");
 
 // Attach the stored access token to every API call and clear the session on 401.
 // Route loaders still verify the user with the backend before rendering.
@@ -41,8 +43,7 @@ if (typeof window !== "undefined" && !window.__authFetchInstalled) {
   };
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <Provider store={store}>
     <App />
   </Provider>

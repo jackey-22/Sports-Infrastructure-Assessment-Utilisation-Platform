@@ -58,7 +58,7 @@ flowchart TD
 The application uses **MongoDB** with Mongoose ODM. You can run MongoDB locally, via MongoDB Compass, or via a free MongoDB Atlas Cloud cluster.
 
 ### Step 1: Configure Environment Variables
-Inside `sfic/`, ensure `.env` contains your MongoDB connection string:
+Inside `server/`, create `.env` from `server/.env.example` and set your MongoDB connection string:
 
 ```env
 PORT=9999
@@ -124,7 +124,7 @@ npm start
 ```bash
 cd d:\projects\sfic\client-web
 npm install
-npm start
+npm run dev
 ```
 *Web app launches automatically at `http://localhost:3000/`.*
 

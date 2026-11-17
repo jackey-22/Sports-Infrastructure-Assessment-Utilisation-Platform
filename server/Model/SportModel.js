@@ -18,6 +18,16 @@ const SportSchema = new mongoose.Schema(
       type: String,
     },
     parameters: mongoose.Schema.Types.Mixed,
+    description: { type: String, default: "" },
+    formats: { type: [String], default: [] },
+    defaultBookingMode: {
+      type: String,
+      enum: ["capacity", "court", "hybrid"],
+      default: "capacity",
+    },
+    unitLabel: { type: String, default: "participants" },
+    status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

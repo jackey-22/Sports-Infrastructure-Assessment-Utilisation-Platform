@@ -38,6 +38,7 @@ import AddInstructor from "./Components/Manager/Instructor/AddInstructor";
 import AllInstructor from "./Components/Manager/Instructor/AllInstructor";
 import SportsComplexDetails from "./Components/Manager/SportsComplexDetails/SportsComplexDetails";
 import EditSportsComplexDetails from "./Components/Manager/SportsComplexDetails/EditSportsComplexDetails";
+import SportsConfiguration from "./Components/Manager/SportsConfiguration/SportsConfiguration";
 import ComplaintDetails from "./Components/Manager/Complaint/ComplainDetails";
 import AuthorityComplaintDataTable from "./Components/Authority/Complaint/ComplaintDetails";
 import Athelte from "./Components/Manager/Athelte/Athelte";
@@ -215,6 +216,11 @@ const routes = createBrowserRouter([
       {
         path: "editfacility",
         element: <EditSportsComplexDetails />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "sports-configuration",
+        element: <SportsConfiguration />,
         errorElement: <ErrorPage />,
       },
       {

@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const ejs = require("ejs");
 const cron = require("node-cron");
-require("dotenv").config();
+require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 
 const {
   authenticate,
@@ -46,6 +46,9 @@ const UpdatesImageController = require("./Controller/UpdatesImageController");
 const UtilizationController = require("./Controller/UtilizationController");
 const GuestController = require("./Controller/GuestController");
 const FacilityAssessmentController = require("./Controller/FacilityAssessmentController");
+const CatalogManagementController = require("./Controller/CatalogManagementController");
+const FacilitySportConfigController = require("./Controller/FacilitySportConfigController");
+const PublicBookingController = require("./Controller/PublicBookingController");
 const OnlinePaymentRouter = require("./Routes/OnlinePaymentRoute");
 
 const {
@@ -858,6 +861,8 @@ app.get("/gettimeslotforguest", GuestController.gettimeslotfrominstructor);
 app.get("/getPaymentTimeslotCount", PaymentController.getPaymentTimeslotCount);
 
 app.use("/onlinepayment", OnlinePaymentRouter);
+app.get("/api/public/sport-configs", PublicBookingController.listConfigs);
+app.post("/api/public/bookings", PublicBookingController.createBooking);
 
 app.get(
   "/api/manager/facility",
@@ -891,6 +896,28 @@ app.get(
   requireRole(ROLE.ADMIN),
   FacilityAssessmentController.adminList
 );
+
+// Database-backed Admin master data. These replace the browser-only management
+// records used by the original console.
+app.get("/api/admin/facilities", requireRole(ROLE.ADMIN), CatalogManagementController.listFacilities);
+app.post("/api/admin/facilities", requireRole(ROLE.ADMIN), CatalogManagementController.createFacility);
+app.patch("/api/admin/facilities/:id", requireRole(ROLE.ADMIN), CatalogManagementController.updateFacility);
+app.delete("/api/admin/facilities/:id", requireRole(ROLE.ADMIN), CatalogManagementController.deleteFacility);
+app.get("/api/admin/sports", requireRole(ROLE.ADMIN), CatalogManagementController.listSports);
+app.post("/api/admin/sports", requireRole(ROLE.ADMIN), CatalogManagementController.createSport);
+app.patch("/api/admin/sports/:id", requireRole(ROLE.ADMIN), CatalogManagementController.updateSport);
+app.delete("/api/admin/sports/:id", requireRole(ROLE.ADMIN), CatalogManagementController.deleteSport);
+app.get("/api/admin/coaches", requireRole(ROLE.ADMIN), CatalogManagementController.listCoaches);
+app.post("/api/admin/coaches", requireRole(ROLE.ADMIN), CatalogManagementController.createCoach);
+app.patch("/api/admin/coaches/:id", requireRole(ROLE.ADMIN), CatalogManagementController.updateCoach);
+app.delete("/api/admin/coaches/:id", requireRole(ROLE.ADMIN), CatalogManagementController.deleteCoach);
+
+// Facility Manager sport, capacity, slot, price and coach mapping.
+app.get("/api/manager/sport-catalog", requireRole(ROLE.MANAGER), FacilitySportConfigController.catalog);
+app.get("/api/manager/sport-configs", requireRole(ROLE.MANAGER), FacilitySportConfigController.list);
+app.post("/api/manager/sport-configs", requireRole(ROLE.MANAGER), FacilitySportConfigController.create);
+app.patch("/api/manager/sport-configs/:id", requireRole(ROLE.MANAGER), FacilitySportConfigController.update);
+app.delete("/api/manager/sport-configs/:id", requireRole(ROLE.MANAGER), FacilitySportConfigController.remove);
 
 // Exposed for tests and operational inspection.
 app.locals.loginRateLimiter = UserRoute.loginRateLimiter;

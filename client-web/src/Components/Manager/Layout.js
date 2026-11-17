@@ -20,6 +20,7 @@ import {
   Calendar,
   BarChart3,
   FileText,
+  ListChecks,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { to: "/manager/profile", label: "Profile", icon: Users },
   { to: "/manager/analysis", label: "Analysis", icon: BarChart3 },
   { to: "/manager/facilitydetails", label: "Facility Details", icon: Building2 },
+  { to: "/manager/sports-configuration", label: "Sports & Slots", icon: ListChecks },
   { to: "/manager/allcomplaint", label: "Grievances", icon: FileText },
   { to: "/manager/addcomplaint", label: "Submit Grievance", icon: FileText },
   { to: "/manager/allsupervisor", label: "Supervisor", icon: Users },
