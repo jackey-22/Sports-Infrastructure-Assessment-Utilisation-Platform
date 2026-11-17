@@ -14,6 +14,10 @@ const { ROLE } = require("../Utils/roles");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const validId = (value) => mongoose.Types.ObjectId.isValid(String(value || ""));
+const validHostedFile = (value) => {
+  try { return new URL(String(value || "")).protocol === "https:"; }
+  catch (error) { return false; }
+};
 
 async function notifyEscalations(complaints) {
   if (!complaints.length) return;
@@ -66,11 +70,14 @@ async function createGrievance(req, res) {
     const description = String(req.body.description || req.body.Description || "").trim();
     const subject = String(req.body.subject || "Facility grievance").trim();
     if (!validId(facility) || !description) return fail(res, 400, "Facility and complaint details are required");
+    if (req.body.proofUrl && !validHostedFile(req.body.proofUrl)) return fail(res, 400, "Attachment must be uploaded before submitting the grievance");
     if (!await SportsComplex.exists({ _id: facility, status: { $ne: "Inactive" } })) return fail(res, 404, "Facility not found");
     const responseHours = Math.max(1, Number(process.env.GRIEVANCE_RESPONSE_HOURS) || 48);
     const complaint = await Complaint.create({
       subject, Description: description, userId: req.user._id, sportsComplex: facility,
-      photo: req.file ? `/grant-proofs/${req.file.filename}` : "",
+      photo: String(req.body.proofUrl || "").trim().slice(0, 1500),
+      proofName: String(req.body.proofName || "").trim().slice(0, 240),
+      proofKey: String(req.body.proofKey || "").trim().slice(0, 500),
       level: 1, status: 0, workflowStatus: "Open",
       dueAt: new Date(Date.now() + responseHours * 60 * 60 * 1000),
     });
@@ -169,10 +176,76 @@ async function coachRateableAthletes(req, res) {
   try {
     const coach = await Instructor.findOne({ userId: req.user._id }).lean();
     if (!coach) return fail(res, 404, "Coach profile not found");
-    const bookings = await Guest.find({ coach: coach._id, bookingStatus: "Confirmed", citizenUser: { $ne: null } }).select("citizenUser sport SportComplexId").lean();
-    const userIds = [...new Set(bookings.map((item) => String(item.citizenUser)))];
-    const athletes = await Athlete.find({ userId: { $in: userIds } }).populate("userId", "Name Email").lean();
-    return res.json({ data: athletes, rcode: 200 });
+    const bookings = await Guest.find({ coach: coach._id })
+      .populate("citizenUser", "Name Email ContactNum")
+      .populate("sport", "SportName")
+      .sort({ createdAt: -1 })
+      .lean();
+    const userIds = [...new Set(bookings.map((item) => item.citizenUser?._id).filter(Boolean).map(String))];
+    const [athletes, ratings] = await Promise.all([
+      Athlete.find({ userId: { $in: userIds } }).lean(),
+      AthleteRating.find({ instructorId: req.user._id }).sort({ createdAt: -1 }).lean(),
+    ]);
+    const athleteByUser = new Map(athletes.map((item) => [String(item.userId), item]));
+    const latestRatingByAthlete = new Map();
+    ratings.forEach((rating) => {
+      const key = String(rating.athleteId || "");
+      if (key && !latestRatingByAthlete.has(key)) latestRatingByAthlete.set(key, rating);
+    });
+    const grouped = new Map();
+    bookings.forEach((booking) => {
+      const user = booking.citizenUser;
+      const identity = user?._id
+        ? `user:${user._id}`
+        : `guest:${String(booking.Email || "").toLowerCase()}:${booking.ContactNum || ""}`;
+      const current = grouped.get(identity) || {
+        id: identity, athleteId: null, userId: user?._id || null,
+        name: user?.Name || booking.Name || "Citizen", email: user?.Email || booking.Email || "",
+        phone: user?.ContactNum || booking.ContactNum || "", bookings: 0, confirmedBookings: 0,
+        paidBookings: 0, totalPaid: 0, sports: new Map(), latestBooking: null, nextBooking: null,
+      };
+      current.bookings += 1;
+      if (booking.bookingStatus === "Confirmed") current.confirmedBookings += 1;
+      if (booking.paymentStatus === "Paid") {
+        current.paidBookings += 1;
+        current.totalPaid += Number(booking.totalAmount) || 0;
+      }
+      if (booking.sport) current.sports.set(String(booking.sport._id), { id: String(booking.sport._id), name: booking.sport.SportName });
+      const bookingSummary = {
+        id: String(booking._id), reference: booking.bookingReference, sport: booking.sport?.SportName || "Sport",
+        sportId: booking.sport?._id ? String(booking.sport._id) : null, date: booking.Startdate,
+        time: booking.timeslot || {}, bookingStatus: booking.bookingStatus, paymentStatus: booking.paymentStatus,
+      };
+      if (!current.latestBooking || String(booking.Startdate) > String(current.latestBooking.date)) current.latestBooking = bookingSummary;
+      const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (booking.bookingStatus === "Confirmed" && booking.Startdate >= today && (!current.nextBooking || booking.Startdate < current.nextBooking.date)) current.nextBooking = bookingSummary;
+      grouped.set(identity, current);
+    });
+    const rows = [...grouped.values()].map((item) => {
+      const athlete = item.userId ? athleteByUser.get(String(item.userId)) : null;
+      const latestRating = athlete ? latestRatingByAthlete.get(String(athlete._id)) : null;
+      return {
+        ...item,
+        athleteId: athlete ? String(athlete._id) : null,
+        sports: [...item.sports.values()],
+        canRate: Boolean(athlete && item.confirmedBookings > 0),
+        latestRating: latestRating ? {
+          rating: latestRating.rating, remarks: latestRating.remarks || "", createdAt: latestRating.createdAt,
+        } : null,
+      };
+    }).sort((a, b) => b.confirmedBookings - a.confirmedBookings || String(b.latestBooking?.date || "").localeCompare(String(a.latestBooking?.date || "")));
+    return res.json({
+      data: {
+        summary: {
+          people: rows.length,
+          confirmedAthletes: rows.filter((item) => item.confirmedBookings > 0).length,
+          eligibleToRate: rows.filter((item) => item.canRate).length,
+          pendingOnly: rows.filter((item) => item.confirmedBookings === 0).length,
+        },
+        athletes: rows,
+      },
+      rcode: 200,
+    });
   } catch (error) { return fail(res, 500, "Could not load booked athletes"); }
 }
 
@@ -223,16 +296,82 @@ async function managerGrants(req, res) {
   try { return res.json({ data: await populateGrant(Grant.find({ facility: req.user.SportComplexId }).sort({ createdAt: -1 })), rcode: 200 }); }
   catch (error) { return fail(res, 500, "Could not load grants"); }
 }
+
+function orderedProgress(grant, status) {
+  return (grant.progressUpdates || [])
+    .filter((item) => !status || item.reviewStatus === status)
+    .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
+}
+
+function verifiedGrantBaseline(grant, excludeId = null) {
+  return (grant.progressUpdates || []).reduce((baseline, item) => {
+    if (item.reviewStatus !== "Verified" || (excludeId && String(item._id) === String(excludeId))) return baseline;
+    return {
+      percent: Math.max(baseline.percent, Number(item.percent) || 0),
+      amountUsed: Math.max(baseline.amountUsed, Number(item.amountUsed) || 0),
+    };
+  }, { percent: 0, amountUsed: 0 });
+}
+
+function percentForAmount(grant, amountUsed) {
+  return Math.round(((amountUsed / Number(grant.allocatedAmount)) * 100) * 100) / 100;
+}
+
+function validateCumulativeProgress(grant, amountUsed, baseline, submittedPercent = null) {
+  if (!Number.isFinite(amountUsed) || amountUsed <= baseline.amountUsed) {
+    return `Cumulative amount used must be greater than ₹${baseline.amountUsed.toLocaleString("en-IN")}`;
+  }
+  if (amountUsed > Number(grant.allocatedAmount)) {
+    return "Cumulative amount used cannot exceed the grant allocation";
+  }
+  const calculatedPercent = percentForAmount(grant, amountUsed);
+  if (submittedPercent !== null && Math.abs(Number(submittedPercent) - calculatedPercent) > 0.01) {
+    return `The stored percentage must be ${calculatedPercent}% for ₹${amountUsed.toLocaleString("en-IN")} usage`;
+  }
+  return "";
+}
+
 async function submitGrantProgress(req, res) {
   try {
     const grant = await Grant.findById(req.params.id);
     if (!grant) return fail(res, 404, "Grant not found");
     if (String(grant.facility) !== String(req.user.SportComplexId)) return fail(res, 403, "This grant belongs to another facility");
-    const percent = Number(req.body.percent);
-    if (percent < 0 || percent > 100 || !String(req.body.note || "").trim()) return fail(res, 400, "Progress percentage and note are required");
-    if (!req.file && !String(req.body.proofUrl || "").trim()) return fail(res, 400, "Attach proof of grant usage");
-    if ((Number(req.body.amountUsed) || 0) > grant.allocatedAmount) return fail(res, 400, "Amount used cannot exceed the grant amount");
-    grant.progressUpdates.push({ percent, amountUsed: Number(req.body.amountUsed) || 0, note: req.body.note, proofUrl: req.file ? `/grant-proofs/${req.file.filename}` : String(req.body.proofUrl || ""), proofName: req.file?.originalname || "", submittedBy: req.user._id });
+    const amountUsed = Number(req.body.amountUsed);
+    const note = String(req.body.note || "").trim();
+    if (!note) return fail(res, 400, "Progress details and usage explanation are required");
+    if (!validHostedFile(req.body.proofUrl)) return fail(res, 400, "Upload the grant proof before submitting progress");
+    if (orderedProgress(grant, "Pending").length) {
+      return fail(res, 409, "A progress submission is already awaiting Admin review");
+    }
+    const baseline = verifiedGrantBaseline(grant);
+    const validationError = validateCumulativeProgress(grant, amountUsed, baseline);
+    if (validationError) return fail(res, 400, validationError);
+    const percent = percentForAmount(grant, amountUsed);
+
+    const proofUrl = String(req.body.proofUrl || "").trim().slice(0, 1500);
+    const proofName = String(req.body.proofName || "").trim().slice(0, 240);
+    const proofKey = String(req.body.proofKey || "").trim().slice(0, 500);
+    const proofSize = Math.max(0, Number(req.body.proofSize) || 0);
+    const proofMimeType = String(req.body.proofMimeType || "").trim().slice(0, 120);
+    const queried = orderedProgress(grant, "Query Raised").at(-1);
+    if (queried) {
+      queried.percent = percent;
+      queried.amountUsed = amountUsed;
+      queried.note = note;
+      queried.proofUrl = proofUrl;
+      queried.proofName = proofName;
+      queried.proofKey = proofKey;
+      queried.proofSize = proofSize;
+      queried.proofMimeType = proofMimeType;
+      queried.submittedBy = req.user._id;
+      queried.submittedAt = new Date();
+      queried.reviewStatus = "Pending";
+      queried.adminNote = "";
+      queried.reviewedBy = undefined;
+      queried.reviewedAt = undefined;
+    } else {
+      grant.progressUpdates.push({ percent, amountUsed, note, proofUrl, proofName, proofKey, proofSize, proofMimeType, submittedBy: req.user._id });
+    }
     grant.status = "Proof Submitted";
     await grant.save();
     const admins = await User.find({ Role: ROLE.ADMIN, IsActive: { $ne: 0 } }).select("_id").lean();
@@ -248,11 +387,23 @@ async function reviewGrantProgress(req, res) {
     const decision = req.body.decision;
     if (!["Verified", "Query Raised"].includes(decision)) return fail(res, 400, "Choose Verify or Query Raised");
     if (decision === "Query Raised" && !String(req.body.note || "").trim()) return fail(res, 400, "Add the query for the facility manager");
+    if (progress.reviewStatus !== "Pending") return fail(res, 409, "This submission has already been reviewed");
+    const pending = orderedProgress(grant, "Pending");
+    if (pending.length && String(pending[0]._id) !== String(progress._id)) {
+      return fail(res, 409, "Review the earlier pending milestone first");
+    }
+    if (decision === "Verified") {
+      const baseline = verifiedGrantBaseline(grant, progress._id);
+      const validationError = validateCumulativeProgress(grant, Number(progress.amountUsed), baseline, Number(progress.percent));
+      if (validationError) return fail(res, 400, `Cannot verify: ${validationError}`);
+    }
     progress.reviewStatus = decision;
     progress.adminNote = String(req.body.note || "");
     progress.reviewedBy = req.user._id;
     progress.reviewedAt = new Date();
-    grant.status = decision;
+    grant.status = decision === "Verified"
+      ? (Number(progress.percent) === 100 ? "Verified" : "In Progress")
+      : "Query Raised";
     await grant.save();
     const managers = await User.find({ Role: ROLE.MANAGER, SportComplexId: grant.facility, IsActive: { $ne: 0 } }).select("_id").lean();
     if (managers.length) await setReminder(new Date(), progress.adminNote || "Progress proof verified", `Grant progress ${decision.toLowerCase()}`, managers.map((item) => item._id));

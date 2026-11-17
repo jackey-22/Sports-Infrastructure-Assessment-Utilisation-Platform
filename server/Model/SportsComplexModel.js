@@ -10,6 +10,12 @@ const SportsComplexSchema = new mongoose.Schema(
     taluka: String,
     area: String, // in acres
     operationalSince: String,
+    facilityType: {
+      type: String,
+      enum: ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"],
+      default: "Sports Complex",
+      index: true,
+    },
     category: {
       type: String,
       default: "SAG District Sports Complex"

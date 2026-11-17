@@ -1,7 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Bell, ChevronDown, Menu, X } from "lucide-react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { API_BASE_URL } from "../../API/client";
+import { UserActions } from "../../store/UserData";
+import { readDemoToken } from "../Auth/demoAuth";
 
 function BrandMark({ className = "w-11 h-11" }) {
   return (
@@ -33,12 +36,15 @@ const navLinkClass = ({ isActive }) =>
 
 export default function PublicNavbar() {
   const location = useLocation();
+  const dispatch = useDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [assessOpen, setAssessOpen] = useState(false);
-  const assessRef = useRef(null);
+  const [sessionToken, setSessionToken] = useState(() => {
+    try { return window.localStorage.getItem("token") || ""; } catch (error) { return ""; }
+  });
   const userData = useSelector((state) => state.user?.user);
-  const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
-  const isLoggedIn = hasToken && !!(userData && (userData.Email || userData.Name));
+  const hasToken = Boolean(sessionToken);
+  const hasUser = Boolean(userData && (userData.Email || userData.Name));
+  const isLoggedIn = hasToken;
   const initials =
     (userData?.Name || "U")
       .split(" ")
@@ -63,18 +69,38 @@ export default function PublicNavbar() {
       : "/login";
 
   useEffect(() => {
-    const onDocClick = (e) => {
-      if (assessRef.current && !assessRef.current.contains(e.target)) {
-        setAssessOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
+    if (!sessionToken || hasUser) return undefined;
+    const demoUser = readDemoToken(sessionToken);
+    if (demoUser) {
+      dispatch(UserActions.getuserdata(demoUser));
+      return undefined;
+    }
+    const controller = new AbortController();
+    fetch(`${API_BASE_URL}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: sessionToken }),
+      signal: controller.signal,
+    })
+      .then(async (response) => ({ response, body: await response.json().catch(() => null) }))
+      .then(({ response, body }) => {
+        if (response.ok && body?.rcode === 200 && body.data) {
+          dispatch(UserActions.getuserdata(body.data));
+          return;
+        }
+        window.localStorage.removeItem("token");
+        setSessionToken("");
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          // Keep the saved session during a temporary network failure.
+        }
+      });
+    return () => controller.abort();
+  }, [dispatch, hasUser, sessionToken]);
 
   useEffect(() => {
     setMobileOpen(false);
-    setAssessOpen(false);
   }, [location.pathname, location.hash]);
 
   return (
@@ -100,46 +126,6 @@ export default function PublicNavbar() {
             Explore Facilities
           </NavLink>
 
-          <div className="relative" ref={assessRef}>
-            <button
-              type="button"
-              onClick={() => setAssessOpen((o) => !o)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition flex items-center gap-1 ${
-                assessOpen
-                  ? "bg-brand-soft text-brand-primary"
-                  : "text-slate-600 hover:text-brand-dark hover:bg-brand-mint"
-              }`}
-              aria-expanded={assessOpen}
-            >
-              Assess &amp; Manage
-              <ChevronDown className={`w-3.5 h-3.5 transition ${assessOpen ? "rotate-180" : ""}`} />
-            </button>
-            {assessOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-lg py-2 z-50">
-                <Link
-                  to="/explore"
-                  className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-brand-soft hover:text-brand-primary font-medium"
-                  onClick={() => setAssessOpen(false)}
-                >
-                  Explore Bookable Facilities
-                </Link>
-                <Link
-                  to="/login"
-                  className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-brand-soft hover:text-brand-primary font-medium"
-                  onClick={() => setAssessOpen(false)}
-                >
-                  Officer / Manager Desk
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <a
-            href={isHome ? "#stats" : "/#stats"}
-            className="px-3.5 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:text-brand-dark hover:bg-brand-mint transition"
-          >
-            Analytics
-          </a>
           <a
             href={isHome ? "#about" : "/#about"}
             className="px-3.5 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:text-brand-dark hover:bg-brand-mint transition"
@@ -202,20 +188,6 @@ export default function PublicNavbar() {
           <NavLink to="/explore" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Explore Facilities
           </NavLink>
-          <Link
-            to="/explore"
-            className="block px-3.5 py-2 text-sm font-semibold text-slate-600"
-            onClick={() => setMobileOpen(false)}
-          >
-            Assess &amp; Manage
-          </Link>
-          <a
-            href={isHome ? "#stats" : "/#stats"}
-            className="block px-3.5 py-2 text-sm font-semibold text-slate-600"
-            onClick={() => setMobileOpen(false)}
-          >
-            Analytics
-          </a>
           <a
             href={isHome ? "#about" : "/#about"}
             className="block px-3.5 py-2 text-sm font-semibold text-slate-600"

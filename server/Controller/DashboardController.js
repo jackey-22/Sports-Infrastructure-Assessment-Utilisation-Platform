@@ -9,6 +9,7 @@ const Complaint = require("../Model/ComplaintModel");
 const Grant = require("../Model/GrantModel");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const Review = require("../Model/ReviewModel");
+const AthleteRating = require("../Model/athleteRatingModel");
 const { ROLE } = require("../Utils/roles");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
@@ -173,4 +174,106 @@ async function manager(req, res) {
   } catch (error) { console.error("Manager dashboard failed:", error); return fail(res, 500, "Could not load facility dashboard"); }
 }
 
-module.exports = { admin, manager };
+async function coach(req, res) {
+  try {
+    const profile = await Instructor.findOne({ userId: req.user._id })
+      .populate("userId", "Name Email ContactNum")
+      .populate({ path: "SportComplexId", select: "name location district", populate: { path: "district", select: "District" } })
+      .populate("sports.sport", "SportName")
+      .lean();
+    if (!profile) return fail(res, 404, "Coach profile not found");
+
+    const months = recentMonths();
+    const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
+    const today = indiaDate();
+    const [bookings, payments, givenRatings, receivedRatings, configurations] = await Promise.all([
+      Guest.find({ coach: profile._id })
+        .populate("sport", "SportName")
+        .sort({ createdAt: -1 })
+        .lean(),
+      BookingPayment.find({ coach: profile._id }).sort({ createdAt: -1 }).lean(),
+      AthleteRating.find({ instructorId: req.user._id }).sort({ createdAt: -1 }).lean(),
+      Review.find({ targetType: "coach", coach: profile._id }).sort({ createdAt: -1 }).lean(),
+      FacilitySportConfig.find({ facility: profile.SportComplexId?._id || profile.SportComplexId, status: "Active", "slots.coach": profile._id })
+        .populate("sport", "SportName")
+        .lean(),
+    ]);
+
+    const paymentByBooking = new Map(payments.map((payment) => [String(payment.booking), payment]));
+    const trend = new Map(months.map((month) => [month.key, month]));
+    bookings.filter((booking) => new Date(booking.createdAt) >= trendStart).forEach((booking) => {
+      const month = trend.get(monthKey(new Date(booking.createdAt)));
+      if (month) month.bookings += 1;
+    });
+    payments.filter((payment) => payment.status === "Paid" && new Date(payment.paidAt || payment.createdAt) >= trendStart).forEach((payment) => {
+      const month = trend.get(monthKey(new Date(payment.paidAt || payment.createdAt)));
+      if (month) month.revenue += Number(payment.amount) || 0;
+    });
+
+    const paid = payments.filter((payment) => payment.status === "Paid");
+    const confirmed = bookings.filter((booking) => booking.bookingStatus === "Confirmed");
+    const uniqueAthletes = new Set(confirmed.map((booking) => {
+      const identity = booking.citizenUser || booking.Email || booking.ContactNum;
+      return identity ? String(identity) : "";
+    }).filter(Boolean));
+    const coachingSlots = configurations.flatMap((config) => (config.slots || [])
+      .filter((slot) => String(slot.coach) === String(profile._id))
+      .map((slot) => ({
+        id: String(slot._id), sport: config.sport?.SportName || "Sport", label: slot.label,
+        startTime: slot.startTime, endTime: slot.endTime, days: slot.days || [],
+        audience: slot.audience, capacity: slot.capacity, bookable: slot.bookable,
+      })));
+    const average = (rows) => rows.length
+      ? Math.round((rows.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) / rows.length) * 10) / 10
+      : 0;
+
+    return res.json({
+      data: {
+        generatedAt: new Date(),
+        coach: {
+          id: String(profile._id), name: profile.userId?.Name || req.user.Name || "Coach",
+          email: profile.userId?.Email || req.user.Email || "", qualification: profile.qualification || "",
+          status: profile.status, sports: (profile.sports || []).map((item) => item.sport?.SportName).filter(Boolean),
+        },
+        facility: profile.SportComplexId ? {
+          id: String(profile.SportComplexId._id), name: profile.SportComplexId.name,
+          location: profile.SportComplexId.location || "", district: profile.SportComplexId.district?.District || "",
+        } : null,
+        kpis: {
+          bookings: bookings.length,
+          confirmedBookings: confirmed.length,
+          todayBookings: bookings.filter((item) => item.Startdate === today && item.bookingStatus !== "Cancelled").length,
+          upcomingBookings: bookings.filter((item) => item.Startdate >= today && item.bookingStatus !== "Cancelled").length,
+          uniqueAthletes: uniqueAthletes.size,
+          paidBookings: paid.length,
+          revenue: paid.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+          pendingPayments: payments.filter((item) => item.status === "Created").length,
+          ratingsGiven: givenRatings.length,
+          averageRatingGiven: average(givenRatings),
+          ratingsReceived: receivedRatings.length,
+          averageRatingReceived: average(receivedRatings),
+          coachingSlots: coachingSlots.length,
+        },
+        trend: months,
+        assignedSlots: coachingSlots,
+        recentBookings: bookings.slice(0, 8).map((booking) => {
+          const payment = paymentByBooking.get(String(booking._id));
+          return {
+            id: String(booking._id), reference: booking.bookingReference,
+            athlete: booking.Name || "Athlete", email: booking.Email || "", phone: booking.ContactNum || "",
+            sport: booking.sport?.SportName || "Sport", date: booking.Startdate,
+            time: booking.timeslot || {}, members: booking.memberCount || 1,
+            bookingStatus: booking.bookingStatus, paymentStatus: payment?.status || booking.paymentStatus,
+            amount: payment?.amount ?? booking.totalAmount ?? 0,
+          };
+        }),
+      },
+      rcode: 200,
+    });
+  } catch (error) {
+    console.error("Coach dashboard failed:", error);
+    return fail(res, 500, "Could not load coach dashboard");
+  }
+}
+
+module.exports = { admin, manager, coach };

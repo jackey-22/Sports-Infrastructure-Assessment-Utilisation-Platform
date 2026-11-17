@@ -6,6 +6,9 @@ const progressSchema = new mongoose.Schema({
   note: { type: String, trim: true, required: true },
   proofUrl: String,
   proofName: String,
+  proofKey: String,
+  proofSize: Number,
+  proofMimeType: String,
   submittedBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users", required: true },
   submittedAt: { type: Date, default: Date.now },
   reviewStatus: { type: String, enum: ["Pending", "Verified", "Query Raised"], default: "Pending" },
@@ -24,6 +27,6 @@ const grantSchema = new mongoose.Schema({
   dueDate: Date,
   status: { type: String, enum: ["Allocated", "In Progress", "Proof Submitted", "Query Raised", "Verified"], default: "Allocated", index: true },
   progressUpdates: [progressSchema],
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 module.exports = mongoose.model("facilitygrants", grantSchema);

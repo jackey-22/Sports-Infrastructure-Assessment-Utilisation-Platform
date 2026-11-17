@@ -7,13 +7,11 @@ import {
   LogOut,
   MessageSquareWarning,
   Receipt,
-  RotateCcw,
   ClipboardCheck,
   ShieldCheck,
   UserRound,
   Wallet,
 } from "lucide-react";
-import { resetDemoStore } from "../../data/demoStore";
 
 const MANAGEMENT = [
   { id: "facilities", label: "Facility management", icon: Building2 },
@@ -29,7 +27,6 @@ const PLATFORM = [
     match: (path) => path === "/admin/insights",
   },
   { to: "/admin/insights/grievances", label: "Grievances", icon: MessageSquareWarning },
-  { to: "/admin/insights/transactions", label: "Transactions", icon: Receipt },
   { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },
   { to: "/admin/insights/grants", label: "Grants", icon: Wallet },
   { to: "/admin/insights/assessments", label: "Facility assessments", icon: ClipboardCheck },
@@ -56,17 +53,6 @@ export default function AdminSidebar({ collapsed = false, onNavigate }) {
   const signOut = () => {
     window.localStorage.removeItem("token");
     navigate("/");
-  };
-
-  const resetDemoData = () => {
-    if (
-      !window.confirm(
-        "Restore the original records in this browser? Your sign-in is kept."
-      )
-    ) {
-      return;
-    }
-    resetDemoStore();
   };
 
   return (
@@ -142,16 +128,6 @@ export default function AdminSidebar({ collapsed = false, onNavigate }) {
           <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
           {!collapsed ? "Sign out" : <span className="sr-only">Sign out</span>}
         </button>
-        {!collapsed ? (
-          <button
-            type="button"
-            onClick={resetDemoData}
-            className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-emerald-100 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-          >
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-            Reset records
-          </button>
-        ) : null}
       </div>
     </div>
   );

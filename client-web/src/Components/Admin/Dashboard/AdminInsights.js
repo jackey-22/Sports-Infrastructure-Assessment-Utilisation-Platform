@@ -376,7 +376,7 @@ export default function AdminInsights() {
               caption={`${formatCurrency(kpis.transactionVolume, { compact: true })} collected`}
               icon={Receipt}
               tone="blue"
-              to={`/admin/insights/transactions${linkSuffix}`}
+              to={`/admin/insights/bookings${linkSuffix}`}
             />
             <KpiCard
               label="Facility utilisation"

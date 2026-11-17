@@ -91,6 +91,17 @@ async function listConfigs(req, res) {
 
 async function listFacilities(req, res) {
   try {
+    const resolveFacilityType = (facility) => {
+      const valid = ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"];
+      if (valid.includes(facility.facilityType)) return facility.facilityType;
+      const category = String(facility.category || "").toLowerCase();
+      const name = String(facility.name || "").toLowerCase();
+      if (category.includes("stadium")) return "Stadium";
+      if (name.includes("indoor")) return "Indoor Hall";
+      if (category.includes("university") || category.includes("institutional")) return "Training Centre";
+      if (category.includes("taluka") || (name.includes("ground") && !name.includes("complex"))) return "Playground";
+      return "Sports Complex";
+    };
     const facilities = await SportsComplex.find({ status: { $ne: "Inactive" } })
       .populate("district", "District")
       .populate("manager", "Name Email ContactNum")
@@ -179,6 +190,7 @@ async function listFacilities(req, res) {
         latitude: facility.latitude == null || facility.latitude === "" ? null : Number(facility.latitude),
         longitude: facility.longitude == null || facility.longitude === "" ? null : Number(facility.longitude),
         category: facility.category,
+        facilityType: resolveFacilityType(facility),
         ownership: facility.ownership,
         operationalSince: facility.operationalSince,
         contactPerson: facility.manager?.Name || "Facility administration",

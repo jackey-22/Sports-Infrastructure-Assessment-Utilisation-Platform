@@ -6,6 +6,8 @@ const complaintSchema = new mongoose.Schema(
     Description: String,
     subject: { type: String, trim: true, default: "Facility grievance" },
     photo: String,
+    proofName: String,
+    proofKey: String,
     remarks: [
       {
         level: Number,

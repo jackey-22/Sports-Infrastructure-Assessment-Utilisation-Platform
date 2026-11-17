@@ -11,8 +11,9 @@ const MODULES = [
   { id: "sports", label: "Sports Management", icon: LayoutDashboard },
   { id: "coaches", label: "Coach Management", icon: UserRound },
 ];
+const FACILITY_TYPES = ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"];
 const EMPTY = {
-  facilities: { name: "", district: "", city: "", location: "", latitude: "", longitude: "", contactPhone: "", contactEmail: "", operationalSince: "", status: "Active", picture: "", managerName: "", managerEmail: "", managerContact: "", managerPassword: "" },
+  facilities: { name: "", facilityType: "Sports Complex", district: "", city: "", location: "", latitude: "", longitude: "", contactPhone: "", contactEmail: "", operationalSince: "", status: "Active", picture: "", managerName: "", managerEmail: "", managerContact: "", managerPassword: "" },
   sports: { name: "", category: "", description: "", formats: "", defaultBookingMode: "capacity", unitLabel: "participants", parameters: "", image: "", status: "Active" },
   coaches: { name: "", email: "", contact: "", password: "", facilityId: "", sportIds: [], qualification: "", experience: 0, status: "Active" },
 };
@@ -20,7 +21,7 @@ const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 te
 const idOf = (row) => row._id || row.id;
 
 function normalize(module, row) {
-  if (module === "facilities") return { ...row, district: row.district?._id || row.district || "", managerName: row.manager?.Name || "", managerEmail: row.manager?.Email || "", managerContact: row.manager?.ContactNum || "", managerPassword: "" };
+  if (module === "facilities") return { ...row, facilityType: row.facilityType || "Sports Complex", district: row.district?._id || row.district || "", managerName: row.manager?.Name || "", managerEmail: row.manager?.Email || "", managerContact: row.manager?.ContactNum || "", managerPassword: "" };
   if (module === "sports") return { ...row, name: row.SportName, category: row.Category, image: row.baseUrl || "", formats: (row.formats || []).join(", "), parameters: Array.isArray(row.parameters) ? row.parameters.join(", ") : "" };
   return { ...row, name: row.userId?.Name || "", email: row.userId?.Email || "", contact: row.userId?.ContactNum || "", password: "", facilityId: row.SportComplexId?._id || "", sportIds: (row.sports || []).map((item) => item.sport?._id || item.sport), experience: row.sports?.[0]?.experience || 0 };
 }
@@ -119,9 +120,9 @@ function Metric({ label, value }) {
 }
 
 function RecordTable({ module, records, onEdit, onDelete }) {
-  const headers = module === "facilities" ? ["Facility", "District", "Manager", "Status"] : module === "sports" ? ["Sport", "Category", "Booking model", "Default unit", "Status"] : ["Coach", "Facility", "Sports", "Qualification", "Status"];
+  const headers = module === "facilities" ? ["Facility", "Type", "District", "Manager", "Status"] : module === "sports" ? ["Sport", "Category", "Booking model", "Default unit", "Status"] : ["Coach", "Facility", "Sports", "Qualification", "Status"];
   const values = (row) => module === "facilities"
-    ? [row.name, row.district?.District || "—", row.manager?.Name || "Unassigned", row.status]
+    ? [row.name, row.facilityType || "Sports Complex", row.district?.District || "—", row.manager?.Name || "Unassigned", row.status]
     : module === "sports"
       ? [row.SportName, row.Category, row.defaultBookingMode, row.unitLabel, row.status]
       : [row.userId?.Name || "—", row.SportComplexId?.name || "—", (row.sports || []).map((item) => item.sport?.SportName).filter(Boolean).join(", "), row.qualification || "—", row.status];
@@ -165,6 +166,7 @@ const Field = ({ label, children, full = false }) => <label className={full ? "s
 function FacilityFields({ record, update, districts, isNew }) {
   return <><div className="grid gap-4 sm:grid-cols-2">
     <Field label="Facility name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field>
+    <Field label="Facility type"><select required className={input} value={record.facilityType || "Sports Complex"} onChange={(e) => update("facilityType", e.target.value)}>{FACILITY_TYPES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
     <Field label="District"><select required className={input} value={record.district} onChange={(e) => update("district", e.target.value)}><option value="">Select district</option>{districts.map((row) => <option key={row._id} value={row._id}>{row.District}</option>)}</select></Field>
     <Field label="City / taluka"><input className={input} value={record.city || ""} onChange={(e) => update("city", e.target.value)} /></Field><Field label="Operational since"><input type="date" className={input} value={record.operationalSince || ""} onChange={(e) => update("operationalSince", e.target.value)} /></Field>
     <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}>{["Active", "Inactive", "Under Development", "Temporarily Closed"].map((value) => <option key={value}>{value}</option>)}</select></Field><UploadImageField label="Facility cover image" value={record.picture || ""} onChange={(value) => update("picture", value)} />

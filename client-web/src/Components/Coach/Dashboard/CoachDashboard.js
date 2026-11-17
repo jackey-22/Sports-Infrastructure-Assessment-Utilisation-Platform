@@ -1,261 +1,67 @@
-import React, { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  ArrowRight,
-  Clock3,
-  Users,
-  Wallet,
-  RotateCcw,
-  ShieldCheck,
-  BarChart3,
-  ClipboardList,
-} from "lucide-react";
-import { coachService } from "../../../services/coach/coachService";
-import { formatNumber } from "../../../utils/coach/coachUtils";
-import { useAdminQuery } from "../../../hooks/coach/useCoachQuery";
-import {
-  ChartCard,
-  DonutChart,
-} from "../Common/CoachUI";
-import {
-  Button,
-  Card,
-  DemoBanner,
-  EmptyState,
-  ErrorState,
-  KpiCard,
-  PageHeader,
-  PageShell,
-  SectionHeader,
-  StatusPill,
-  TableSkeleton,
-} from "../Common/CoachUI";
+import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { CalendarCheck, Clock3, IndianRupee, RefreshCw, Star, Users } from "lucide-react";
+import { api } from "../../../API/client";
+import { Card, EmptyState, ErrorState, KpiCard, PageHeader, PageShell, TableSkeleton } from "../Common/CoachUI";
 
-const COACH_TODAY = "2026-10-31";
+const number = new Intl.NumberFormat("en-IN");
+const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+const date = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-function shiftDate(days) {
-  const date = new Date(`${COACH_TODAY}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - days);
-  return date.toISOString().slice(0, 10);
+function Status({ children }) {
+  const success = children === "Paid" || children === "Confirmed";
+  const failed = children === "Failed" || children === "Cancelled" || children === "Refunded";
+  return <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${success ? "bg-emerald-50 text-emerald-700" : failed ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{children || "Pending"}</span>;
 }
 
-const EMPTY_FILTERS = { preset: "180", from: "", to: "" };
-
-function initialFilters(params) {
-  const from = params.get("from") || "";
-  const to = params.get("to") || "";
-  return {
-    ...EMPTY_FILTERS,
-    preset: from || to ? "custom" : EMPTY_FILTERS.preset,
-    from,
-    to,
-  };
+function Section({ title, description, action, children, className = "" }) {
+  return <Card className={`overflow-hidden ${className}`}><div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4"><div><h2 className="font-extrabold text-slate-900">{title}</h2><p className="mt-1 text-xs text-slate-500">{description}</p></div>{action}</div>{children}</Card>;
 }
 
-function queryFromFilters(filters) {
-  let from = filters.from;
-  let to = filters.to;
-  if (filters.preset === "all") {
-    from = "";
-    to = "";
-  } else if (filters.preset !== "custom") {
-    from = shiftDate(Number(filters.preset));
-    to = COACH_TODAY;
-  }
-  return { from, to };
+function Trend({ rows }) {
+  const maximum = Math.max(1, ...rows.map((row) => row.bookings));
+  return <div className="p-5"><div className="flex h-52 items-end gap-3 sm:gap-5">{rows.map((row) => <div key={row.key} className="flex min-w-0 flex-1 flex-col items-center"><div className="flex h-40 w-full items-end justify-center"><div className="w-3/5 max-w-12 rounded-t-lg bg-emerald-600" style={{ height: `${Math.max(row.bookings ? 12 : 3, (row.bookings / maximum) * 150)}px` }} title={`${row.bookings} bookings`} /></div><span className="mt-2 text-[10px] font-bold text-slate-500 sm:text-xs">{row.label}</span><span className="mt-0.5 text-[10px] text-slate-400">{row.bookings}</span></div>)}</div></div>;
 }
 
 export default function CoachDashboard() {
-  const [params] = useSearchParams();
-  const [filters, setFilters] = useState(() => initialFilters(params));
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { const response = await api.get("/api/dashboard/coach"); setData(response.data); }
+    catch (loadError) { setError(loadError); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const query = queryFromFilters(filters);
-  const queryKey = JSON.stringify(query);
-  const { data, loading, error, reload } = useAdminQuery(
-    () => coachService.getDashboard(),
-    [queryKey]
-  );
+  if (loading && !data) return <PageShell><div className="mb-5 h-28 animate-pulse rounded-3xl bg-emerald-950" /><div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div><Card><TableSkeleton rows={6} columns={5} /></Card></PageShell>;
+  if (error && !data) return <PageShell><Card><ErrorState message={error.message} onRetry={load} /></Card></PageShell>;
 
-  function update(patch) {
-    setFilters((current) => ({ ...current, ...patch }));
-  }
+  const { coach, facility, kpis } = data;
+  return <PageShell>
+    <PageHeader eyebrow="Coach Console · Live operational overview" title={`${coach.name} — Dashboard`} description={`${facility?.name || "No facility assigned"}${facility?.district ? ` · ${facility.district}` : ""}${coach.sports.length ? ` · ${coach.sports.join(", ")}` : ""}`} actions={<button type="button" onClick={load} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh</button>} />
 
-  function reset() {
-    setFilters(EMPTY_FILTERS);
-  }
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard label="My bookings" value={number.format(kpis.bookings)} caption={`${kpis.confirmedBookings} confirmed`} icon={CalendarCheck} tone="green" />
+      <KpiCard label="Upcoming" value={number.format(kpis.upcomingBookings)} caption={`${kpis.todayBookings} scheduled today`} icon={Clock3} tone="amber" />
+      <KpiCard label="Booked athletes" value={number.format(kpis.uniqueAthletes)} caption="Unique confirmed bookers" icon={Users} tone="violet" />
+      <KpiCard label="Collected" value={money.format(kpis.revenue)} caption={`${kpis.paidBookings} paid · ${kpis.pendingPayments} pending`} icon={IndianRupee} tone="green" />
+      <KpiCard label="Assigned slots" value={number.format(kpis.coachingSlots)} caption="Active facility coaching slots" icon={Clock3} tone="blue" />
+      <KpiCard label="Ratings submitted" value={number.format(kpis.ratingsGiven)} caption={kpis.ratingsGiven ? `${kpis.averageRatingGiven} average given` : "No athlete ratings yet"} icon={Star} tone="amber" />
+      <KpiCard label="Citizen ratings" value={number.format(kpis.ratingsReceived)} caption={kpis.ratingsReceived ? `${kpis.averageRatingReceived} / 5 average` : "No coach ratings yet"} icon={Star} tone="amber" />
+      <KpiCard label="Coach status" value={coach.status} caption={coach.qualification || "Qualification not added"} icon={Users} tone="slate" />
+    </div>
 
-  const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  if (data?.recentRatings) {
-    data.recentRatings.forEach((r) => {
-      ratingCounts[r.rating] = (ratingCounts[r.rating] || 0) + 1;
-    });
-  }
+    <div className="mb-5 grid gap-5 xl:grid-cols-3">
+      <Section title="Booking activity" description="Actual bookings assigned to you over the latest six calendar months." className="xl:col-span-2"><Trend rows={data.trend} /></Section>
+      <Section title="Assigned coaching slots" description="Slots mapped to you by the Facility Manager." action={<Link to="/coach/bookings" className="text-xs font-bold text-emerald-700">View bookings</Link>}>
+        {data.assignedSlots.length ? <div className="divide-y divide-slate-100">{data.assignedSlots.map((slot) => <div key={slot.id} className="px-5 py-4"><div className="flex items-center justify-between gap-3"><p className="font-bold text-slate-800">{slot.sport}</p><span className="text-xs font-bold text-emerald-700">{slot.startTime}–{slot.endTime}</span></div><p className="mt-1 text-xs text-slate-500">{slot.label} · Capacity {slot.capacity}</p><p className="mt-1 text-[11px] text-slate-400">{slot.days.join(", ") || "Days not configured"} · {slot.audience}</p></div>)}</div> : <EmptyState title="No coaching slots assigned" description="Ask the Facility Manager to map you to a coaching slot." />}
+      </Section>
+    </div>
 
-  return (
-    <PageShell>
-      <PageHeader
-        eyebrow="Sports Authority of Gujarat · Coach Console"
-        title={
-          data?.facility
-            ? `${data.facility.name} — Coach Dashboard`
-            : "Coach Dashboard"
-        }
-        description={`Coach-scoped view for ${
-          data?.facility ? data.facility.district : ""
-        }.`}
-        actions={
-          <Button variant="ghost" onClick={reset}>
-            <RotateCcw className="h-4 w-4" /> Reset filters
-          </Button>
-        }
-      />
-
-      {loading && !data ? (
-        <>
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-[104px] animate-pulse rounded-2xl border border-slate-200 bg-white"
-              />
-            ))}
-          </div>
-          <Card>
-            <TableSkeleton rows={6} columns={4} />
-          </Card>
-        </>
-      ) : error ? (
-        <Card>
-          <ErrorState message={error.message} onRetry={reload} />
-        </Card>
-      ) : data ? (
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <KpiCard
-              label="Assigned athletes"
-              value={formatNumber(data.totalAthletes)}
-              caption={`${formatNumber(data.activeAthletes)} active`}
-              icon={Users}
-              tone="green"
-            />
-            <KpiCard
-              label="Pending ratings"
-              value={formatNumber(data.pendingRatings)}
-              caption="Athletes not yet rated"
-              icon={Clock3}
-              tone="amber"
-            />
-            <KpiCard
-              label="Rated athletes"
-              value={formatNumber(data.ratedAthletes)}
-              caption={`${data.totalRatings} rating(s) recorded`}
-              icon={ShieldCheck}
-              tone="green"
-            />
-            <KpiCard
-              label="Average rating"
-              value={
-                data.averageRating == null ? "—" : `${data.averageRating} / 5`
-              }
-              caption="Across submitted ratings"
-              icon={Wallet}
-              tone="blue"
-            />
-            <KpiCard
-              label="Facility utilisation"
-              value={`${data.facilityUtilisation}%`}
-              caption="Capacity-weighted daily utilisation"
-              icon={BarChart3}
-              tone="green"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartCard
-              title="Rating distribution"
-              description="Distribution of coach-submitted athlete ratings (1–5)."
-            >
-              <DonutChart
-                labels={["1", "2", "3", "4", "5"]}
-                series={[
-                  ratingCounts[1],
-                  ratingCounts[2],
-                  ratingCounts[3],
-                  ratingCounts[4],
-                  ratingCounts[5],
-                ]}
-                colors={["#ef4444", "#f59e0b", "#a78bfa", "#38bdf8", "#10b981"]}
-                height={260}
-                formatValue={(value) => formatNumber(value)}
-              />
-            </ChartCard>
-
-            <Card>
-              <SectionHeader
-                title="Recent ratings"
-                description="Most recent coach-submitted ratings."
-              />
-              <div className="px-4 py-4 sm:px-5">
-                {data.recentRatings.length === 0 ? (
-                  <EmptyState title="No ratings yet" />
-                ) : (
-                  <ul className="divide-y divide-slate-100">
-                    {data.recentRatings.map((r) => (
-                      <li key={r.id} className="px-4 py-3 sm:px-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-brand-dark">
-                              {r.athleteName}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-slate-400">
-                              {r.sport} · {r.facilityName}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-bold text-brand-dark">
-                              {r.rating} / 5
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              {r.createdAt}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            <Card>
-              <SectionHeader
-                title="Quick actions"
-                description="Coach-scoped shortcuts."
-              />
-              <div className="grid grid-cols-1 gap-2 px-4 py-4 sm:grid-cols-2 sm:px-5">
-                <Button
-                  as={Link}
-                  to="/coach/athletes"
-                  className="w-full text-left"
-                >
-                  <Users className="h-4 w-4 mr-2" /> View assigned athletes
-                </Button>
-                <Button
-                  as={Link}
-                  to="/coach/rating-history"
-                  className="w-full text-left"
-                >
-                  <ClipboardList className="h-4 w-4 mr-2" /> Rating history
-                </Button>
-              </div>
-            </Card>
-          </div>
-
-        </div>
-      ) : null}
-    </PageShell>
-  );
+    <Section title="Recent bookings" description="Latest athletes and citizens who booked a coaching slot under you." action={<div className="flex gap-3"><Link to="/coach/athletes" className="text-xs font-bold text-amber-700">Athletes & ratings</Link><Link to="/coach/bookings" className="text-xs font-bold text-emerald-700">Full report</Link></div>}>
+      {data.recentBookings.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-3">Reference</th><th className="px-5 py-3">Athlete</th><th className="px-5 py-3">Sport / slot</th><th className="px-5 py-3">Date</th><th className="px-5 py-3 text-right">Amount</th><th className="px-5 py-3">Booking</th><th className="px-5 py-3">Payment</th></tr></thead><tbody className="divide-y divide-slate-100">{data.recentBookings.map((row) => <tr key={row.id} className="hover:bg-slate-50"><td className="px-5 py-3 font-bold text-slate-700">{row.reference || row.id.slice(-8).toUpperCase()}</td><td className="px-5 py-3"><p className="font-bold text-slate-700">{row.athlete}</p><p className="text-xs text-slate-400">{row.email || row.phone}</p></td><td className="px-5 py-3"><p className="font-semibold text-slate-700">{row.sport}</p><p className="text-xs text-slate-400">{row.time?.from || "—"}–{row.time?.to || "—"}</p></td><td className="px-5 py-3 text-slate-600">{date(row.date)}</td><td className="px-5 py-3 text-right font-bold">{money.format(row.amount)}</td><td className="px-5 py-3"><Status>{row.bookingStatus}</Status></td><td className="px-5 py-3"><Status>{row.paymentStatus}</Status></td></tr>)}</tbody></table></div> : <EmptyState title="No bookings yet" description="Bookings assigned to your coaching slots will appear here." />}
+    </Section>
+  </PageShell>;
 }
-

@@ -32,6 +32,7 @@ export default function ExploreFilters({
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const typeCounts = countByFacilityType(typeCountFacilities);
+  const availableFacilityTypes = FACILITY_TYPE_OPTIONS.filter((type) => typeCounts[type] > 0);
   const visibleSports = [...new Set(sportOptions)].sort((a, b) => {
     const aPrimary = PRIMARY_SPORTS.includes(a) ? 0 : 1;
     const bPrimary = PRIMARY_SPORTS.includes(b) ? 0 : 1;
@@ -136,7 +137,7 @@ export default function ExploreFilters({
           <div>
             <div className="text-xs font-bold text-slate-600 mb-2">Facility type</div>
             <div className="space-y-2">
-              {FACILITY_TYPE_OPTIONS.map((type) => (
+              {availableFacilityTypes.map((type) => (
                 <label
                   key={type}
                   className="flex items-center justify-between gap-2 text-sm text-slate-700 cursor-pointer"

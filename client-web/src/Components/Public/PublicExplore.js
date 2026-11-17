@@ -221,7 +221,7 @@ export default function PublicExplore() {
     selectedTypes,
     onToggleType: (type) => toggleInList(selectedTypes, type, setSelectedTypes),
     onClearAll: handleClearAll,
-    typeCountFacilities: baseFiltered,
+    typeCountFacilities: facilities,
   };
 
   const chips = [];

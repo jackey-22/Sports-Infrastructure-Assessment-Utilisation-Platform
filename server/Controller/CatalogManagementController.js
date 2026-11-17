@@ -11,6 +11,17 @@ const objectId = (value) => mongoose.Types.ObjectId.isValid(value);
 const text = (value, max = 500) => String(value || "").trim().slice(0, max);
 const fail = (res, status, msg) =>
   res.status(status).json({ data: "", msg, rcode: status === 403 ? -10 : -9 });
+const FACILITY_TYPES = ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"];
+
+function inferFacilityType(facility = {}) {
+  const category = text(facility.category, 120).toLowerCase();
+  const name = text(facility.name, 160).toLowerCase();
+  if (category.includes("stadium")) return "Stadium";
+  if (name.includes("indoor")) return "Indoor Hall";
+  if (category.includes("university") || category.includes("institutional")) return "Training Centre";
+  if (category.includes("taluka") || (name.includes("ground") && !name.includes("complex"))) return "Playground";
+  return "Sports Complex";
+}
 
 function publicUser(user) {
   if (!user) return null;
@@ -20,6 +31,9 @@ function publicUser(user) {
 }
 
 function facilityPayload(body) {
+  const facilityType = FACILITY_TYPES.includes(body.facilityType)
+    ? body.facilityType
+    : inferFacilityType(body);
   return {
     name: text(body.name, 160),
     location: text(body.location || body.address, 500),
@@ -29,6 +43,7 @@ function facilityPayload(body) {
     taluka: text(body.taluka || body.city, 120),
     area: text(body.area, 80),
     operationalSince: text(body.operationalSince, 20),
+    facilityType,
     category: text(body.category, 120) || "SAG District Sports Complex",
     ownership: text(body.ownership, 160) || "Sports Authority of Gujarat (SAG)",
     contactPhone: text(body.contactPhone, 30),
@@ -71,7 +86,15 @@ async function listFacilities(req, res) {
     .populate("manager", "Name Email ContactNum IsActive")
     .sort({ createdAt: -1 })
     .lean();
-  return res.json({ data: facilities, rcode: 200 });
+  return res.json({
+    data: facilities.map((facility) => ({
+      ...facility,
+      facilityType: FACILITY_TYPES.includes(facility.facilityType)
+        ? facility.facilityType
+        : inferFacilityType(facility),
+    })),
+    rcode: 200,
+  });
 }
 
 async function createFacility(req, res) {

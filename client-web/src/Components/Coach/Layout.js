@@ -12,21 +12,15 @@ import { useDispatch } from "react-redux";
 import image from "./../../Assets/symbol.png";
 import { FetchComplaintType } from "../../API/FetchComplaintType";
 import {
-  Building2,
   Activity,
   Users,
   LogOut,
-  Calendar,
-  BarChart3,
-  FileText,
-  ClipboardList,
   Receipt,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/coach/dashboard", label: "Dashboard", icon: Activity },
-  { to: "/coach/athletes", label: "Assigned Athletes", icon: Users },
-  { to: "/coach/rating-history", label: "Rate Athletes", icon: ClipboardList },
+  { to: "/coach/athletes", label: "Athletes & Ratings", icon: Users },
   { to: "/coach/bookings", label: "Bookings", icon: Receipt },
 ];
 

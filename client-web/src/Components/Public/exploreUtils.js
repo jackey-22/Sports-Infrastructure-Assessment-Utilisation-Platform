@@ -16,6 +16,7 @@ export const PRIMARY_SPORTS = [
 ];
 
 export function getFacilityType(facility) {
+  if (FACILITY_TYPE_OPTIONS.includes(facility?.facilityType)) return facility.facilityType;
   const cat = (facility.category || "").toLowerCase();
   const name = (facility.name || "").toLowerCase();
   if (cat.includes("stadium")) return "Stadium";

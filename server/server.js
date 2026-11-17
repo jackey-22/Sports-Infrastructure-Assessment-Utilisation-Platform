@@ -1,6 +1,5 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
 const multer = require("multer");
 const ejs = require("ejs");
 const cron = require("node-cron");
@@ -899,20 +898,10 @@ app.get(
 );
 app.get("/api/dashboard/admin", requireRole(ROLE.ADMIN), DashboardController.admin);
 app.get("/api/dashboard/manager", requireRole(ROLE.MANAGER), DashboardController.manager);
-
-const grantProofDirectory = path.resolve(__dirname, "public", "grant-proofs");
-fs.mkdirSync(grantProofDirectory, { recursive: true });
-const workflowUpload = multer({
-  storage: multer.diskStorage({
-    destination: grantProofDirectory,
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "-")}`),
-  }),
-  limits: { fileSize: 15 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, ["image/jpeg", "image/png", "application/pdf"].includes(file.mimetype)),
-});
+app.get("/api/dashboard/coach", requireRole(ROLE.COACH), DashboardController.coach);
 
 app.get("/api/grievances", requireRole(ROLE.ATHLETE, ROLE.MANAGER, ROLE.ADMIN), WorkflowController.grievanceList);
-app.post("/api/grievances", requireRole(ROLE.ATHLETE), workflowUpload.single("proof"), WorkflowController.createGrievance);
+app.post("/api/grievances", requireRole(ROLE.ATHLETE), WorkflowController.createGrievance);
 app.post("/api/grievances/:id/respond", requireRole(ROLE.MANAGER, ROLE.ADMIN), WorkflowController.respondGrievance);
 
 app.get("/api/citizen/rating-catalog", requireRole(ROLE.ATHLETE), WorkflowController.ratingCatalog);
@@ -925,7 +914,7 @@ app.post("/api/coach/athlete-ratings", requireRole(ROLE.COACH), WorkflowControll
 app.get("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.adminGrants);
 app.post("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.createGrant);
 app.get("/api/manager/grants", requireRole(ROLE.MANAGER), WorkflowController.managerGrants);
-app.post("/api/manager/grants/:id/progress", requireRole(ROLE.MANAGER), workflowUpload.single("proof"), WorkflowController.submitGrantProgress);
+app.post("/api/manager/grants/:id/progress", requireRole(ROLE.MANAGER), WorkflowController.submitGrantProgress);
 app.patch("/api/admin/grants/:id/progress/:progressId", requireRole(ROLE.ADMIN), WorkflowController.reviewGrantProgress);
 
 app.get(
@@ -943,6 +932,12 @@ app.post(
   requireRole(ROLE.ADMIN, ROLE.MANAGER),
   FileUploadController.parseImage,
   FileUploadController.uploadImage
+);
+app.post(
+  "/api/uploads/attachment",
+  requireRole(ROLE.ADMIN, ROLE.MANAGER, ROLE.ATHLETE),
+  FileUploadController.parseAttachment,
+  FileUploadController.uploadAttachment
 );
 app.get(
   "/api/manager/assessments",

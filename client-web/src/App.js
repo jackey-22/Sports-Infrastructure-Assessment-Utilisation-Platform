@@ -66,10 +66,7 @@ import ManagerOverviewDashboard from "./Components/Manager/Dashboard/ManagerDash
 // Phase 2C.3 Coach modules
 import CoachLayout from "./Components/Coach/Layout";
 import CoachDashboard from "./Components/Coach/Dashboard/CoachDashboard";
-import CoachAthleteList from "./Components/Coach/Athletes/CoachAthleteList";
-import CoachAthleteProfile from "./Components/Coach/AthleteProfile/CoachAthleteProfile";
-import CoachRateAthlete from "./Components/Coach/Rating/CoachRateAthlete";
-import CoachRatingHistory from "./Components/Coach/RatingHistory/CoachRatingHistory";
+import CoachAthletes from "./Components/Coach/Athletes/CoachAthletes";
 
 // Phase 2C.4 Citizen modules
 import CitizenLayout from "./Components/Citizen/Layout";
@@ -81,7 +78,6 @@ import CitizenProfile from "./Components/Citizen/Profile/CitizenProfile";
 // Admin Phase 2C.1 modules
 import AdminModuleLayout from "./Components/Admin/ModuleLayout";
 import GrievanceList from "./Components/Admin/Grievance/GrievanceList";
-import TransactionList from "./Components/Admin/Transaction/TransactionList";
 import GrantList from "./Components/Admin/Grant/GrantList";
 import AdminAssessmentList from "./Components/Admin/Assessment/AdminAssessmentList";
 import GrantAllocation from "./Components/Admin/Grant/GrantAllocation";
@@ -137,7 +133,6 @@ const routes = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboard /> },
       { path: "grievances", element: <GrievanceWorkspace role="admin" /> },
-      { path: "transactions", element: <TransactionList /> },
       { path: "bookings", element: <BookingPaymentReport role="admin" /> },
       { path: "grants", element: <GrantWorkspace role="admin" /> },
       { path: "grants/allocate", element: <GrantWorkspace role="admin" /> },
@@ -350,22 +345,7 @@ const routes = createBrowserRouter([
       },
       {
         path: "athletes",
-        element: <CoachAthleteList />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "athletes/:athleteId",
-        element: <CoachAthleteProfile />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "rate/:athleteId",
-        element: <CoachRateAthlete />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "rating-history",
-        element: <RatingWorkspace role="coach" />,
+        element: <CoachAthletes />,
         errorElement: <ErrorPage />,
       },
       {
