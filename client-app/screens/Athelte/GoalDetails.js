@@ -1,12 +1,6 @@
+import { Text } from "../../src/components/AppText";
 import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    Button,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-} from "react-native";
+import { View, Button, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import ipconfig from "../../ipconfig";
 import { useSelector } from "react-redux";
 const calculateRemainingDays = (targetDate) => {

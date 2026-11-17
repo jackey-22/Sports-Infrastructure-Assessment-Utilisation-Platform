@@ -1,12 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable } from "react-native";
 import ipconfig from "../../ipconfig";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";

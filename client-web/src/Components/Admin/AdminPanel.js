@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import AdminSidebar from "./AdminSidebar";
 import { api } from "../../API/client";
+import UploadImageField from "../Common/UploadImageField";
 
 const MODULES = [
   { id: "facilities", label: "Facility Management", icon: Building2 },
@@ -166,7 +167,7 @@ function FacilityFields({ record, update, districts, isNew }) {
     <Field label="Facility name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field>
     <Field label="District"><select required className={input} value={record.district} onChange={(e) => update("district", e.target.value)}><option value="">Select district</option>{districts.map((row) => <option key={row._id} value={row._id}>{row.District}</option>)}</select></Field>
     <Field label="City / taluka"><input className={input} value={record.city || ""} onChange={(e) => update("city", e.target.value)} /></Field><Field label="Operational since"><input type="date" className={input} value={record.operationalSince || ""} onChange={(e) => update("operationalSince", e.target.value)} /></Field>
-    <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}>{["Active", "Inactive", "Under Development", "Temporarily Closed"].map((value) => <option key={value}>{value}</option>)}</select></Field><Field label="Image URL"><input className={input} value={record.picture || ""} onChange={(e) => update("picture", e.target.value)} /></Field>
+    <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}>{["Active", "Inactive", "Under Development", "Temporarily Closed"].map((value) => <option key={value}>{value}</option>)}</select></Field><UploadImageField label="Facility cover image" value={record.picture || ""} onChange={(value) => update("picture", value)} />
     <Field label="Complete address" full><textarea required rows={3} className={input} value={record.location} onChange={(e) => update("location", e.target.value)} /></Field>
     <div className="sm:col-span-2"><FacilityLocationMap latitude={record.latitude} longitude={record.longitude} onChange={(latitude, longitude) => { update("latitude", latitude); update("longitude", longitude); }} /></div>
   </div><div><h4 className="mb-3 font-display text-lg font-extrabold text-brand-dark">Facility manager account</h4><div className="grid gap-4 rounded-2xl bg-slate-50 p-4 sm:grid-cols-2">
@@ -251,7 +252,7 @@ function SportFields({ record, update }) {
     <Field label="Sport name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field><Field label="Category"><input required className={input} placeholder="Aquatics, Racquet, Team..." value={record.category} onChange={(e) => update("category", e.target.value)} /></Field>
     <Field label="Default booking model"><select className={input} value={record.defaultBookingMode} onChange={(e) => update("defaultBookingMode", e.target.value)}><option value="capacity">Capacity / participant</option><option value="court">Court / lane / unit</option><option value="hybrid">Hybrid</option></select></Field><Field label="Default unit label"><input required className={input} placeholder="participants, courts, lanes" value={record.unitLabel} onChange={(e) => update("unitLabel", e.target.value)} /></Field>
     <Field label="Supported formats"><input className={input} placeholder="Singles, doubles, coaching" value={record.formats} onChange={(e) => update("formats", e.target.value)} /></Field><Field label="Performance parameters"><input className={input} value={record.parameters} onChange={(e) => update("parameters", e.target.value)} /></Field>
-    <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}><option>Active</option><option>Inactive</option></select></Field><Field label="Image URL"><input className={input} value={record.image} onChange={(e) => update("image", e.target.value)} /></Field>
+    <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}><option>Active</option><option>Inactive</option></select></Field><UploadImageField label="Sport image" value={record.image || ""} onChange={(value) => update("image", value)} />
     <Field label="Description" full><textarea rows={4} className={input} value={record.description} onChange={(e) => update("description", e.target.value)} /></Field>
   </div>;
 }

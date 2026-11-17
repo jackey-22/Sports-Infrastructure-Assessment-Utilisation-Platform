@@ -1,15 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TextInput,
-  Button,
-  TouchableOpacity,
-  ScrollView,
-  Pressable,
-  Dimensions,
-} from "react-native";
+import { Text, TextInput } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, ScrollView, Pressable, Dimensions } from "react-native";
 import React, { useEffect } from "react";
 const { height: screenHeight } = Dimensions.get("window");
 import { Picker } from "@react-native-picker/picker";
@@ -17,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import ipconfig from "../../ipconfig";
+import { api } from "../../src/api/client";
 import { useNavigation } from "@react-navigation/native";
 import CheckBox from "react-native-check-box";
 const AthleteResponse = ({ route }) => {
@@ -84,7 +75,7 @@ const AthleteResponse = ({ route }) => {
       .catch((error) => console.log("error", error));
   }, []);
 
-  const submitHandler = () => {
+  const submitHandler = async () => {
     const { userId, SportComplexId, enrollid } = route.params.data;
 
     const formattedData = selectedSports.map((sportId) => {
@@ -102,62 +93,28 @@ const AthleteResponse = ({ route }) => {
       };
     });
 
-    //patch query of session table to add sports array
-    console.log(selectedSports);
-    var myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-
-    var raw = JSON.stringify({
-      sport: selectedSports,
-    });
-
-    var requestOptions = {
-      method: "PATCH",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow",
-    };
-
-    fetch(
-      `http://${ip}:9999/updateSportsInSession?_id=${enrollid}&sportscomplex=${SportComplexId}`,
-      requestOptions
-    )
-      .then((response) => response.json())
-      .then((result) => {
-        console.log("done" + result);
-      })
-      .catch((error) => console.log("error", error));
-
-    // console.log(formattedData);
-    for (let index = 0; index < formattedData.length; index++) {
-      const element = formattedData[index];
-      console.log(element);
-      var myHeaders = new Headers();
-      myHeaders.append("Content-Type", "application/json");
-
-      var raw = JSON.stringify({
-        sportId: element.sportId,
-        athleteId: Athelte[0]._id,
-        sportComplexId: Athelte[0].createdBy.SportComplexId,
-        // remarks: value,
-        parameters: element.parameters,
-        instructorId: element.instructorId,
-      });
-
-      var requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow",
-      };
-
-      fetch(`http://${ip}:9999/remarkRatingByAthlete`, requestOptions)
-        .then((response) => response.text())
-        .then((result) => {})
-        .catch((error) => console.log("error", error));
+    try {
+      await api.patch(
+        `/updateSportsInSession?_id=${encodeURIComponent(
+          enrollid
+        )}&sportscomplex=${encodeURIComponent(SportComplexId)}`,
+        { sport: selectedSports }
+      );
+      await Promise.all(
+        formattedData.map((element) =>
+          api.post("/remarkRatingByAthlete", {
+            sportId: element.sportId,
+            athleteId: Athelte[0]._id,
+            sportComplexId: Athelte[0].createdBy.SportComplexId,
+            parameters: element.parameters,
+            instructorId: element.instructorId,
+          })
+        )
+      );
+      navigation.goBack();
+    } catch (error) {
+      console.log("error submitting athlete response", error);
     }
-
-    navigation.goBack();
 
     // formattedData.forEach((item) => {
     //   console.log("Sport ID:", item.sportId);

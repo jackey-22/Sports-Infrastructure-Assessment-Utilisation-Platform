@@ -9,8 +9,10 @@ import Verify from "./Components/Auth/Verify";
 
 //Login Page (Common for All)
 import Login from "./Pages/Login";
+import CitizenSignup from "./Pages/CitizenSignup";
 import HomeLanding from "./Components/Public/HomeLanding";
 import PublicExplore from "./Components/Public/PublicExplore";
+import CitizenBookingPage from "./Components/Public/CitizenBookingPage";
 
 //ErrorPage
 import ErrorPage from "./Pages/ErrorPage";
@@ -72,9 +74,8 @@ import CoachRatingHistory from "./Components/Coach/RatingHistory/CoachRatingHist
 // Phase 2C.4 Citizen modules
 import CitizenLayout from "./Components/Citizen/Layout";
 import CitizenDashboard from "./Components/Citizen/Dashboard/CitizenDashboard";
-import CitizenAttendance from "./Components/Citizen/Attendance/CitizenAttendance";
-import CitizenFeedback from "./Components/Citizen/Feedback/CitizenFeedback";
 import CitizenComplaints from "./Components/Citizen/Complaints/CitizenComplaints";
+import CitizenBookings from "./Components/Citizen/Bookings/CitizenBookings";
 import CitizenProfile from "./Components/Citizen/Profile/CitizenProfile";
 
 // Admin Phase 2C.1 modules
@@ -86,6 +87,9 @@ import AdminAssessmentList from "./Components/Admin/Assessment/AdminAssessmentLi
 import GrantAllocation from "./Components/Admin/Grant/GrantAllocation";
 import GrantDetail from "./Components/Admin/Grant/GrantDetail";
 import BookingPaymentReport from "./Components/Booking/BookingPaymentReport";
+import GrievanceWorkspace from "./Components/Workflow/GrievanceWorkspace";
+import RatingWorkspace from "./Components/Workflow/RatingWorkspace";
+import GrantWorkspace from "./Components/Workflow/GrantWorkspace";
 
 const routes = createBrowserRouter([
   {
@@ -97,9 +101,18 @@ const routes = createBrowserRouter([
     element: <PublicExplore />,
   },
   {
+    path: "/book/:facilityId",
+    element: <CitizenBookingPage />,
+  },
+  {
     path: "/login",
     element: <Login />,
     loader: LoginVerify,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/signup",
+    element: <CitizenSignup />,
     errorElement: <ErrorPage />,
   },
   {
@@ -119,12 +132,12 @@ const routes = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <AdminDashboard /> },
-      { path: "grievances", element: <GrievanceList /> },
+      { path: "grievances", element: <GrievanceWorkspace role="admin" /> },
       { path: "transactions", element: <TransactionList /> },
       { path: "bookings", element: <BookingPaymentReport role="admin" /> },
-      { path: "grants", element: <GrantList /> },
-      { path: "grants/allocate", element: <GrantAllocation /> },
-      { path: "grants/:grantId", element: <GrantDetail /> },
+      { path: "grants", element: <GrantWorkspace role="admin" /> },
+      { path: "grants/allocate", element: <GrantWorkspace role="admin" /> },
+      { path: "grants/:grantId", element: <GrantWorkspace role="admin" /> },
       { path: "assessments", element: <AdminAssessmentList /> },
     ],
   },
@@ -246,7 +259,7 @@ const routes = createBrowserRouter([
       },
       {
         path: "allcomplaint",
-        element: <ComplaintDetails />,
+        element: <GrievanceWorkspace role="manager" />,
         errorElement: <ErrorPage />,
       },
       {
@@ -256,17 +269,17 @@ const routes = createBrowserRouter([
       },
       {
         path: "grants",
-        element: <ManagerGrantList />,
+        element: <GrantWorkspace role="manager" />,
         errorElement: <ErrorPage />,
       },
       {
         path: "grants/:grantId",
-        element: <ManagerGrantDetail />,
+        element: <GrantWorkspace role="manager" />,
         errorElement: <ErrorPage />,
       },
       {
         path: "grants/:grantId/submit-proof",
-        element: <ManagerProofSubmission />,
+        element: <GrantWorkspace role="manager" />,
         errorElement: <ErrorPage />,
       },
       {
@@ -346,7 +359,7 @@ const routes = createBrowserRouter([
       },
       {
         path: "rating-history",
-        element: <CoachRatingHistory />,
+        element: <RatingWorkspace role="coach" />,
         errorElement: <ErrorPage />,
       },
       {
@@ -370,18 +383,13 @@ const routes = createBrowserRouter([
         errorElement: <ErrorPage />,
       },
       {
-        path: "attendance",
-        element: <CitizenAttendance />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "feedback",
-        element: <CitizenFeedback />,
+        path: "bookings",
+        element: <CitizenBookings />,
         errorElement: <ErrorPage />,
       },
       {
         path: "complaints",
-        element: <CitizenComplaints />,
+        element: <GrievanceWorkspace role="citizen" />,
         errorElement: <ErrorPage />,
       },
       {

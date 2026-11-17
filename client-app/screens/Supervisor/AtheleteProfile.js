@@ -1,13 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, ScrollView } from "react-native";
 import {
   Ionicons,
   Feather,

@@ -1,11 +1,6 @@
+import { TextInput } from "../../src/components/AppText";
 import React, { useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import FlatListScreen from "./FlatListScreen";

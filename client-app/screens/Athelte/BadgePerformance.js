@@ -1,17 +1,7 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-  Dimensions,
-  ActivityIndicator,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, ScrollView, Dimensions, ActivityIndicator } from "react-native";
 
-import ipconfig from "../../ipconfig";
+import { api } from "../../src/api/client";
 import {
   Ionicons,
   Feather,
@@ -55,7 +45,6 @@ const badgename = (points) => {
 
 const BadgePerformance = () => {
   const navigation = useNavigation();
-  const ip = ipconfig.ip;
   const Userdata = useSelector((state) => state.user.User);
   const Atheltedata = useSelector((state) => state.athelte.Athelte);
   const [data, setdata] = useState([]);
@@ -86,27 +75,23 @@ const BadgePerformance = () => {
   };
 
   useEffect(() => {
-    var requestOptions = {
-      method: "GET",
-      redirect: "follow",
-    };
+    if (!Atheltedata[0]?._id) return;
 
-    fetch(
-      `http://${ip}:9999/getAthletesWithAllSportsRating?athleteid=${Atheltedata[0]._id}&userid=${Userdata._id}`,
-      requestOptions
+    api.get(
+      `/getAthletesWithAllSportsRating?athleteid=${encodeURIComponent(
+        Atheltedata[0]._id
+      )}`
     )
-      .then((response) => response.json())
       .then((result) => {
-        // console.log(result);
         setUserData(result.atheltedata);
         setdata(result.data);
         setsportponits(result.points);
       })
-      .catch((error) => console.log("error", error))
+      .catch((error) => console.log("error loading performance", error))
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [Atheltedata]);
 
   useEffect(() => {
     if (!sportid || sportid.rating === 0) {

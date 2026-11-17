@@ -26,7 +26,7 @@ import {
 const NAV_ITEMS = [
   { to: "/coach/dashboard", label: "Dashboard", icon: Activity },
   { to: "/coach/athletes", label: "Assigned Athletes", icon: Users },
-  { to: "/coach/rating-history", label: "Rating History", icon: ClipboardList },
+  { to: "/coach/rating-history", label: "Rate Athletes", icon: ClipboardList },
   { to: "/coach/bookings", label: "Bookings", icon: Receipt },
 ];
 

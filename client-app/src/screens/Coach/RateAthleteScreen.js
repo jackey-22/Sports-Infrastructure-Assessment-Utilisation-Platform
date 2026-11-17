@@ -1,14 +1,6 @@
+import { Text, TextInput } from "../../components/AppText";
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-} from "react-native";
+import { View, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import CitizenHeader from "../../components/common/CitizenHeader";

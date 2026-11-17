@@ -20,14 +20,14 @@ import {
   BarChart3,
   FileText,
   ClipboardList,
-  MessageCircle,
-  Clock,
+  Compass,
+  CalendarCheck,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/citizen/dashboard", label: "Dashboard", icon: Activity },
-  { to: "/citizen/attendance", label: "Attendance", icon: Clock },
-  { to: "/citizen/feedback", label: "Feedback", icon: MessageCircle },
+  { to: "/explore", label: "Explore & Book", icon: Compass },
+  { to: "/citizen/bookings", label: "My Bookings", icon: CalendarCheck },
   { to: "/citizen/complaints", label: "Complaints", icon: FileText },
   { to: "/citizen/profile", label: "Profile", icon: Users },
 ];

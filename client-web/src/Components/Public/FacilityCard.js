@@ -1,17 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, MapPin, Star, ArrowRight } from "lucide-react";
-import { getConditionMeta, getAverageRating } from "./exploreUtils";
-
-export function getConditionBadge(facility) {
-  return getConditionMeta(facility);
-}
+import { getAverageRating } from "./exploreUtils";
+import { applyPublicImageFallback } from "../../services/public/publicFacilityService";
 
 export { getAverageRating };
 
 export default function FacilityCard({ facility, className = "" }) {
   const [favorited, setFavorited] = useState(false);
-  const badge = getConditionMeta(facility);
   const { avg, count } = getAverageRating(facility);
   const sports = (facility.sports || []).slice(0, 2);
 
@@ -22,6 +18,7 @@ export default function FacilityCard({ facility, className = "" }) {
       <div className="relative h-44 flex-shrink-0 overflow-hidden">
         <img
           src={facility.picture}
+          onError={applyPublicImageFallback}
           alt={facility.name}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
           loading="lazy"
@@ -36,11 +33,6 @@ export default function FacilityCard({ facility, className = "" }) {
             className={`w-4 h-4 ${favorited ? "fill-rose-500 text-rose-500" : "text-slate-500"}`}
           />
         </button>
-        <span
-          className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ${badge.className}`}
-        >
-          {badge.label}
-        </span>
       </div>
 
       <div className="p-4 flex min-h-0 flex-1 flex-col gap-2">

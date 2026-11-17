@@ -15,6 +15,10 @@ const uploadRateLimiter = createRateLimiter({
   message: "Too many uploads. Please try again later.",
 });
 
+const recoveryLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10,
+  key: (req) => req.ip || "unknown", message: "Too many attempts. Please try again later." });
+route.post("/forgot-password", recoveryLimiter, UserController.forgotPassword);
+route.post("/reset-password", recoveryLimiter, UserController.resetPassword);
 route.post("/signup", UserController.signup);
 route.post(
   "/uploadPhoto",

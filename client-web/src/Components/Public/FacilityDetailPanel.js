@@ -1,30 +1,25 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   X,
   MapPin,
   Star,
   Clock,
   Users,
-  ClipboardCheck,
-  School,
   Ticket,
-  ChevronDown,
   CalendarDays,
   Mail,
   Phone,
 } from "lucide-react";
-import { getConditionMeta, getAverageRating, getFacilityType } from "./exploreUtils";
+import { getAverageRating, getFacilityType } from "./exploreUtils";
+import { applyPublicImageFallback } from "../../services/public/publicFacilityService";
 
 export default function FacilityDetailPanel({
   facility,
   onClose = () => {},
-  onOpenAudit = () => {},
-  onOpenSchoolBook = () => {},
   onOpenBooking = () => {},
+  onRate = () => {},
 }) {
-  const [moreOpen, setMoreOpen] = useState(false);
   if (!facility) return null;
-  const badge = getConditionMeta(facility);
   const { avg, count } = getAverageRating(facility);
 
   return (
@@ -39,6 +34,7 @@ export default function FacilityDetailPanel({
         <div className="relative h-48">
           <img
             src={facility.picture}
+            onError={applyPublicImageFallback}
             alt={facility.name}
             className="w-full h-full object-cover"
           />
@@ -49,11 +45,7 @@ export default function FacilityDetailPanel({
           >
             <X className="w-4 h-4" />
           </button>
-          <span
-            className={`absolute bottom-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full ${badge.className}`}
-          >
-            {badge.label} · Condition {facility.condition.score}%
-          </span>
+          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-slate-800 shadow"><Star className={`h-4 w-4 ${avg != null ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />{avg != null ? `${avg.toFixed(1)} (${count})` : "No ratings yet"}</span>
         </div>
 
         <div className="p-5 space-y-4">
@@ -120,26 +112,17 @@ export default function FacilityDetailPanel({
                   key={sp.name}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2"
                 >
-                  {sp.image ? <img src={sp.image} alt={sp.name} className="h-12 w-12 rounded-lg object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-soft text-lg">🏅</div>}
+                  {sp.image ? <img src={sp.image} onError={applyPublicImageFallback} alt={sp.name} className="h-12 w-12 rounded-lg object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-soft text-lg">🏅</div>}
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-brand-dark">{sp.name}</p>
                     <p className="text-xs text-slate-500">{sp.category || "Sport"} · {sp.type || "Format"} · {sp.courts || 0} courts / units</p>
                     <p className="text-xs text-slate-500">{sp.surface || "Details available at facility"} · {sp.availability || "Availability not specified"}</p>
                     {sp.feePerHour && <p className="text-xs font-semibold text-brand-primary">{sp.feePerHour}</p>}
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><Star className={`h-3.5 w-3.5 ${typeof sp.rating === "number" ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />{typeof sp.rating === "number" ? `${sp.rating.toFixed(1)} sport rating` : "No sport ratings yet"}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600 space-y-1">
-            <div>
-              <span className="font-bold text-slate-800">Last inspection:</span>{" "}
-              {facility.condition?.lastInspectionDate}
-            </div>
-            {facility.condition?.notes && (
-              <p className="pt-1 leading-relaxed">{facility.condition.notes}</p>
-            )}
           </div>
 
           <div className="grid grid-cols-1 gap-2 pt-1">
@@ -150,34 +133,8 @@ export default function FacilityDetailPanel({
             >
               <Ticket className="w-4 h-4" /> Book slot
             </button>
+            <button type="button" onClick={() => onRate(facility)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100"><Star className="h-4 w-4 fill-current" />Rate facility, sport or coach</button>
 
-            <button
-              type="button"
-              onClick={() => setMoreOpen((o) => !o)}
-              className="w-full py-2.5 rounded-xl bg-white text-slate-600 border border-slate-200 text-sm font-bold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-            >
-              More actions
-              <ChevronDown className={`w-4 h-4 transition ${moreOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {moreOpen && (
-              <div className="space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => onOpenSchoolBook(facility)}
-                  className="w-full py-2.5 rounded-xl bg-brand-soft text-brand-primary border border-brand-light text-sm font-bold hover:bg-brand-light transition flex items-center justify-center gap-2"
-                >
-                  <School className="w-4 h-4" /> School / institution book
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenAudit(facility)}
-                  className="w-full py-2.5 rounded-xl bg-white text-slate-700 border border-slate-200 text-sm font-bold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-                >
-                  <ClipboardCheck className="w-4 h-4" /> Condition audit
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </aside>

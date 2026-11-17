@@ -4,11 +4,9 @@ import {
   MapPinned,
   Trophy,
   Activity,
-  ShieldCheck,
-  AlertTriangle,
+  Star,
 } from "lucide-react";
 import {
-  getConditionMeta,
   getFacilityType,
   FACILITY_TYPE_OPTIONS,
   getAverageRating,
@@ -27,17 +25,6 @@ export default function ExploreInsights({ facilities = [] }) {
               0
             ) / n
           );
-    const avgFci =
-      n === 0
-        ? 0
-        : Math.round(
-            facilities.reduce((a, f) => a + (f.condition?.score || 0), 0) / n
-          );
-    const conditionBuckets = { Excellent: 0, Good: 0, "Needs Maintenance": 0, Critical: 0 };
-    facilities.forEach((f) => {
-      const label = getConditionMeta(f).label;
-      if (conditionBuckets[label] != null) conditionBuckets[label] += 1;
-    });
     const typeBuckets = Object.fromEntries(FACILITY_TYPE_OPTIONS.map((t) => [t, 0]));
     facilities.forEach((f) => {
       const t = getFacilityType(f);
@@ -48,15 +35,14 @@ export default function ExploreInsights({ facilities = [] }) {
       facilities.flatMap((f) => (f.sports || []).map((s) => s.name))
     ).size;
     const topRated = [...facilities]
-      .map((f) => ({ f, rating: getAverageRating(f).avg || 0 }))
-      .sort((a, b) => b.rating - a.rating)
+      .map((f) => ({ f, ...getAverageRating(f) }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.avg - a.avg)
       .slice(0, 5);
 
     return {
       n,
       avgUtil,
-      avgFci,
-      conditionBuckets,
       typeBuckets,
       districtsCovered,
       sportsPresent,
@@ -89,36 +75,7 @@ export default function ExploreInsights({ facilities = [] }) {
         <StatCard icon={Activity} label="Avg. Utilisation" value={`${stats.avgUtil}%`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="w-4 h-4 text-brand-primary" />
-            <h3 className="text-sm font-extrabold text-brand-dark">Condition Mix</h3>
-            <span className="ml-auto text-xs font-semibold text-slate-400">
-              Avg FCI {stats.avgFci}%
-            </span>
-          </div>
-          <div className="space-y-3">
-            {Object.entries(stats.conditionBuckets).map(([label, count]) => (
-              <BarRow
-                key={label}
-                label={label}
-                count={count}
-                total={stats.n}
-                color={
-                  label === "Excellent"
-                    ? "bg-emerald-500"
-                    : label === "Good"
-                    ? "bg-teal-500"
-                    : label === "Needs Maintenance"
-                    ? "bg-amber-400"
-                    : "bg-red-500"
-                }
-              />
-            ))}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-5">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Building2 className="w-4 h-4 text-brand-primary" />
@@ -140,11 +97,11 @@ export default function ExploreInsights({ facilities = [] }) {
 
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
-          <AlertTriangle className="w-4 h-4 text-brand-primary" />
-          <h3 className="text-sm font-extrabold text-brand-dark">Top Rated (filtered set)</h3>
+          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+          <h3 className="text-sm font-extrabold text-brand-dark">Top Rated Facilities</h3>
         </div>
         <div className="divide-y divide-slate-100">
-          {stats.topRated.map(({ f, rating }, idx) => (
+          {stats.topRated.map(({ f, avg, count }, idx) => (
             <div
               key={f.id}
               className="py-3 flex items-center justify-between gap-3 text-sm"
@@ -156,13 +113,14 @@ export default function ExploreInsights({ facilities = [] }) {
                 <div className="min-w-0">
                   <div className="font-bold text-brand-dark truncate">{f.name}</div>
                   <div className="text-xs text-slate-500">
-                    {f.district} · FCI {f.condition.score}%
+                    {f.district}
                   </div>
                 </div>
               </div>
-              <div className="font-extrabold text-brand-primary">{rating.toFixed(1)}</div>
+              <div className="text-right"><div className="inline-flex items-center gap-1 font-extrabold text-amber-600"><Star className="h-4 w-4 fill-current" />{avg.toFixed(1)}</div><p className="text-[10px] text-slate-400">{count} rating{count === 1 ? "" : "s"}</p></div>
             </div>
           ))}
+          {!stats.topRated.length ? <p className="py-8 text-center text-sm text-slate-500">No facility ratings have been submitted yet.</p> : null}
         </div>
       </div>
     </div>

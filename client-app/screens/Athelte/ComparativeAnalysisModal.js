@@ -1,14 +1,6 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Button,
-  Text,
-  TextInput,
-  Dimensions,
-} from "react-native";
+import { Modal, StyleSheet, View, TouchableOpacity, Button, Dimensions } from "react-native";
 import { WebView } from "react-native-webview";
 
 import { Rating } from "react-native-ratings";

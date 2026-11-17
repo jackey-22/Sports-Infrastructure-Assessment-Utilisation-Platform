@@ -1,48 +1,39 @@
-import {
-    View,
-    Text,
-    Image,
-    StyleSheet,
-    Button,
-    TouchableOpacity,
-    ScrollView,
-    Pressable,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, ScrollView, Pressable } from "react-native";
 import RatingModal from "./RatingModal";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
-import ipconfig from "../../ipconfig";
-import { useSelector } from "react-redux";
+import { api } from "../../src/api/client";
 const AthelteDailyResponse = () => {
-    const Userdata = useSelector((state) => state.user.User);
     // console.log(Atheltedata[0].payments[0].sports);
     //   const id = Atheltedata[0]._id;
     const [rateModal, setRateModal] = useState(false);
     const [rateId, setRateId] = useState("");
     const [rating, setrating] = useState("");
-    const ip = ipconfig.ip;
     const [data, setData] = useState([]);
     const [refresh, setrefersh] = useState(false);
     const refreshHandler = () => {
         setrefersh(!refresh);
     };
     useEffect(() => {
-        var requestOptions = {
-            method: "GET",
-            redirect: "follow",
-        };
-        // console.log(Userdata._id);
-        fetch(
-            `http://${ip}:9999/ratingForInstructor?instructorId=${Userdata._id}`,
-            requestOptions
-        )
-            .then((response) => response.json())
+        api.get("/getInstructorswithuser")
+            .then((instructorResult) => {
+                const instructor = instructorResult.data?.[0];
+                if (!instructor?._id) {
+                    throw new Error("Coach instructor profile is not linked.");
+                }
+                return api.get(
+                    `/ratingForInstructor?instructorId=${encodeURIComponent(instructor._id)}`
+                );
+            })
             .then((result) => {
-                console.log(result);
                 setData(result.ratings);
             })
-            .catch((error) => console.log("error", error));
+            .catch((error) => {
+                setData([]);
+                console.log("error loading ratings", error);
+            });
     }, [refresh]);
 
     const ratingcountHandler = (id) => {

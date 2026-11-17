@@ -1,13 +1,6 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState, useEffect } from "react";
-import {
-    Modal,
-    StyleSheet,
-    Text,
-    Pressable,
-    View,
-    TextInput,
-    ActivityIndicator,
-} from "react-native";
+import { Modal, StyleSheet, Pressable, View, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MultiSelect from "react-native-multiple-select";
 import ipconfig from "../../ipconfig";

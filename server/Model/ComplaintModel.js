@@ -4,6 +4,7 @@ const complaintSchema = new mongoose.Schema(
   {
     type: { type: mongoose.SchemaTypes.ObjectId, ref: "complainttypes" }, // , Maintenance Requirement
     Description: String,
+    subject: { type: String, trim: true, default: "Facility grievance" },
     photo: String,
     remarks: [
       {
@@ -21,6 +22,17 @@ const complaintSchema = new mongoose.Schema(
     satisfied: { type: Number, default: 0 },
     level: Number, //0 - Supervisor, 1 - Manager, 2 - Authority, 3 - Admin
     status: Number, //0 - Active(Not Solved), 1 - Solved
+    workflowStatus: {
+      type: String,
+      enum: ["Open", "Manager Responded", "Escalated", "Resolved"],
+      default: "Open",
+      index: true,
+    },
+    dueAt: { type: Date, index: true },
+    managerRespondedAt: Date,
+    escalatedAt: Date,
+    resolvedAt: Date,
+    escalationNotified: { type: Boolean, default: false },
   },
 
   { timestamps: true }

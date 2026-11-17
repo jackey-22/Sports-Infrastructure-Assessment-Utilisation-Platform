@@ -1,8 +1,10 @@
 const express = require("express");
+const path = require("path");
+const fs = require("fs");
 const multer = require("multer");
 const ejs = require("ejs");
 const cron = require("node-cron");
-require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const {
   authenticate,
@@ -50,6 +52,9 @@ const CatalogManagementController = require("./Controller/CatalogManagementContr
 const FacilitySportConfigController = require("./Controller/FacilitySportConfigController");
 const PublicBookingController = require("./Controller/PublicBookingController");
 const BookingReportController = require("./Controller/BookingReportController");
+const WorkflowController = require("./Controller/WorkflowController");
+const FileUploadController = require("./Controller/FileUploadController");
+const DashboardController = require("./Controller/DashboardController");
 
 const {
   filtersportsforcomplex,
@@ -78,7 +83,7 @@ if (process.env.TRUST_PROXY) {
 }
 
 //middleware
-app.use(express.static("public"));
+app.use(express.static(path.resolve(__dirname, "public")));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -842,6 +847,7 @@ async function sendDueReminders() {
 // the app (for tests or tooling) must not leave a timer running.
 if (require.main === module) {
   cron.schedule("*/1 * * * *", sendDueReminders);
+  cron.schedule("*/5 * * * *", () => WorkflowController.escalateOverdueComplaints().catch(console.error));
 }
 
 //Guest route
@@ -862,7 +868,8 @@ app.get("/getPaymentTimeslotCount", PaymentController.getPaymentTimeslotCount);
 
 app.get("/api/public/sport-configs", PublicBookingController.listConfigs);
 app.get("/api/public/facilities", PublicBookingController.listFacilities);
-app.post("/api/public/bookings", PublicBookingController.createBooking);
+app.get("/api/public/sport-configs/:id/availability", PublicBookingController.availability);
+app.post("/api/public/bookings", optionalAuthenticate, PublicBookingController.createBooking);
 app.post(
   "/api/public/bookings/:id/payment/verify",
   PublicBookingController.verifyBookingPayment
@@ -872,11 +879,57 @@ app.get(
   requireRole(ROLE.ADMIN, ROLE.MANAGER, ROLE.COACH),
   BookingReportController.report
 );
+app.get(
+  "/api/citizen/bookings",
+  requireRole(ROLE.ATHLETE),
+  PublicBookingController.myBookings
+);
+app.get("/api/dashboard/admin", requireRole(ROLE.ADMIN), DashboardController.admin);
+app.get("/api/dashboard/manager", requireRole(ROLE.MANAGER), DashboardController.manager);
+
+const grantProofDirectory = path.resolve(__dirname, "public", "grant-proofs");
+fs.mkdirSync(grantProofDirectory, { recursive: true });
+const workflowUpload = multer({
+  storage: multer.diskStorage({
+    destination: grantProofDirectory,
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "-")}`),
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, ["image/jpeg", "image/png", "application/pdf"].includes(file.mimetype)),
+});
+
+app.get("/api/grievances", requireRole(ROLE.ATHLETE, ROLE.MANAGER, ROLE.ADMIN), WorkflowController.grievanceList);
+app.post("/api/grievances", requireRole(ROLE.ATHLETE), workflowUpload.single("proof"), WorkflowController.createGrievance);
+app.post("/api/grievances/:id/respond", requireRole(ROLE.MANAGER, ROLE.ADMIN), WorkflowController.respondGrievance);
+
+app.get("/api/citizen/rating-catalog", requireRole(ROLE.ATHLETE), WorkflowController.ratingCatalog);
+app.get("/api/citizen/reviews", requireRole(ROLE.ATHLETE), WorkflowController.citizenReviews);
+app.post("/api/citizen/reviews", requireRole(ROLE.ATHLETE), WorkflowController.saveCitizenReview);
+app.get("/api/coach/rateable-athletes", requireRole(ROLE.COACH), WorkflowController.coachRateableAthletes);
+app.get("/api/coach/athlete-ratings", requireRole(ROLE.COACH), WorkflowController.coachRatingHistory);
+app.post("/api/coach/athlete-ratings", requireRole(ROLE.COACH), WorkflowController.saveCoachRating);
+
+app.get("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.adminGrants);
+app.post("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.createGrant);
+app.get("/api/manager/grants", requireRole(ROLE.MANAGER), WorkflowController.managerGrants);
+app.post("/api/manager/grants/:id/progress", requireRole(ROLE.MANAGER), workflowUpload.single("proof"), WorkflowController.submitGrantProgress);
+app.patch("/api/admin/grants/:id/progress/:progressId", requireRole(ROLE.ADMIN), WorkflowController.reviewGrantProgress);
 
 app.get(
   "/api/manager/facility",
   requireRole(ROLE.MANAGER),
   FacilityAssessmentController.assignedFacility
+);
+app.patch(
+  "/api/manager/facility",
+  requireRole(ROLE.MANAGER),
+  FacilityAssessmentController.updateAssignedFacility
+);
+app.post(
+  "/api/uploads/image",
+  requireRole(ROLE.ADMIN, ROLE.MANAGER),
+  FileUploadController.parseImage,
+  FileUploadController.uploadImage
 );
 app.get(
   "/api/manager/assessments",

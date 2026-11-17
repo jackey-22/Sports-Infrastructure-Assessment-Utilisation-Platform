@@ -1,5 +1,6 @@
+import { Text } from "../../src/components/AppText";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, Button, Alert } from "react-native";
+import { StyleSheet, View, Button, Alert } from "react-native";
 import React, { useEffect, useState } from "react";
 import { BarCodeScanner } from "expo-barcode-scanner";
 import { useSelector } from "react-redux";

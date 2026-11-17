@@ -1,12 +1,6 @@
+import { TextInput, Text } from "../../src/components/AppText";
 import React, { useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Image,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, Image } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UserActions } from "../../store/User";

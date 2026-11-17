@@ -4,7 +4,6 @@ import {
   Search,
   MapPin,
   CalendarCheck,
-  ClipboardCheck,
   Ticket,
   Building2,
   Map,
@@ -22,7 +21,7 @@ const POPULAR_SPORTS = ["Cricket", "Football", "Badminton", "Athletics & Track",
 const FEATURES = [
   { icon: MapPin, label: "Find Facilities near you" },
   { icon: CalendarCheck, label: "Check Availability" },
-  { icon: ClipboardCheck, label: "View Facility Condition" },
+  { icon: Trophy, label: "Compare Available Sports" },
   { icon: Ticket, label: "Book & Utilise" }
 ];
 
@@ -33,7 +32,7 @@ export default function HomeLanding() {
   const carouselRef = useRef(null);
   useEffect(() => {
     const controller = new AbortController();
-    getPublicFacilities({ signal: controller.signal })
+    getPublicFacilities({ signal: controller.signal, bookableOnly: true })
       .then(setFacilities)
       .catch((error) => {
         if (error.name !== "AbortError") console.error("Could not load public facilities", error);
@@ -140,7 +139,7 @@ export default function HomeLanding() {
                       <Map className="h-14 w-14 text-brand-primary" aria-hidden="true" />
                     </div>
                     <p className="mt-6 font-display text-2xl font-extrabold text-brand-dark">33 districts, one sports map</p>
-                    <p className="mt-2 max-w-sm text-sm text-slate-600">Discover verified facilities, available sports and condition information across Gujarat.</p>
+                    <p className="mt-2 max-w-sm text-sm text-slate-600">Discover bookable facilities and available sports across Gujarat.</p>
                     <div className="mt-5 flex flex-wrap justify-center gap-2">{["Ahmedabad", "Gandhinagar", "Surat", "Vadodara"].map((district) => <span key={district} className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand-primary shadow-sm"><MapPin className="mr-1 inline h-3 w-3" />{district}</span>)}</div>
                   </div>
                 </div>
@@ -234,7 +233,7 @@ export default function HomeLanding() {
           <h2 className="text-2xl font-extrabold text-brand-dark">About the Portal</h2>
           <p className="mt-3 text-slate-600 text-sm sm:text-base leading-relaxed max-w-3xl">
             The Gujarat Sports Infrastructure Portal helps citizens, athletes, schools, and sports
-            officers discover venues, review facility condition, and book utilisation slots across
+            officers discover venues, compare available sports, and book utilisation slots across
             all 33 districts. Built for the Sports, Youth &amp; Cultural Activities Department and
             the Sports Authority of Gujarat (SAG) under problem statement PS000012.
           </p>

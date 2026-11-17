@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useFormik } from "formik";
 import { LoginSchemas } from "../Schemas";
 import Swal from "sweetalert2";
@@ -20,6 +20,7 @@ const initialValues = {
 const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
   const LoginHandler = (values) => {
@@ -78,7 +79,7 @@ const Login = () => {
     handleChange,
     handleSubmit,
   } = useFormik({
-    initialValues: initialValues,
+    initialValues: { ...initialValues, Email: searchParams.get("email") || "" },
     validationSchema: LoginSchemas,
     onSubmit: LoginHandler,
   });
@@ -133,10 +134,12 @@ const Login = () => {
           </div>
 
           <div className="w-full md:w-1/2 p-6 sm:p-8 flex flex-col justify-center">
-            <h1 className="text-xl font-bold text-brand-dark mb-1">Official Portal Sign In</h1>
+            <h1 className="text-xl font-bold text-brand-dark mb-1">Sign in to KhelGujarat</h1>
             <p className="text-sm text-slate-600 mb-6">
-              Enter your official SAG or DSO credentials to access administrative dashboards.
+              Citizens, athletes and authorised staff can use their registered credentials.
             </p>
+
+            {searchParams.get("registered") === "1" ? <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Your citizen account was created. Sign in to continue.</p> : null}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -208,13 +211,9 @@ const Login = () => {
               </button>
             </form>
 
-            <div className="mt-6 pt-4 border-t border-slate-200 text-center">
-              <Link
-                to="/"
-                className="text-sm text-brand-primary hover:text-brand-dark font-semibold"
-              >
-                Are you an athlete or citizen? Explore facilities without login &rarr;
-              </Link>
+            <div className="mt-6 space-y-2 border-t border-slate-200 pt-4 text-center">
+              <p className="text-sm text-slate-600">New athlete or citizen? <Link to="/signup" className="font-bold text-brand-primary hover:text-brand-dark">Create an account</Link></p>
+              <Link to="/explore" className="block text-sm font-semibold text-brand-primary hover:text-brand-dark">Continue exploring without signing in &rarr;</Link>
             </div>
           </div>
         </div>

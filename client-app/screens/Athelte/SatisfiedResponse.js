@@ -1,5 +1,6 @@
+import { Text } from "../../src/components/AppText";
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import ipconfig from "../../ipconfig";
 
 const SatisfactionToast = ({ isVisible, onClose, onSatisfaction }) => {

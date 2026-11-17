@@ -1,15 +1,6 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import { useEffect, useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    Image,
-    TouchableOpacity,
-    Pressable,
-    TextInput,
-    Button,
-} from "react-native";
+import { View, StyleSheet, FlatList, Image, TouchableOpacity, Pressable, Button } from "react-native";
 import ipconfig from "../../ipconfig";
 import { Feather } from "@expo/vector-icons";
 import FacilityOnClickModal from "./FacilityOnCilckModal";

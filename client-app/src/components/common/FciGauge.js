@@ -1,5 +1,6 @@
+import { Text } from "../AppText";
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { colors } from "../../theme/colors";
 
 export const FciGauge = ({ score = 85, showDetails = true }) => {

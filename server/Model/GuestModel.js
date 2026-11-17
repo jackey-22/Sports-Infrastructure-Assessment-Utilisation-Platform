@@ -16,6 +16,12 @@ const GuestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    citizenUser: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: "users",
+      default: null,
+      index: true,
+    },
 
     Role: {
       type: Number,

@@ -346,3 +346,39 @@ module.exports.athleteDetail = async function (req, res) {
       .json({ data: "", msg: "Could not retrieve user", rcode: -9 });
   }
 };
+
+const crypto = require("crypto");
+const validator = require("validator");
+const recoveryEmail = (body) => typeof body?.Email === "string" ? body.Email.trim() : "";
+const codeHash = (code) => crypto.createHash("sha256").update(code).digest("hex");
+module.exports.forgotPassword = async (req, res) => {
+  const Email = recoveryEmail(req.body);
+  if (!validator.isEmail(Email)) return res.status(400).json({ msg: "Enter a valid email address", rcode: -9 });
+  try {
+    const user = await UserModel.findOne({ Email, IsActive: { $ne: 0 } });
+    if (user) {
+      const code = crypto.randomInt(10000000, 100000000).toString();
+      const hash = codeHash(code);
+      await UserModel.updateOne({ _id: user._id }, { $set: { resetCodeHash: hash, resetCodeExpires: new Date(Date.now() + 10 * 60 * 1000) } });
+      try { await sendMail.sendResetCode(Email, code); }
+      catch (error) {
+        await UserModel.updateOne({ _id: user._id, resetCodeHash: hash }, { $unset: { resetCodeHash: 1, resetCodeExpires: 1 } });
+        console.error("Password reset email delivery failed");
+      }
+    }
+    return res.json({ rcode: 200, msg: "If this email is registered, a reset code will arrive shortly." });
+  } catch (error) { return res.status(500).json({ rcode: -9, msg: "Could not request a password reset" }); }
+};
+module.exports.resetPassword = async (req, res) => {
+  const Email = recoveryEmail(req.body);
+  const { code, Password } = req.body || {};
+  if (!validator.isEmail(Email) || typeof code !== "string" || !/^\d{8}$/.test(code) || typeof Password !== "string" || Password.length < 8) {
+    return res.status(400).json({ rcode: -9, msg: "Enter a valid email, 8-digit code and password of at least 8 characters" });
+  }
+  try {
+    const result = await UserModel.updateOne({ Email, IsActive: { $ne: 0 }, resetCodeHash: codeHash(code), resetCodeExpires: { $gt: new Date() } },
+      { $set: { Password: hashPassword(Password) }, $unset: { resetCodeHash: 1, resetCodeExpires: 1 } });
+    if (!result.modifiedCount) return res.status(400).json({ rcode: -9, msg: "Invalid or expired reset code" });
+    return res.json({ rcode: 200, msg: "Password updated. Sign in with your new password." });
+  } catch (error) { return res.status(500).json({ rcode: -9, msg: "Could not reset password" }); }
+};

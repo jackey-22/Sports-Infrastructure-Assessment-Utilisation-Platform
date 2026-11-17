@@ -1,17 +1,7 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Button,
-  Image,
-  Alert,
-  DatePickerAndroid,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, ScrollView, Button, Image, Alert, DatePickerAndroid } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 // import * as FileSystem from "expo-file-system";

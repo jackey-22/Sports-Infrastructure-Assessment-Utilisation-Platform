@@ -63,3 +63,12 @@ module.exports.sendEmail = function (email, password) {
     }
   });
 };
+
+module.exports.sendResetCode = async function (email, code) {
+  const user = process.env.EMAIL;
+  const pass = process.env.PASSWORD;
+  if (!user || !pass) throw new Error("Email delivery is not configured");
+  const transporter = nodemailer.createTransport({ service: "Gmail", auth: { user, pass } });
+  await transporter.sendMail({ from: user, to: email, subject: "KhelGujarat password reset",
+    text: `Your password reset code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.` });
+};

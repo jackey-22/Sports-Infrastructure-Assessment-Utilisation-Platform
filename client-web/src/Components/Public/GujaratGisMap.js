@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { Layers, Crosshair, ZoomIn, ZoomOut } from "lucide-react";
-import { getConditionMeta } from "./exploreUtils";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -9,13 +8,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
-
-const getGradeColor = (grade = "", score = 0) => {
-  if (grade.includes("Grade A") || score >= 85) return "#007D40";
-  if (grade.includes("Grade B") || score >= 70) return "#0d9488";
-  if (grade.includes("Grade C") || score >= 55) return "#d97706";
-  return "#dc2626";
-};
 
 const SPORT_EMOJI = {
   Cricket: "🏏",
@@ -52,7 +44,6 @@ export default function GujaratGisMap({
   selectedFacility = null,
   onSelectFacility = () => {},
   onOpenBooking = () => {},
-  onOpenAssessment = () => {},
   onViewDetails = () => {},
   onLocateResult = () => {},
   onClearFilters = () => {},
@@ -120,7 +111,10 @@ export default function GujaratGisMap({
     markersRef.current = {};
 
     facilities.forEach((facility) => {
-      const color = getGradeColor(facility.condition?.grade, facility.condition?.score);
+      const color = "#007D40";
+      const ratingText = facility.ratingSummary?.count
+        ? `★ ${Number(facility.ratingSummary.average).toFixed(1)} (${facility.ratingSummary.count})`
+        : "☆ No ratings";
       const isSelected = selectedFacility?.id === facility.id;
       const primarySport = facility.sports?.[0]?.name;
       const emoji = SPORT_EMOJI[primarySport] || "📍";
@@ -161,13 +155,12 @@ export default function GujaratGisMap({
         zIndexOffset: isSelected ? 1000 : 0,
       }).addTo(map);
 
-      const condition = getConditionMeta(facility);
       const popupHtml = `
         <div style="min-width:220px;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#0B3D2E;">
           <div style="position:relative;height:80px;margin:-14px -16px 10px -16px;overflow:hidden;">
             <img src="${facility.picture}" style="width:100%;height:100%;object-fit:cover;" alt="" />
-            <span style="position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;background:${color};color:#fff;padding:3px 8px;border-radius:9999px;">
-              ${condition.label}
+            <span style="position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;background:#fff;color:#334155;padding:3px 8px;border-radius:9999px;box-shadow:0 2px 8px rgba(15,23,42,.18);">
+              ${ratingText}
             </span>
           </div>
           <h4 style="margin:0 0 2px;font-size:14px;font-weight:800;line-height:1.3;">${facility.name}</h4>

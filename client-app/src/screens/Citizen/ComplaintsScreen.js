@@ -1,18 +1,6 @@
+import { Text, TextInput } from "../../components/AppText";
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Image,
-  Alert,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import { View, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Modal, Image, Alert, ActivityIndicator, Platform } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../theme/colors";

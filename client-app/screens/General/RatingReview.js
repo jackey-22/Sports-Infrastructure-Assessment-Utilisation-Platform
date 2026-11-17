@@ -1,14 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { useEffect, useState } from "react";
 // import Supervisor from "../assets/icon.png";
 import { Rating } from "react-native-ratings";

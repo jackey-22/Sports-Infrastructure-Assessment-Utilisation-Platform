@@ -48,7 +48,6 @@ export default function PublicNavbar() {
       .join("") || "U";
 
   const isHome = location.pathname === "/";
-  const isExplore = location.pathname === "/explore";
 
   const roleHome =
     userData?.Role === 5
@@ -57,6 +56,10 @@ export default function PublicNavbar() {
       ? "/authority"
       : userData?.Role === 3
       ? "/manager"
+      : userData?.Role === 2
+      ? "/coach/dashboard"
+      : userData?.Role === 0
+      ? "/citizen/dashboard"
       : "/login";
 
   useEffect(() => {
@@ -118,7 +121,7 @@ export default function PublicNavbar() {
                   className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-brand-soft hover:text-brand-primary font-medium"
                   onClick={() => setAssessOpen(false)}
                 >
-                  Facility Condition View
+                  Explore Bookable Facilities
                 </Link>
                 <Link
                   to="/login"
@@ -173,7 +176,7 @@ export default function PublicNavbar() {
                 Login
               </Link>
               <Link
-                to="/login"
+                to="/signup"
                 className="inline-flex px-4 py-2 rounded-full text-sm font-bold text-white bg-brand-primary hover:bg-brand-dark transition shadow-sm"
               >
                 Register
@@ -220,7 +223,7 @@ export default function PublicNavbar() {
           >
             About
           </a>
-          {!isExplore && (
+          {!isLoggedIn && (
             <Link
               to="/login"
               className="block px-3.5 py-2 text-sm font-bold text-brand-primary sm:hidden"
@@ -229,6 +232,7 @@ export default function PublicNavbar() {
               Login
             </Link>
           )}
+          {!isLoggedIn ? <Link to="/signup" className="block px-3.5 py-2 text-sm font-bold text-brand-primary sm:hidden" onClick={() => setMobileOpen(false)}>Register</Link> : null}
         </div>
       )}
     </header>

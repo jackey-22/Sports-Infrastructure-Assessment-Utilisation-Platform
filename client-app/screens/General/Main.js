@@ -1,3 +1,4 @@
+import { Text } from "../../src/components/AppText";
 import React, { useEffect } from "react";
 import "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";
@@ -11,7 +12,7 @@ import { AthelteActions } from "../../store/Athelte";
 import InstructorMain from "../Instructor/InstructorMain";
 import messaging from "@react-native-firebase/messaging";
 import { Alert } from "react-native";
-import { View, Text } from "react-native";
+import { View } from "react-native";
 const getLoginData = async () => {
   return await AsyncStorage.getItem("token");
 };

@@ -1,18 +1,9 @@
+import { Text } from "../../src/components/AppText";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from "react-redux";
 import { UserActions } from "../../store/User";
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, ScrollView, Alert } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import ipconfig from "../../ipconfig";
 async function removeItem() {

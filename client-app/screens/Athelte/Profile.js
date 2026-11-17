@@ -1,19 +1,10 @@
+import { Text } from "../../src/components/AppText";
 import React, { useEffect, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons"; // Import Ionicons from @expo/vector-icons
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from "react-redux";
 import { UserActions } from "../../store/User";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Dimensions,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import { View, Image, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator } from "react-native";
 import ipconfig from "../../ipconfig";
 import messaging from "@react-native-firebase/messaging";
 import { useNavigation } from "@react-navigation/native";

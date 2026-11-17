@@ -1,5 +1,6 @@
+import { Text } from "../AppText";
 import React from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { colors } from "../../theme/colors";
 

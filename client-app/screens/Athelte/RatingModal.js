@@ -1,13 +1,6 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState } from "react";
-import {
-    Modal,
-    StyleSheet,
-    View,
-    TouchableOpacity,
-    Button,
-    Text,
-    TextInput,
-} from "react-native";
+import { Modal, StyleSheet, View, TouchableOpacity, Button } from "react-native";
 import { Rating } from "react-native-ratings";
 import ipconfig from "../../ipconfig";
 import { getChartUrl } from "../../helpers/chartToken";

@@ -22,6 +22,9 @@ const UserSchema = new mongoose.Schema(
       select: false,
     },
 
+    resetCodeHash: { type: String, select: false },
+    resetCodeExpires: { type: Date, select: false },
+
     ContactNum: {
       type: String,
       // required: [true, "Please Enter your contactnumber"],

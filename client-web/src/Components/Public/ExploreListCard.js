@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Heart, MapPin, Star, Ticket } from "lucide-react";
-import { getConditionMeta, getAverageRating } from "./exploreUtils";
+import { getAverageRating } from "./exploreUtils";
+import { applyPublicImageFallback } from "../../services/public/publicFacilityService";
 
 const FAV_KEY = "sag_explore_favourites";
 
@@ -18,12 +19,12 @@ export default function ExploreListCard({
   onSelect = () => {},
   onViewDetails = () => {},
   onBook = () => {},
+  onRate = () => {},
   compact = false,
   cardRef,
 }) {
   const [favorited, setFavorited] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
-  const badge = getConditionMeta(facility);
   const { avg, count } = getAverageRating(facility);
   const sports = (facility.sports || []).slice(0, 3);
 
@@ -83,6 +84,7 @@ export default function ExploreListCard({
       >
         <img
           src={facility.picture}
+          onError={applyPublicImageFallback}
           alt={facility.name}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
           loading="lazy"
@@ -115,16 +117,13 @@ export default function ExploreListCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.className}`}>
-            {badge.label}
-          </span>
-          {avg != null && (
+          {avg != null ? (
             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-slate-700">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
               {avg.toFixed(1)}
               <span className="text-slate-400 font-medium">({count})</span>
             </span>
-          )}
+          ) : <span className="text-xs font-semibold text-slate-400">No ratings yet</span>}
         </div>
 
         <div className="flex flex-wrap gap-1 mt-0.5">
@@ -139,17 +138,19 @@ export default function ExploreListCard({
         </div>
 
         <div className="mt-auto pt-2 flex items-center justify-end gap-2">
+          <button type="button" onClick={(e) => { e.stopPropagation(); onRate(facility); }} className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"><Star className="h-3.5 w-3.5" />Rate</button>
           <button
             type="button"
+            disabled={!facility.bookingAvailable}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(facility);
               onBook(facility);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary text-white text-xs font-bold hover:bg-brand-dark transition shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary text-white text-xs font-bold hover:bg-brand-dark transition shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <Ticket className="w-3.5 h-3.5" />
-            Book
+            {facility.bookingAvailable ? "Book" : "Not configured"}
           </button>
         </div>
       </div>

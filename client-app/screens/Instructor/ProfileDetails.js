@@ -1,13 +1,5 @@
-import {
-    View,
-    Text,
-    Image,
-    StyleSheet,
-    Button,
-    ScrollView,
-    TouchableOpacity,
-    Pressable,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, ScrollView, TouchableOpacity, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { UserActions } from "../../store/User";

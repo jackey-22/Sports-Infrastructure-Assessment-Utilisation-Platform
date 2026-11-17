@@ -1,17 +1,6 @@
+import { Text } from "../../src/components/AppText";
 import { useEffect, useState } from "react";
-import {
-    Pressable,
-    View,
-    Text,
-    StyleSheet,
-    Platform,
-    FlatList,
-    ImageBackground,
-    TouchableOpacity,
-    Image,
-    RefreshControl,
-    ActivityIndicator,
-} from "react-native";
+import { Pressable, View, StyleSheet, Platform, FlatList, ImageBackground, TouchableOpacity, Image, RefreshControl, ActivityIndicator } from "react-native";
 import ipconfig from "../../ipconfig";
 function renderCategoryItem(itemData, ip, navigate) {
     if (itemData.item.baseUrl) {

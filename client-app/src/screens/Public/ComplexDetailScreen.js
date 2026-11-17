@@ -1,337 +1,44 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  SafeAreaView,
-  Platform,
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, ScrollView, Image, TouchableOpacity, SafeAreaView, StyleSheet, Linking, Share, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../../theme/colors";
-import CitizenHeader from "../../components/common/CitizenHeader";
-import { StatusBadge } from "../../components/common/StatusBadge";
-import { FciGauge } from "../../components/common/FciGauge";
+import { Text } from "../../components/AppText";
+import { FacilityHeader, Button, StateMessage, ui, GREEN } from "../../components/FacilityUI";
+import { loadFacilities, imageUrl, timingLabel, startingPrice, AMENITIES } from "../../services/facilityService";
+import BookingCheckoutScreen from "./BookingCheckoutScreen";
 
-export const ComplexDetailScreen = ({ route, navigation, facility: propFacility, onBookSlot, onBack }) => {
-  const facility = propFacility || (route && route.params && route.params.facility);
-
-  if (!facility) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <CitizenHeader
-          title="Facility Details"
-          onBack={onBack}
-          showBack
-          watermarkIcon="stadium"
-        />
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No facility selected.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const fciScore = facility.condition?.score || 88;
-
-  return (
-    <View style={styles.container}>
-      <CitizenHeader
-        title={facility.name}
-        subtitle={`${facility.district} • ${facility.category || "SAG Complex"}`}
-        onBack={onBack}
-        showBack
-        watermarkIcon="stadium"
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Image */}
-        <Image
-          source={{
-            uri:
-              facility.picture ||
-              "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-          }}
-          style={styles.heroImage}
-        />
-
-        <View style={styles.mainInfoCard}>
-          <View style={styles.titleRow}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.facilityName} numberOfLines={1} ellipsizeMode="tail">
-                {facility.name}
-              </Text>
-              <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="tail">
-                {facility.location || facility.district}
-              </Text>
-            </View>
-            <StatusBadge status={fciScore >= 85 ? "grade a" : fciScore >= 70 ? "grade b" : "grade c"} />
-          </View>
-
-          {/* Quick Metrics */}
-          <View style={styles.metricsRow}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>{facility.areaAcres || "14.5"} Acres</Text>
-              <Text style={styles.metricKey}>Total Area</Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>{facility.operationalSince || "2016"}</Text>
-              <Text style={styles.metricKey}>Operational</Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>SAG Gujarat</Text>
-              <Text style={styles.metricKey}>Authority</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Facility Condition Index (FCI) */}
-        <FciGauge score={fciScore} showDetails={true} />
-
-        {/* Amenities Grid */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>INFRASTRUCTURE AMENITIES</Text>
-          <View style={styles.amenitiesGrid}>
-            <View style={styles.amenityItem}>
-              <Ionicons name="flash" size={18} color={facility.amenities?.floodlights ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>Floodlights (850 Lux)</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="water" size={18} color={facility.amenities?.drinkingWater ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>RO Drinking Water</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="shirt" size={18} color={facility.amenities?.changingRooms ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>Locker & Changing</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="medkit" size={18} color={facility.amenities?.firstAid ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>First Aid Room</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="car" size={18} color={facility.amenities?.parking ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>Dedicated Parking</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="body" size={18} color={facility.amenities?.divyangjanFriendly ? colors.gov.primary : colors.slate[400]} />
-              <Text style={styles.amenityLabel}>Divyangjan Ramp</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Manager & Staff Contact */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>ADMINISTRATION & CONTACT</Text>
-          <View style={styles.contactRow}>
-            <Ionicons name="person-circle-outline" size={32} color={colors.gov.primary} style={{ marginRight: 10 }} />
-            <View>
-              <Text style={styles.contactName}>{facility.contactPerson || "Facility Manager (SAG)"}</Text>
-              <Text style={styles.contactSub}>{facility.contactPhone || "+91 79 2216 4800"} • {facility.contactEmail || "contact@sag.gujarat.gov.in"}</Text>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Sticky Bottom Booking Bar */}
-      <View style={styles.bottomBar}>
-        <View>
-          <Text style={styles.priceLabel}>Pay & Play Pass</Text>
-          <Text style={styles.priceValue}>₹50 <Text style={styles.priceUnit}>/ session</Text></Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.bookNowBtn}
-          onPress={() => {
-            if (onBookSlot) {
-              onBookSlot(facility);
-            }
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.bookNowText}>Book Court Slot</Text>
-          <Ionicons name="ticket" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-        </TouchableOpacity>
+export default function ComplexDetailScreen({ route, navigation, facility: supplied, onBookSlot, onBack }) {
+  const selected = supplied || route?.params?.facility;
+  const [facility, setFacility] = useState(selected);
+  const [loading, setLoading] = useState(!!selected?.id);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [photo, setPhoto] = useState(0);
+  const [booking, setBooking] = useState(false);
+  const back = onBack || (() => navigation?.goBack());
+  useEffect(() => { let alive = true; if (!selected?.id) { setLoading(false); return; } setLoading(true); setError(""); loadFacilities({ id: selected.id }).then(result => { if (alive) { if (!result.data?.length) throw new Error("This facility is no longer available."); setFacility(result.data[0]); setPhoto(0); } }).catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, [selected?.id, revision]);
+  if (booking) return <BookingCheckoutScreen facility={facility} onBack={() => setBooking(false)} onDone={() => setBooking(false)} />;
+  if (!facility) return <SafeAreaView style={ui.safe}><View style={ui.screen}><StateMessage title="No facility selected" message="Choose a facility from Explore." action="Go back" onAction={back} /></View></SafeAreaView>;
+  const photos = [...new Set([facility.picture, ...(facility.gallery || [])].map(imageUrl).filter(Boolean))];
+  const score = facility.condition?.score;
+  const price = startingPrice(facility);
+  const amenities = AMENITIES.filter(a => facility.amenities?.[a.key]);
+  const bookable = facility.status === "Active" && facility.sports?.some(s => s.bookable);
+  const contact = (value, type) => value && value !== "Not specified" ? <TouchableOpacity accessibilityRole="link" onPress={() => Linking.openURL(type === "tel" ? `tel:${value.replace(/[^+0-9]/g, "")}` : `mailto:${value}`)} style={[ui.row, { paddingVertical: 8 }]}><Ionicons name={type === "tel" ? "call-outline" : "mail-outline"} size={18} color={GREEN} /><Text style={[ui.muted, { flex: 1, color: GREEN }]}>{value}</Text></TouchableOpacity> : null;
+  return <SafeAreaView style={ui.safe}><View style={ui.screen}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+      <FacilityHeader title={facility.name} subtitle={`${facility.district} | ${facility.category || "Sports complex"}`} onBack={back}><TouchableOpacity accessibilityLabel="Share facility" style={ui.iconButton} onPress={() => Share.share({ message: `${facility.name}\n${facility.location || facility.district}\n${timingLabel(facility)}` })}><Ionicons name="share-social-outline" size={22} color="white" /></TouchableOpacity></FacilityHeader>
+      <View style={ui.content}>
+        {loading && <ActivityIndicator color={GREEN} />}
+        {!!error && <View style={ui.card}><Text style={ui.error}>{error}</Text><Button secondary onPress={() => setRevision(v => v + 1)}>Retry live details</Button></View>}
+        <View style={s.gallery}>{photos.length ? <Image source={{ uri: photos[photo] }} style={s.heroImage} /> : <Ionicons name="business-outline" size={50} color="#8CB49A" />}{photos.length > 1 && <><TouchableOpacity accessibilityLabel="Previous photo" style={[s.photoArrow, { left: 10 }]} onPress={() => setPhoto(v => (v + photos.length - 1) % photos.length)}><Ionicons name="chevron-back" size={22} color="white" /></TouchableOpacity><TouchableOpacity accessibilityLabel="Next photo" style={[s.photoArrow, { right: 10 }]} onPress={() => setPhoto(v => (v + 1) % photos.length)}><Ionicons name="chevron-forward" size={22} color="white" /></TouchableOpacity></>}{photos.length > 0 && <View style={s.counter}><Text style={{ color: "white", fontSize: 11 }}>{photo + 1} / {photos.length}</Text></View>}</View>
+        <View style={ui.card}><Text style={ui.sectionTitle}>{facility.name}</Text><Text style={[ui.muted, { marginVertical: 8 }]}>{facility.location || "Address not provided"}</Text><View style={ui.badge}><Text style={ui.badgeText}>{facility.condition?.grade || "Condition not assessed"}</Text></View><View style={s.metrics}>{[[facility.details?.area ? `${facility.details.area} acres` : "Not provided", "Total area"], [facility.operationalSince || "Not provided", "Operational since"], [facility.status || "Not provided", "Facility status"]].map(([value, label]) => <View key={label} style={s.metric}><Text style={s.metricValue}>{value}</Text><Text style={ui.muted}>{label}</Text></View>)}</View><Text style={ui.muted}>{facility.ownership || "Authority not provided"}</Text></View>
+        <View style={[ui.card, { backgroundColor: "#E8F6ED" }]}><View style={[ui.row, { justifyContent: "space-between" }]}><Text style={[ui.sectionTitle, { flex: 1 }]}>Facility Condition Index</Text><Text style={s.score}>{score ?? "-"}<Text style={ui.muted}> /100</Text></Text></View><Text style={ui.muted}>Infrastructure health assessment</Text>{typeof score === "number" && <View style={s.track}><View style={[s.fill, { width: `${Math.max(0, Math.min(100, score))}%` }]} /></View>}<Text style={ui.muted}>{facility.condition?.notes || "Assessment notes not provided"}</Text>{!!facility.condition?.lastInspectionDate && <Text style={[ui.muted, { marginTop: 8 }]}>Last inspection: {facility.condition.lastInspectionDate}</Text>}</View>
+        <View style={ui.card}><Text style={ui.sectionTitle}>Infrastructure amenities</Text><View style={s.amenities}>{amenities.map(a => <View style={s.amenity} key={a.key}><Ionicons name={a.icon} size={27} color={GREEN} /><Text style={s.amenityLabel}>{a.label}</Text></View>)}</View>{!amenities.length && <Text style={ui.muted}>No amenities recorded.</Text>}</View>
+        <View style={ui.card}><Text style={ui.sectionTitle}>Sports & booking rates</Text>{facility.sports?.map((sport, index) => <View style={s.sport} key={`${sport.id}-${index}`}><View style={{ flex: 1 }}><Text style={s.metricValue}>{sport.name}</Text><Text style={ui.muted}>{sport.bookable ? "Online slots available" : "Contact facility for availability"}</Text></View><Text style={s.rate}>{sport.price ? `₹${sport.price.amount}/${sport.price.unit || "slot"}` : "Contact facility"}</Text></View>)}{!facility.sports?.length && <Text style={ui.muted}>No sports configured.</Text>}</View>
+        <View style={ui.card}><Text style={ui.sectionTitle}>Administration & contact</Text><View style={[ui.row, { marginTop: 14 }]}><Ionicons name="person-circle-outline" size={36} color={GREEN} /><View style={{ flex: 1 }}><Text style={s.metricValue}>{facility.contactPerson || "Facility administration"}</Text><Text style={ui.muted}>{timingLabel(facility)}</Text></View></View>{contact(facility.contactPhone, "tel")}{contact(facility.contactEmail, "email")}{Number.isFinite(facility.latitude) && Number.isFinite(facility.longitude) && <Button secondary onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${facility.latitude},${facility.longitude}`)}>Get directions ↗</Button>}</View>
       </View>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.slate[50],
-  },
-  scrollContent: {
-    paddingBottom: 90,
-  },
-  heroImage: {
-    width: "100%",
-    height: 200,
-    backgroundColor: colors.slate[300],
-  },
-  mainInfoCard: {
-    backgroundColor: "#ffffff",
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: -24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    marginBottom: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  facilityName: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.slate[900],
-  },
-  addressText: {
-    fontSize: 12,
-    color: colors.slate[500],
-    marginTop: 2,
-  },
-  metricsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.slate[100],
-  },
-  metricItem: {
-    alignItems: "center",
-  },
-  metricVal: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.slate[900],
-  },
-  metricKey: {
-    fontSize: 11,
-    color: colors.slate[400],
-    marginTop: 2,
-  },
-  metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: colors.slate[200],
-  },
-  sectionCard: {
-    backgroundColor: "#ffffff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: colors.slate[500],
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  amenitiesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  amenityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "48%",
-    gap: 8,
-  },
-  amenityLabel: {
-    fontSize: 12,
-    color: colors.slate[700],
-    fontWeight: "500",
-  },
-  contactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  contactName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.slate[900],
-  },
-  contactSub: {
-    fontSize: 12,
-    color: colors.slate[500],
-    marginTop: 2,
-  },
-  bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: colors.slate[200],
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  priceLabel: {
-    fontSize: 11,
-    color: colors.slate[500],
-  },
-  priceValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.gov.primary,
-  },
-  priceUnit: {
-    fontSize: 12,
-    color: colors.slate[400],
-    fontWeight: "500",
-  },
-  bookNowBtn: {
-    backgroundColor: colors.gov.primary,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  bookNowText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    color: colors.slate[500],
-    fontSize: 14,
-  },
-});
-
-export default ComplexDetailScreen;
+    </ScrollView>
+    <View style={s.bottom}><View style={{ flex: 1 }}><Text style={ui.muted}>Pay & play - from</Text><Text style={s.price}>{price != null ? `₹${price}` : "Contact facility"}</Text></View><Button disabled={!bookable || loading || !!error} onPress={() => onBookSlot ? onBookSlot(facility) : setBooking(true)}>{bookable ? "Book a slot →" : "No online slots"}</Button></View>
+  </View></SafeAreaView>;
+}
+const s = StyleSheet.create({ gallery: { height: 205, borderRadius: 20, overflow: "hidden", backgroundColor: "#DFEEE3", alignItems: "center", justifyContent: "center" }, heroImage: { width: "100%", height: "100%" }, photoArrow: { position: "absolute", width: 38, height: 38, borderRadius: 20, backgroundColor: "rgba(0,20,10,0.5)", alignItems: "center", justifyContent: "center" }, counter: { position: "absolute", bottom: 12, right: 12, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(0,20,10,0.6)" }, metrics: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#E2ECE5", marginTop: 15, paddingVertical: 15, gap: 12 }, metric: { flex: 1, gap: 4 }, metricValue: { color: "#224A33", fontSize: 12, fontWeight: "700" }, score: { fontSize: 29, color: "#173C28", fontWeight: "800" }, track: { height: 10, backgroundColor: "#D2E7DA", borderRadius: 8, marginVertical: 16, overflow: "hidden" }, fill: { height: "100%", backgroundColor: GREEN, borderRadius: 8 }, amenities: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 15 }, amenity: { width: "30%", flexGrow: 1, backgroundColor: "#F3F8F5", borderRadius: 13, padding: 12, alignItems: "center", gap: 8 }, amenityLabel: { color: "#476250", fontSize: 10, textAlign: "center" }, sport: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 15, marginTop: 12, borderTopWidth: 1, borderTopColor: "#E7EFEA" }, rate: { fontSize: 11, color: GREEN, fontWeight: "700" }, bottom: { padding: 16, borderTopWidth: 1, borderTopColor: "#DFE9E2", backgroundColor: "white", flexDirection: "row", alignItems: "center", gap: 12 }, price: { fontSize: 21, fontWeight: "800", color: "#173C28" } });

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import {
   FACILITY_TYPE_OPTIONS,
-  CONDITION_OPTIONS,
   PRIMARY_SPORTS,
   countByFacilityType,
 } from "./exploreUtils";
@@ -24,8 +23,6 @@ export default function ExploreFilters({
   onClearSports,
   selectedTypes,
   onToggleType,
-  selectedConditions,
-  onToggleCondition,
   onClearAll,
   typeCountFacilities = [],
   variant = "sidebar",
@@ -35,8 +32,11 @@ export default function ExploreFilters({
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const typeCounts = countByFacilityType(typeCountFacilities);
-  const primarySports = PRIMARY_SPORTS.filter((sport) => sportOptions.includes(sport));
-  const extraSports = sportOptions.filter((sport) => !PRIMARY_SPORTS.includes(sport));
+  const visibleSports = [...new Set(sportOptions)].sort((a, b) => {
+    const aPrimary = PRIMARY_SPORTS.includes(a) ? 0 : 1;
+    const bPrimary = PRIMARY_SPORTS.includes(b) ? 0 : 1;
+    return aPrimary - bPrimary || a.localeCompare(b);
+  });
 
   const shellClass =
     variant === "sheet"
@@ -100,7 +100,7 @@ export default function ExploreFilters({
           >
             All
           </button>
-          {primarySports.map((sport) => {
+          {visibleSports.map((sport) => {
             const active = selectedSports.includes(sport);
             return (
               <button
@@ -121,28 +121,6 @@ export default function ExploreFilters({
         </div>
       </div>
 
-      {/* Condition — primary */}
-      <div className="mb-4">
-        <div className="text-xs font-bold text-slate-600 mb-2">Condition</div>
-        <div className="space-y-2">
-          {CONDITION_OPTIONS.map((opt) => (
-            <label
-              key={opt.id}
-              className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selectedConditions.includes(opt.id)}
-                onChange={() => onToggleCondition(opt.id)}
-                className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-              />
-              <span className={`w-2 h-2 rounded-full ${opt.color}`} />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
       {/* More filters */}
       <button
         type="button"
@@ -155,30 +133,6 @@ export default function ExploreFilters({
 
       {moreOpen && (
         <div className="pt-3 space-y-5">
-          <div>
-            <div className="text-xs font-bold text-slate-600 mb-2">More sports</div>
-            <div className="flex flex-wrap gap-1.5">
-              {extraSports.map((sport) => {
-                const active = selectedSports.includes(sport);
-                return (
-                  <button
-                    key={sport}
-                    type="button"
-                    onClick={() => onToggleSport(sport)}
-                    className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition inline-flex items-center gap-1 ${
-                      active
-                        ? "bg-brand-soft text-brand-primary border-brand-primary/40"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-brand-primary/40"
-                    }`}
-                  >
-                    <span aria-hidden>{SPORT_ICONS[sport] || "🏅"}</span>
-                    {sport}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div>
             <div className="text-xs font-bold text-slate-600 mb-2">Facility type</div>
             <div className="space-y-2">

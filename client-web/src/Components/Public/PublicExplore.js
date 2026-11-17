@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Map as MapIcon,
   List,
@@ -15,15 +15,9 @@ import ExploreListCard from "./ExploreListCard";
 import ExploreInsights from "./ExploreInsights";
 import GujaratGisMap from "./GujaratGisMap";
 import FacilityDetailPanel from "./FacilityDetailPanel";
-import FacilityConditionAudit from "../Assessment/FacilityConditionAudit";
-import InstitutionalBookingModal from "../Utilisation/InstitutionalBookingModal";
-import CitizenBookingModal from "./CitizenBookingModal";
+import CitizenRatingDialog from "../Citizen/Ratings/CitizenRatingDialog";
 import { getPublicFacilities } from "../../services/public/publicFacilityService";
-import {
-  CONDITION_OPTIONS,
-  getFacilityType,
-  sortFacilities,
-} from "./exploreUtils";
+import { getFacilityType, sortFacilities } from "./exploreUtils";
 
 const VIEW_OPTIONS = [
   { id: "map", label: "Map", full: "Map view", icon: MapIcon },
@@ -32,6 +26,7 @@ const VIEW_OPTIONS = [
 ];
 
 export default function PublicExplore() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const listScrollRef = useRef(null);
   const suppressAutoSelectRef = useRef(false);
@@ -43,7 +38,6 @@ export default function PublicExplore() {
   const [selectedDistrict, setSelectedDistrict] = useState("All Districts");
   const [selectedSports, setSelectedSports] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
-  const [selectedConditions, setSelectedConditions] = useState([]);
   const [sortBy, setSortBy] = useState("relevance");
   const [viewMode, setViewMode] = useState("map");
   const [activeFacility, setActiveFacility] = useState(null);
@@ -52,20 +46,35 @@ export default function PublicExplore() {
   const [toast, setToast] = useState(null);
   const [nearMeActive, setNearMeActive] = useState(false);
 
-  const [auditModalFacility, setAuditModalFacility] = useState(null);
-  const [institutionalModalFacility, setInstitutionalModalFacility] = useState(null);
-  const [citizenBookingFacility, setCitizenBookingFacility] = useState(null);
+  const [ratingFacility, setRatingFacility] = useState(null);
 
   const showToast = useCallback((message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
   }, []);
 
+  const openCitizenBooking = useCallback((facility) => {
+    if (!facility?.bookingAvailable) {
+      showToast("This facility has not published bookable sports and slots yet.");
+      return;
+    }
+    navigate(`/book/${facility.id}`);
+  }, [navigate, showToast]);
+
+  const openRating = useCallback((facility) => {
+    if (!window.localStorage.getItem("token")) {
+      showToast("Sign in as a citizen to submit a rating.");
+      navigate("/login");
+      return;
+    }
+    setRatingFacility(facility);
+  }, [navigate, showToast]);
+
   const loadFacilities = useCallback(async (signal) => {
     setFacilitiesLoading(true);
     setFacilitiesError("");
     try {
-      const rows = await getPublicFacilities({ signal });
+      const rows = await getPublicFacilities({ signal, bookableOnly: true });
       setFacilities(rows);
     } catch (error) {
       if (error.name !== "AbortError") setFacilitiesError(error.message);
@@ -106,21 +115,13 @@ export default function PublicExplore() {
           fac.sports.some((s) => s.name.toLowerCase() === sp.toLowerCase())
         );
 
-      const matchesCondition =
-        selectedConditions.length === 0 ||
-        selectedConditions.some((id) => {
-          const opt = CONDITION_OPTIONS.find((c) => c.id === id);
-          return opt ? opt.match(fac.condition?.score || 0) : false;
-        });
-
-      return matchesSearch && matchesDistrict && matchesSport && matchesCondition;
+      return matchesSearch && matchesDistrict && matchesSport;
     });
   }, [
     facilities,
     searchQuery,
     selectedDistrict,
     selectedSports,
-    selectedConditions,
   ]);
 
   const filteredFacilities = useMemo(() => {
@@ -165,7 +166,6 @@ export default function PublicExplore() {
     (selectedDistrict !== "All Districts" ? 1 : 0) +
     selectedSports.length +
     selectedTypes.length +
-    selectedConditions.length +
     (nearMeActive ? 1 : 0);
 
   const handleClearAll = () => {
@@ -173,7 +173,6 @@ export default function PublicExplore() {
     setSelectedDistrict("All Districts");
     setSelectedSports([]);
     setSelectedTypes([]);
-    setSelectedConditions([]);
     setSortBy("relevance");
     setNearMeActive(false);
     loadFacilities();
@@ -221,9 +220,6 @@ export default function PublicExplore() {
     onClearSports: () => setSelectedSports([]),
     selectedTypes,
     onToggleType: (type) => toggleInList(selectedTypes, type, setSelectedTypes),
-    selectedConditions,
-    onToggleCondition: (id) =>
-      toggleInList(selectedConditions, id, setSelectedConditions),
     onClearAll: handleClearAll,
     typeCountFacilities: baseFiltered,
   };
@@ -258,15 +254,6 @@ export default function PublicExplore() {
       onRemove: () => setSelectedTypes((prev) => prev.filter((x) => x !== t)),
     })
   );
-  selectedConditions.forEach((id) => {
-    const opt = CONDITION_OPTIONS.find((c) => c.id === id);
-    chips.push({
-      key: `cond-${id}`,
-      label: opt?.label || id,
-      onRemove: () =>
-        setSelectedConditions((prev) => prev.filter((c) => c !== id)),
-    });
-  });
   if (nearMeActive) {
     chips.push({
       key: "near",
@@ -300,7 +287,6 @@ export default function PublicExplore() {
               >
                 <option value="relevance">Best match</option>
                 <option value="rating">Rating</option>
-                <option value="condition">Condition</option>
               </select>
             </label>
           </div>
@@ -322,7 +308,8 @@ export default function PublicExplore() {
               compact={compact}
               onSelect={setActiveFacility}
               onViewDetails={setDetailFacility}
-              onBook={setCitizenBookingFacility}
+              onBook={openCitizenBooking}
+              onRate={openRating}
             />
           ))}
 
@@ -373,7 +360,7 @@ export default function PublicExplore() {
               Explore Sports Facilities
             </h1>
             <p className="text-slate-500 text-sm mt-1">
-              Find a venue, check condition, and book a slot across Gujarat
+              Find a venue, compare available sports, and book a slot across Gujarat
             </p>
           </div>
 
@@ -503,8 +490,7 @@ export default function PublicExplore() {
                       suppressAutoSelectRef.current = true;
                       setActiveFacility(f);
                     }}
-                    onOpenBooking={setCitizenBookingFacility}
-                    onOpenAssessment={setAuditModalFacility}
+                    onOpenBooking={openCitizenBooking}
                     onViewDetails={setDetailFacility}
                     onLocateResult={(r) =>
                       showToast(r.message, r.ok ? "ok" : "error")
@@ -559,48 +545,16 @@ export default function PublicExplore() {
         <FacilityDetailPanel
           facility={detailFacility}
           onClose={() => setDetailFacility(null)}
-          onOpenAudit={(f) => {
-            setDetailFacility(null);
-            setAuditModalFacility(f);
-          }}
-          onOpenSchoolBook={(f) => {
-            setDetailFacility(null);
-            setInstitutionalModalFacility(f);
-          }}
           onOpenBooking={(f) => {
             setDetailFacility(null);
-            setCitizenBookingFacility(f);
+            openCitizenBooking(f);
           }}
+          onRate={(f) => { setDetailFacility(null); openRating(f); }}
         />
       )}
 
-      {auditModalFacility && (
-        <FacilityConditionAudit
-          facility={auditModalFacility}
-          onClose={() => setAuditModalFacility(null)}
-        />
-      )}
+      <CitizenRatingDialog open={Boolean(ratingFacility)} onClose={() => setRatingFacility(null)} initialFacilityId={ratingFacility?.id} initialTarget="facility" onSaved={() => { showToast("Rating submitted successfully.", "ok"); loadFacilities(); }} />
 
-      {institutionalModalFacility && (
-        <InstitutionalBookingModal
-          facility={institutionalModalFacility}
-          onClose={() => setInstitutionalModalFacility(null)}
-          onSubmitBooking={(request) => {
-            console.log("Institutional booking logged:", request);
-            showToast("School booking request submitted.", "ok");
-          }}
-        />
-      )}
-
-      {citizenBookingFacility && (
-        <CitizenBookingModal
-          facility={citizenBookingFacility}
-          onClose={() => setCitizenBookingFacility(null)}
-          onConfirm={(booking) => {
-            showToast(`Booking ${booking.reference} created for ₹${booking.totalAmount}.`, "ok");
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -1,0 +1,160 @@
+const mongoose = require("mongoose");
+const SportsComplex = require("../Model/SportsComplexModel");
+const Sport = require("../Model/SportModel");
+const User = require("../Model/UsersModel");
+const Instructor = require("../Model/instructorModel");
+const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
+const Guest = require("../Model/GuestModel");
+const BookingPayment = require("../Model/BookingPaymentModel");
+const Complaint = require("../Model/ComplaintModel");
+const Grant = require("../Model/GrantModel");
+const FacilityAssessment = require("../Model/FacilityAssessmentModel");
+const { ROLE } = require("../Utils/roles");
+
+const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
+const monthKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+
+function indiaDate() {
+  return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function recentMonths(count = 6) {
+  const now = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (count - 1 - index), 1));
+    return { key: monthKey(date), label: date.toLocaleDateString("en-IN", { month: "short", year: "2-digit", timeZone: "UTC" }), bookings: 0, revenue: 0 };
+  });
+}
+
+async function managerFacility(user) {
+  if (user.SportComplexId) return SportsComplex.findById(user.SportComplexId).populate("district", "District").lean();
+  return SportsComplex.findOne({ manager: user._id }).populate("district", "District").lean();
+}
+
+function grantStats(grants) {
+  let allocated = 0; let utilised = 0; let pendingProofs = 0; let queries = 0;
+  grants.forEach((grant) => {
+    allocated += Number(grant.allocatedAmount) || 0;
+    (grant.progressUpdates || []).forEach((progress) => {
+      if (progress.reviewStatus === "Verified") utilised += Number(progress.amountUsed) || 0;
+      if (progress.reviewStatus === "Pending") pendingProofs += 1;
+      if (progress.reviewStatus === "Query Raised") queries += 1;
+    });
+  });
+  return { count: grants.length, allocated, utilised, pendingProofs, queries };
+}
+
+async function buildDashboard({ facility = null }) {
+  const facilityFilter = facility ? { facility: facility._id } : {};
+  const bookingFacilityFilter = facility ? { SportComplexId: facility._id } : {};
+  const complaintFilter = facility ? { sportsComplex: facility._id } : {};
+  const grantFilter = facility ? { facility: facility._id } : {};
+  const assessmentFilter = facility ? { facilityId: facility._id } : {};
+  const coachFilter = facility ? { SportComplexId: facility._id } : {};
+  const months = recentMonths();
+  const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
+  const today = indiaDate();
+
+  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, trendBookings, payments, complaints, grants, assessments] = await Promise.all([
+    facility ? [facility] : SportsComplex.find().populate("district", "District").lean(),
+    facility ? FacilitySportConfig.distinct("sport", { facility: facility._id, status: "Active" }).then((ids) => ids.length) : Sport.countDocuments({ status: "Active" }),
+    Instructor.countDocuments({ ...coachFilter, status: "Active" }),
+    facility ? Guest.distinct("citizenUser", { ...bookingFacilityFilter, citizenUser: { $ne: null } }).then((ids) => ids.length) : User.countDocuments({ Role: ROLE.ATHLETE, IsActive: { $ne: 0 } }),
+    FacilitySportConfig.find({ ...facilityFilter, status: "Active" }).populate("sport", "SportName").lean(),
+    Guest.find(bookingFacilityFilter).select("Startdate bookingStatus paymentStatus memberCount reservedUnits").lean(),
+    Guest.find({ ...bookingFacilityFilter, createdAt: { $gte: trendStart } }).select("createdAt").lean(),
+    BookingPayment.find({ ...facilityFilter, createdAt: { $gte: trendStart } }).populate("sport", "SportName").populate("facility", "name").sort({ createdAt: -1 }).lean(),
+    Complaint.find(complaintFilter).select("workflowStatus status dueAt createdAt subject sportsComplex").sort({ createdAt: -1 }).lean(),
+    Grant.find(grantFilter).select("allocatedAmount status progressUpdates facility title").lean(),
+    FacilityAssessment.find(assessmentFilter).sort({ createdAt: -1 }).limit(20).lean(),
+  ]);
+
+  const monthMap = new Map(months.map((item) => [item.key, item]));
+  trendBookings.forEach((booking) => { const item = monthMap.get(monthKey(new Date(booking.createdAt))); if (item) item.bookings += 1; });
+  payments.filter((payment) => payment.status === "Paid").forEach((payment) => { const item = monthMap.get(monthKey(new Date(payment.paidAt || payment.createdAt))); if (item) item.revenue += Number(payment.amount) || 0; });
+
+  const paidPayments = payments.filter((payment) => payment.status === "Paid");
+  const revenue = paidPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const sportMap = new Map();
+  payments.forEach((payment) => {
+    const key = String(payment.sport?._id || payment.sport || "unknown");
+    const current = sportMap.get(key) || { sport: payment.sport?.SportName || "Sport", bookings: 0, paidBookings: 0, revenue: 0 };
+    current.bookings += 1;
+    if (payment.status === "Paid") { current.paidBookings += 1; current.revenue += Number(payment.amount) || 0; }
+    sportMap.set(key, current);
+  });
+
+  const now = new Date();
+  const openComplaints = complaints.filter((item) => item.status !== 1 && item.workflowStatus !== "Resolved");
+  const escalated = complaints.filter((item) => item.workflowStatus === "Escalated").length;
+  const overdue = openComplaints.filter((item) => item.dueAt && new Date(item.dueAt) < now).length;
+  const grantSummary = grantStats(grants);
+  const configuredFacilityIds = new Set(configs.map((config) => String(config.facility)));
+  const recent = await Guest.find(bookingFacilityFilter)
+    .populate("SportComplexId", "name")
+    .populate("sport", "SportName")
+    .sort({ createdAt: -1 })
+    .limit(8)
+    .lean();
+
+  const configSummary = configs.map((config) => ({
+    id: String(config._id), sport: config.sport?.SportName || "Sport", bookingMode: config.bookingMode,
+    units: config.unitCount, slots: (config.slots || []).filter((slot) => slot.bookable).length,
+    capacity: config.unitCount * config.capacityPerUnit, price: config.price?.amount || 0,
+  }));
+
+  return {
+    generatedAt: new Date(),
+    facility: facility ? { id: String(facility._id), name: facility.name, district: facility.district?.District || "", location: facility.location } : null,
+    kpis: {
+      facilities: facilities.length,
+      bookingReadyFacilities: facility ? (configs.length ? 1 : 0) : configuredFacilityIds.size,
+      activeSports: sportsCount,
+      activeCoaches: coachesCount,
+      citizens: citizensCount,
+      bookings: bookings.length,
+      confirmedBookings: bookings.filter((item) => item.bookingStatus === "Confirmed").length,
+      todayBookings: bookings.filter((item) => item.Startdate === today).length,
+      upcomingBookings: bookings.filter((item) => item.Startdate >= today && item.bookingStatus !== "Cancelled").length,
+      revenue,
+      paidPayments: paidPayments.length,
+      pendingPayments: bookings.filter((item) => item.paymentStatus === "Pending").length,
+      openGrievances: openComplaints.length,
+      escalatedGrievances: escalated,
+      overdueGrievances: overdue,
+      grants: grantSummary,
+      assessments: assessments.length,
+    },
+    trend: months,
+    topSports: [...sportMap.values()].sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings).slice(0, 8),
+    recentBookings: recent.map((booking) => ({
+      id: String(booking._id), reference: booking.bookingReference, facility: booking.SportComplexId?.name || "Facility",
+      sport: booking.sport?.SportName || "Sport", citizen: booking.Name || "Citizen", date: booking.Startdate,
+      amount: booking.totalAmount || 0, bookingStatus: booking.bookingStatus, paymentStatus: booking.paymentStatus,
+    })),
+    configuration: configSummary,
+    facilityReadiness: facility ? [] : facilities.map((item) => ({ id: String(item._id), name: item.name, district: item.district?.District || "", ready: configuredFacilityIds.has(String(item._id)), sports: configs.filter((config) => String(config.facility) === String(item._id)).length })),
+    alerts: {
+      facilitiesNotReady: facility ? (configs.length ? 0 : 1) : facilities.length - configuredFacilityIds.size,
+      escalatedGrievances: escalated,
+      overdueGrievances: overdue,
+      pendingGrantProofs: grantSummary.pendingProofs,
+      grantQueries: grantSummary.queries,
+    },
+  };
+}
+
+async function admin(req, res) {
+  try { return res.json({ data: await buildDashboard({}), rcode: 200 }); }
+  catch (error) { console.error("Admin dashboard failed:", error); return fail(res, 500, "Could not load admin dashboard"); }
+}
+
+async function manager(req, res) {
+  try {
+    const facility = await managerFacility(req.user);
+    if (!facility) return fail(res, 403, "No facility is assigned to this manager");
+    return res.json({ data: await buildDashboard({ facility }), rcode: 200 });
+  } catch (error) { console.error("Manager dashboard failed:", error); return fail(res, 500, "Could not load facility dashboard"); }
+}
+
+module.exports = { admin, manager };

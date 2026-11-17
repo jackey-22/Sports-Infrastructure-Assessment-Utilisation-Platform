@@ -1,14 +1,6 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Alert,
-  Pressable,
-} from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, Pressable } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Ionicons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";

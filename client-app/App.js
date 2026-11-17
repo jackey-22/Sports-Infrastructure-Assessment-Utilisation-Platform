@@ -4,6 +4,8 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import { colors } from "./src/theme/colors";
 import { logout, restoreSession as restoreStoredSession } from "./src/services/authService";
 
+import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from "@expo-google-fonts/plus-jakarta-sans";
+
 // Auth & Public Screens
 import LoginScreen from "./src/screens/Auth/LoginScreen";
 import GujaratExploreMapScreen from "./src/screens/Public/GujaratExploreMapScreen";
@@ -17,6 +19,7 @@ const STRIPE_KEY =
   "pk_test_51OHNVKSIijB4dZ7nuHBY1SWlQ8Jk0s0vVK5MMqy2fA81z0SfazlNSqilcLW4Do6bBpiKaM1PTDZ8sTdyGDUURdG400nSDgpU2Q";
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [isPublicMode, setIsPublicMode] = useState(false);
@@ -54,7 +57,7 @@ export default function App() {
     setIsPublicMode(false);
   };
 
-  if (loading) {
+  if (loading || (!fontsLoaded && !fontError)) {
     return (
       <View style={styles.splashCenter}>
         <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />

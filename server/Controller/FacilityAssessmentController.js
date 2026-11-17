@@ -215,8 +215,55 @@ async function assignedFacility(req, res) {
       id: String(facility._id),
       name: facility.name,
       district: facility.district ? facility.district.District : "",
+      location: facility.location || "",
+      taluka: facility.taluka || "",
+      area: facility.area || "",
+      category: facility.category || "",
+      ownership: facility.ownership || "",
+      operationalSince: facility.operationalSince || "",
+      contactPhone: facility.contactPhone || "",
+      contactEmail: facility.contactEmail || "",
+      status: facility.status || "Active",
+      picture: facility.picture || "",
+      images: facility.images || [],
+      timings: facility.timings || {},
+      amenities: facility.amenities || {},
+      capacityDaily: facility.capacityDaily || 0,
     },
   });
+}
+
+async function updateAssignedFacility(req, res) {
+  try {
+    const assigned = await resolveFacility(req.user);
+    if (!assigned) return fail(res, 403, "No facility is assigned to this account.");
+    const facility = await SportsComplexModel.findById(assigned._id);
+    if (!facility) return fail(res, 404, "Facility was not found.");
+    const body = req.body || {};
+    const textFields = ["name", "location", "taluka", "area", "category", "ownership", "operationalSince", "contactPhone", "contactEmail"];
+    textFields.forEach((key) => {
+      if (body[key] !== undefined) facility[key] = clip(body[key], key === "location" ? 500 : 180);
+    });
+    if (body.picture !== undefined) facility.picture = clip(body.picture, 1500);
+    if (Array.isArray(body.images)) facility.images = body.images.map((item) => clip(item, 1500)).filter(Boolean).slice(0, 8);
+    if (body.capacityDaily !== undefined) facility.capacityDaily = Math.max(0, Number(body.capacityDaily) || 0);
+    if (body.timings && typeof body.timings === "object") {
+      facility.timings = {
+        openingTime: clip(body.timings.openingTime, 20),
+        closingTime: clip(body.timings.closingTime, 20),
+      };
+    }
+    if (body.amenities && typeof body.amenities === "object") {
+      Object.keys(facility.amenities.toObject ? facility.amenities.toObject() : facility.amenities).forEach((key) => {
+        if (body.amenities[key] !== undefined) facility.amenities[key] = Boolean(body.amenities[key]);
+      });
+    }
+    if (!facility.name || !facility.location) return fail(res, 400, "Facility name and address are required.");
+    await facility.save();
+    return assignedFacility(req, res);
+  } catch (error) {
+    return fail(res, 500, "Facility details could not be updated.");
+  }
 }
 
 async function analyse(req, res) {
@@ -340,6 +387,7 @@ module.exports = {
   analysisRateLimiter,
   receiveAssessmentPhotos,
   assignedFacility,
+  updateAssignedFacility,
   analyse,
   createAssessment,
   list,

@@ -1,19 +1,9 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import { FontAwesome } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import FlatListScreen from "./FlatListScreen";
 
-import {
-  View,
-  Text,
-  Image,
-  TextInput,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
-  Pressable,
-} from "react-native";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Dimensions, Platform, Pressable } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
 import Carousel, { ParallaxImage } from "react-native-snap-carousel";
 // import LinearGradient from "react-native-linear-gradient";
