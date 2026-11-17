@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/manager/sports-configuration", label: "Sports & Slots", icon: ListChecks },
   { to: "/manager/allcomplaint", label: "Grievances", icon: FileText },
   { to: "/manager/addcomplaint", label: "Submit Grievance", icon: FileText },
+  { to: "/manager/gate-operators", label: "Gate operators", icon: Users },
   { to: "/manager/allsupervisor", label: "Supervisor", icon: Users },
   { to: "/manager/allinstructor", label: "Instructors", icon: Users },
   { to: "/manager/allathelte", label: "Athletes", icon: Users },

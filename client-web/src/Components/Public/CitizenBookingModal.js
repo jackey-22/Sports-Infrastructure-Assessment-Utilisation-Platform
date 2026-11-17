@@ -3,6 +3,7 @@ import { CalendarDays, CheckCircle, ChevronLeft, ChevronRight, Download, Loader2
 import { useSelector } from "react-redux";
 import { api } from "../../API/client";
 import { downloadBookingInvoice } from "../../utils/bookingInvoice";
+import BookingPassCard from "../Booking/BookingPassCard";
 
 const fieldClass = "w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20";
 const today = () => {
@@ -53,6 +54,7 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
   const [error, setError] = useState("");
   const [booking, setBooking] = useState(null);
   const [pendingBooking, setPendingBooking] = useState(null);
+  const [gatewayProof, setGatewayProof] = useState(null);
   const [availability, setAvailability] = useState(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(today().slice(0, 7));
@@ -142,6 +144,37 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
     setMemberCount(Number(nextSlot?.bookingPolicy?.minMembers) || 1);
   };
 
+  const verifyPayment = async (created, gatewayResponse) => {
+    setSaving(true);
+    setError("");
+    setGatewayProof(gatewayResponse);
+          try {
+            const verified = await api.post(
+              `/api/public/bookings/${created.id}/payment/verify`,
+              gatewayResponse,
+              { auth: false }
+            );
+            const confirmed = {
+              ...created,
+              pass: verified.data.pass,
+              status: verified.data.bookingStatus,
+              paymentStatus: verified.data.paymentStatus,
+              paidAt: verified.data.paidAt,
+              paymentId: verified.data.razorpayPaymentId,
+            };
+            if (confirmed.status !== "Confirmed" || confirmed.paymentStatus !== "Paid") throw new Error("Payment has not been confirmed yet");
+            setBooking(confirmed);
+            window.dispatchEvent(new Event("booking-confirmed"));
+            setPendingBooking(null);
+            setGatewayProof(null);
+            onConfirm(confirmed);
+          } catch (verifyError) {
+            setError(verifyError.message);
+          } finally {
+            setSaving(false);
+          }
+  };
+
   const launchPayment = async (created) => {
     setSaving(true);
     setError("");
@@ -158,29 +191,7 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
         prefill: payment.prefill,
         timeout: 900,
         theme: { color: "#2563eb" },
-        handler: async (gatewayResponse) => {
-          try {
-            const verified = await api.post(
-              `/api/public/bookings/${created.id}/payment/verify`,
-              gatewayResponse,
-              { auth: false }
-            );
-            const confirmed = {
-              ...created,
-              status: verified.data.bookingStatus,
-              paymentStatus: verified.data.paymentStatus,
-              paidAt: verified.data.paidAt,
-              paymentId: verified.data.razorpayPaymentId,
-            };
-            setBooking(confirmed);
-            setPendingBooking(null);
-            onConfirm(confirmed);
-          } catch (verifyError) {
-            setError(verifyError.message);
-          } finally {
-            setSaving(false);
-          }
-        },
+        handler: (gatewayResponse) => verifyPayment(created, gatewayResponse),
         modal: {
           ondismiss: () => {
             setError("Payment was not completed. Your court is held for 15 minutes; you can retry below.");
@@ -235,18 +246,19 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
             <p className="mt-1 text-slate-600">{booking.memberCount} {booking.memberCount === 1 ? "athlete" : "members"} · {booking.inventoryMode === "exclusive-unit" ? "whole court/field reserved" : "shared-capacity booking"}</p>
             <div className="mt-4 flex justify-between border-t border-emerald-200 pt-3 font-bold"><span>{booking.status}</span><span>₹{booking.totalAmount} paid</span></div>
           </div>
+          <BookingPassCard pass={booking.pass} />
           <div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => downloadBookingInvoice({ ...booking, name, facility: facility.name, date, timeLabel: `${booking.slot?.startTime} - ${booking.slot?.endTime}`, members: booking.memberCount, amount: booking.totalAmount })} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 text-sm font-bold text-white hover:bg-emerald-800"><Download className="h-4 w-4" />Download invoice</button><button type="button" onClick={onClose} className="rounded-xl border border-slate-300 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Done</button></div>
         </div> : pendingBooking ? <div className="mx-auto max-w-xl space-y-5 py-8 text-center">
           <div><h4 className="text-xl font-extrabold text-slate-800">Payment pending</h4><p className="mt-1 text-sm text-slate-500">Booking reference {pendingBooking.reference}</p></div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left text-sm text-slate-700"><p>The selected court or capacity is held for 15 minutes.</p><p className="mt-2 font-bold">Amount: ₹{pendingBooking.totalAmount}</p></div>
           {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
-          <button type="button" disabled={saving} onClick={() => launchPayment(pendingBooking)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 text-sm font-bold text-white disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}Pay securely with Razorpay</button>
+          <button type="button" disabled={saving} onClick={() => gatewayProof ? verifyPayment(pendingBooking, gatewayProof) : launchPayment(pendingBooking)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 text-sm font-bold text-white disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}{gatewayProof ? "Retry payment verification" : "Pay securely with Razorpay"}</button>
           <button type="button" onClick={onClose} className="w-full rounded-xl py-2 text-sm font-bold text-slate-500">Cancel</button>
         </div> : loading ? <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-emerald-700" /></div> : configs.length === 0 ? <div className="py-12 text-center"><p className="font-bold text-slate-700">Online booking is not configured for this facility yet.</p><button type="button" onClick={onClose} className="mt-5 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Close</button></div> : <form onSubmit={submit} className="grid items-start gap-7 lg:grid-cols-[minmax(0,1.55fr)_380px]">
           <div className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-slate-200 p-5"><div className="mb-4"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Step 1</p><h4 className="mt-1 text-lg font-extrabold text-slate-900">Sport and booking details</h4></div>
               {currentCitizen ? <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700"><Lock className="h-4 w-4" />Booking as {currentCitizen.Name}. Contact details come from your account.</div> : null}
-              <div className="grid gap-3 sm:grid-cols-2"><Field label="Sport"><select className={fieldClass} value={configId} onChange={(event) => chooseConfig(event.target.value)}>{configs.map((row) => <option key={row.id} value={row.id}>{row.sport?.SportName}</option>)}</select></Field><Field label="Booker name"><input readOnly={Boolean(currentCitizen)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} value={name} onChange={(event) => setName(event.target.value)} required /></Field><Field label="Mobile number"><input readOnly={Boolean(currentCitizen)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required /></Field><Field label="Email (optional)"><input readOnly={Boolean(currentCitizen)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field></div>
+              <div className="grid gap-3 sm:grid-cols-2"><Field label="Sport"><select className={fieldClass} value={configId} onChange={(event) => chooseConfig(event.target.value)}>{configs.map((row) => <option key={row.id} value={row.id}>{row.sport?.SportName}</option>)}</select></Field><Field label="Booker name"><input readOnly={Boolean(currentCitizen?.Name)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} value={name} onChange={(event) => setName(event.target.value)} required /></Field><Field label="Mobile number"><input readOnly={Boolean(currentCitizen?.ContactNum)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required /></Field><Field label="Email (optional)"><input readOnly={Boolean(currentCitizen?.Email)} className={`${fieldClass} ${currentCitizen ? "bg-slate-100 text-slate-500" : ""}`} type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field></div>
             </section>
             <section><div className="mb-3"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Step 2</p><h4 className="mt-1 text-lg font-extrabold text-slate-900">Choose a date</h4></div>{availabilityLoading ? <div className="flex justify-center rounded-2xl border border-slate-200 py-12"><Loader2 className="h-6 w-6 animate-spin text-emerald-700" /></div> : availability ? <AvailabilityCalendar availability={availability} selectedDate={date} onSelectDate={(nextDate) => { const entry = availability.dates.find((item) => item.date === nextDate); const firstSlot = entry?.slots.find((item) => item.remaining > 0) || entry?.slots[0]; setDate(nextDate); setSlotId(firstSlot?.id || ""); setMemberCount(Number(firstSlot?.bookingPolicy?.minMembers) || 1); }} month={calendarMonth} onMonthChange={setCalendarMonth} /> : null}</section>
             <section><div className="mb-3"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Step 3</p><h4 className="mt-1 text-lg font-extrabold text-slate-900">Available slots on {date}</h4></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{availableSlots.map((row) => <button key={row.id} type="button" disabled={row.remaining === 0} onClick={() => chooseSlot(row.id)} className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${slotId === row.id ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600/10" : "border-slate-200 bg-white hover:border-emerald-400"}`}><div className="flex items-start justify-between gap-2"><p className="text-sm font-extrabold text-slate-800">{row.label}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${row.remaining ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{row.remaining} {row.inventoryLabel} left</span></div><p className="mt-2 text-xs text-slate-500">{row.startTime}–{row.endTime}</p><p className="mt-1 text-xs text-slate-500">{row.audience} · {row.purpose}</p>{row.coach ? <p className="mt-2 text-xs font-semibold text-emerald-700">Coach: {row.coach}</p> : null}</button>)}</div>{availableSlots.length === 0 ? <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">No slots operate on this date.</p> : null}</section>

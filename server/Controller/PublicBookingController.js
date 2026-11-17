@@ -628,9 +628,10 @@ async function verifyBookingPayment(req, res) {
     }
 
     const booking = await Guest.findById(req.params.id).select(
-      "bookingReference bookingStatus paymentStatus totalAmount paidAt"
+      "bookingReference bookingStatus paymentStatus totalAmount paidAt razorpayPaymentId"
     );
-    return res.json({ data: booking, rcode: 200 });
+    const pass = await require("../Utils/bookingPass").loadBookingPass(req.params.id);
+    return res.json({ data: { ...booking.toObject(), pass }, rcode: 200 });
   } catch (error) {
     console.error("Payment verification failed:", error.message);
     return fail(res, 500, "Could not verify payment");

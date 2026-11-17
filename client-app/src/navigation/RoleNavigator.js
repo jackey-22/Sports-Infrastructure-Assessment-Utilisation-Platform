@@ -11,7 +11,8 @@ import ComplaintsScreen from "../screens/Citizen/ComplaintsScreen";
 import CitizenProfileScreen from "../screens/Citizen/CitizenProfileScreen";
 
 // Supervisor Screens
-import SupervisorScanScreen from "../screens/Supervisor/SupervisorScanScreen";
+import SupervisorScanScreen from "../screens/Supervisor/GateScannerScreen";
+import GateOperatorsScreen from "../screens/Manager/GateOperatorsScreen";
 
 // Coach Screens
 import CoachDashboardScreen from "../screens/Coach/CoachDashboardScreen";
@@ -44,6 +45,8 @@ export const RoleNavigator = ({ user, onLogout }) => {
   // Clean, concise 1-word tab labels that never wrap or overflow
   const getTabsForRole = () => {
     switch (role) {
+      case 6:
+        return [{ key: "home", label: "Gate scanner", icon: "qr-code" }];
       case 5: // State Admin
         return [
           { key: "home", label: "State Desk", icon: "shield-checkmark" },
@@ -60,6 +63,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       case 3: // Complex Manager
         return [
           { key: "home", label: "Overview", icon: "speedometer" },
+          { key: "staff", label: "Gate staff", icon: "people-outline" },
           { key: "audit", label: "FCI Audit", icon: "camera-outline" },
           { key: "grants", label: "Grants", icon: "cloud-upload-outline" },
           { key: "complaints", label: "Grievances", icon: "warning-outline" },
@@ -133,6 +137,8 @@ export const RoleNavigator = ({ user, onLogout }) => {
       );
     }
 
+    if (role === 6) return <SupervisorScanScreen user={user} onLogout={onLogout} />;
+
     // Role 5: State SAG Admin
     if (role === 5) {
       if (activeTab === "allocate") {
@@ -160,6 +166,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
 
     // Role 3: Complex Manager
     if (role === 3) {
+      if (activeTab === "staff") return <GateOperatorsScreen onBack={() => setActiveTab("home")} />;
       if (activeTab === "audit") {
         return <FacilityAuditScreen onBack={() => setActiveTab("home")} onAuditComplete={() => setActiveTab("home")} />;
       }

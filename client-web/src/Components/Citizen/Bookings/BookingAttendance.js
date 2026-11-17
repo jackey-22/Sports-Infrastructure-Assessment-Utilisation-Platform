@@ -1,0 +1,8 @@
+import React, { useEffect, useState } from "react";
+import { api } from "../../../API/client";
+export default function BookingAttendance() {
+  const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
+  const load=async()=>{setLoading(true);setError("");try{const result=await api.get("/api/citizen/booking-attendance");setRows(result.data||[]);}catch(err){setError(err.message);}finally{setLoading(false);}};
+  useEffect(()=>{load();},[]);
+  return <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5"><div className="flex justify-between gap-3"><h2 className="text-xl font-extrabold text-slate-900">Facility attendance</h2><button onClick={load} className="text-sm font-bold text-emerald-700">Refresh</button></div><p className="mt-1 text-sm text-slate-500">Entry and exit recorded from your booking QR passes.</p>{loading?<p className="mt-4 text-sm text-slate-500">Loading attendance...</p>:error?<p role="alert" className="mt-4 text-red-700">{error}</p>:!rows.length?<p className="mt-4 text-sm text-slate-500">No gate attendance recorded yet.</p>:rows.map(row=><article key={row.id} className="mt-4 flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-4"><div><p className="font-bold">{row.facilityName}</p><p className="text-sm text-slate-500">{row.sport} | {row.date}</p></div><div className="text-sm"><p className="font-bold text-emerald-700">{row.status}</p><p className="text-slate-500">In: {new Date(row.entry).toLocaleTimeString("en-IN")}{row.exit?` | Out: ${new Date(row.exit).toLocaleTimeString("en-IN")}`:""}</p></div></article>)}</section>;
+}

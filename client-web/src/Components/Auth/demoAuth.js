@@ -105,6 +105,8 @@ export function readDemoToken(token) {
 
 export function homeForRole(role) {
   switch (role) {
+    case 6:
+      return "/gate";
     case 5:
       return "/admin";
     case 4:

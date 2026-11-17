@@ -91,7 +91,11 @@ import GrievanceWorkspace from "./Components/Workflow/GrievanceWorkspace";
 import RatingWorkspace from "./Components/Workflow/RatingWorkspace";
 import GrantWorkspace from "./Components/Workflow/GrantWorkspace";
 
+import GateOperators from "./Components/Gate/GateOperators";
+import GateScanner from "./Components/Gate/GateScanner";
+
 const routes = createBrowserRouter([
+  { path: "/gate", element: <GateScanner />, loader: () => Verify(6), errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <HomeLanding />,
@@ -203,6 +207,8 @@ const routes = createBrowserRouter([
     },
     errorElement: <ErrorPage />,
     children: [
+      { path: "gate-operators", element: <GateOperators /> },
+      { path: "gate-desk", element: <GateScanner embedded /> },
       {
         index: true,
         element: <ManagerDashboard />,

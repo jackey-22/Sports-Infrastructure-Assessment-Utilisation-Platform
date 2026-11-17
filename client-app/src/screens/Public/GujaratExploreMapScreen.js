@@ -32,7 +32,7 @@ export default function GujaratExploreMapScreen({ onSelectFacility, onBack }) {
   useEffect(() => {
     let alive = true;
     setLoading(true); setError("");
-    const timer = setTimeout(() => loadFacilities({ q, district, sport, grade, amenities: amenities.join(","), sort }).then(result => { if (alive) { setRows(result.data || []); setMeta(result.meta || { districts: [], sports: [] }); } }).catch(err => { if (alive) { setError(err.message); setRows([]); } }).finally(() => { if (alive) setLoading(false); }), 250);
+    const timer = setTimeout(() => loadFacilities({ bookableOnly: true, q, district, sport, grade, amenities: amenities.join(","), sort }).then(result => { if (alive) { setRows(result.data || []); setMeta(result.meta || { districts: [], sports: [] }); } }).catch(err => { if (alive) { setError(err.message); setRows([]); } }).finally(() => { if (alive) setLoading(false); }), 250);
     return () => { alive = false; clearTimeout(timer); };
   }, [q, district, sport, grade, amenities, sort, revision]);
   const reset = () => { setQ(""); setDistrict(""); setSport(""); setGrade(""); setAmenities([]); setSavedOnly(false); };

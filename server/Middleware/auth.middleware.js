@@ -41,6 +41,12 @@ async function resolveUser(token) {
   return user;
 }
 
+function gateOperatorAllowed(req, user) {
+  if (Number(user.Role) !== ROLE.GATE_OPERATOR) return true;
+  const path = req.path.replace(/\/$/, "");
+  return (req.method === "POST" && ["/api/booking-passes/verify", "/api/gate/attendance"].includes(path)) || (req.method === "GET" && path === "/api/gate/attendance");
+}
+
 async function authenticate(req, res, next) {
   const token = extractToken(req);
   if (!token) return sendUnauthorized(res, MESSAGES.missing);
@@ -48,6 +54,7 @@ async function authenticate(req, res, next) {
   try {
     const user = await resolveUser(token);
     if (!user) return sendUnauthorized(res, MESSAGES.inactive);
+    if (!gateOperatorAllowed(req, user)) return sendForbidden(res, "Gate operators can only scan passes and record attendance");
     req.user = user;
     req.auth = { id: String(user._id), role: Number(user.Role) };
     return next();
@@ -66,6 +73,7 @@ async function optionalAuthenticate(req, res, next) {
   try {
     const user = await resolveUser(token);
     if (!user) return sendUnauthorized(res, MESSAGES.inactive);
+    if (!gateOperatorAllowed(req, user)) return sendForbidden(res, "Gate operators can only scan passes and record attendance");
     req.user = user;
     req.auth = { id: String(user._id), role: Number(user.Role) };
     return next();
@@ -89,6 +97,7 @@ function requireRole(...roles) {
 module.exports = {
   ROLE,
   MESSAGES,
+  gateOperatorAllowed,
   extractToken,
   authenticate,
   optionalAuthenticate,

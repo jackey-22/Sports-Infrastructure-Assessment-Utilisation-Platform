@@ -866,6 +866,19 @@ app.get(
 app.get("/gettimeslotforguest", GuestController.gettimeslotfrominstructor);
 app.get("/getPaymentTimeslotCount", PaymentController.getPaymentTimeslotCount);
 
+const BookingPassController = require("./Controller/BookingPassController");
+const GateOperatorController = require("./Controller/GateOperatorController");
+const BookingAttendanceController = require("./Controller/BookingAttendanceController");
+app.get("/api/manager/gate-operators", requireRole(ROLE.MANAGER), GateOperatorController.list);
+app.post("/api/manager/gate-operators", requireRole(ROLE.MANAGER), GateOperatorController.create);
+app.patch("/api/manager/gate-operators/:id", requireRole(ROLE.MANAGER), GateOperatorController.setActive);
+app.get("/api/citizen/bookings/:id/pass", requireRole(ROLE.ATHLETE), BookingPassController.ownPass);
+app.get("/api/citizen/booking-attendance", requireRole(ROLE.ATHLETE), BookingAttendanceController.list);
+app.get("/api/gate/attendance", requireRole(ROLE.GATE_OPERATOR, ROLE.SUPERVISOR, ROLE.MANAGER, ROLE.ADMIN), BookingAttendanceController.list);
+app.post("/api/gate/attendance", requireRole(ROLE.GATE_OPERATOR, ROLE.SUPERVISOR, ROLE.MANAGER, ROLE.ADMIN), BookingAttendanceController.record);
+
+app.get("/api/citizen/booking-pass/latest", requireRole(ROLE.ATHLETE), BookingPassController.latest);
+app.post("/api/booking-passes/verify", requireRole(ROLE.GATE_OPERATOR, ROLE.SUPERVISOR, ROLE.MANAGER, ROLE.ADMIN), BookingPassController.verify);
 app.get("/api/public/sport-configs", PublicBookingController.listConfigs);
 app.get("/api/public/facilities", PublicBookingController.listFacilities);
 app.get("/api/public/sport-configs/:id/availability", PublicBookingController.availability);

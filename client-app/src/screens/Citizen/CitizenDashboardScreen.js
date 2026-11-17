@@ -1,8 +1,9 @@
 import { Text } from "../../components/AppText";
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Share, Platform, Dimensions } from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Share, Platform, Dimensions, RefreshControl, ActivityIndicator, AppState } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
-import QRCode from "react-native-qrcode-svg";
+import BookingPassCard from "../../components/qr/BookingPassCard";
+import { api } from "../../api/client";
 import { colors } from "../../theme/colors";
 import CitizenHeader from "../../components/common/CitizenHeader";
 import { citizenService } from "../../services/citizen/citizenService";
@@ -10,6 +11,17 @@ import { citizenService } from "../../services/citizen/citizenService";
 const { width } = Dimensions.get("window");
 
 export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
+  const [bookingPass, setBookingPass] = useState(null);
+  const [passLoading, setPassLoading] = useState(true);
+  const [passError, setPassError] = useState("");
+  const [passRevision, setPassRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const load = () => { setPassLoading(true); setPassError(""); api.get("/api/citizen/booking-pass/latest").then(result => { if (active) setBookingPass(result.data); }).catch(error => { if (active) { setPassError(error.message); setBookingPass(null); } }).finally(() => { if (active) setPassLoading(false); }); };
+    load();
+    const listener = AppState.addEventListener("change", state => { if (state === "active") load(); });
+    return () => { active = false; listener.remove(); };
+  }, [user?._id, passRevision]);
   const [identity, setIdentity] = useState(null);
   const [identityError, setIdentityError] = useState("");
 
@@ -56,7 +68,7 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        refreshControl={<RefreshControl refreshing={passLoading} onRefresh={() => setPassRevision(value => value + 1)} tintColor="#007D40" />}
       >
         {/* 1. TOP CURVED HEADER — unified CitizenHeader */}
         <CitizenHeader
@@ -118,109 +130,9 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
           </View>
         </View>
 
-        {/* 4. YOUR DIGITAL ID (ATHLETE) SECTION */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeaderTitle}>YOUR DIGITAL ID (ATHLETE)</Text>
-
-          <View style={styles.digitalIdCard}>
-            {/* Dark Green ID Card Banner */}
-            <View style={styles.idCardHeaderBanner}>
-              <View style={styles.idHeaderLeft}>
-                <View style={styles.idRunnerIcon}>
-                  <MaterialCommunityIcons name="run" size={18} color="#ffffff" />
-                </View>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Text style={styles.idHeaderTitle}>Gujarat Athlete ID</Text>
-                  <Text style={styles.idHeaderSub} numberOfLines={1}>
-                    Scan for facility booking and event participation
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.shareBtn} onPress={handleShareId} activeOpacity={0.8}>
-                <Ionicons name="qr-code-outline" size={14} color="#007D40" style={{ marginRight: 4 }} />
-                <Text style={styles.shareBtnText}>Share</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ID Card White Surface */}
-            <View style={styles.idCardBody}>
-              {/* QR Code with ID pill below */}
-              <View style={styles.qrCodeSection}>
-                <View style={styles.qrBox}>
-                  <QRCode
-                    value={`GUJARAT-ATHLETE:${athleteData.athleteId}:${athleteData.name}`}
-                    size={135}
-                    color="#0B1222"
-                    backgroundColor="#ffffff"
-                  />
-                </View>
-                <View style={styles.idNumberPill}>
-                  <Text style={styles.idNumberText}>{athleteData.athleteId}</Text>
-                </View>
-              </View>
-
-              {/* 2-Column Athlete Details Grid */}
-              <View style={styles.idDetailsGrid}>
-                {/* Row 1 */}
-                <View style={styles.detailGridRow}>
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="person-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Name</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.name}</Text>
-                  </View>
-
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="calendar-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Date of Birth</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.dob}</Text>
-                  </View>
-                </View>
-
-                {/* Row 2 */}
-                <View style={styles.detailGridRow}>
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="card-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Gender</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.gender}</Text>
-                  </View>
-
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="call-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Mobile</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.mobile}</Text>
-                  </View>
-                </View>
-
-                {/* Row 3 */}
-                <View style={styles.detailGridRow}>
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="trophy-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Primary Sport</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.primarySport}</Text>
-                  </View>
-
-                  <View style={styles.detailItemCol}>
-                    <View style={styles.detailLabelRow}>
-                      <Ionicons name="shield-checkmark-outline" size={13} color="#007D40" />
-                      <Text style={styles.detailLabelText}>Registration Date</Text>
-                    </View>
-                    <Text style={styles.detailValText} numberOfLines={1}>{athleteData.regDate}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
+          <Text style={styles.sectionHeaderTitle}>YOUR LATEST FACILITY BOOKING</Text>
+          {passLoading ? <ActivityIndicator color="#007D40" style={{ padding: 25 }} /> : passError ? <View style={styles.digitalIdCard}><Text style={styles.identityError}>{passError}</Text><TouchableOpacity onPress={() => setPassRevision(value => value + 1)} style={{ padding: 18 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Retry booking pass</Text></TouchableOpacity></View> : bookingPass ? <BookingPassCard pass={bookingPass} /> : <View style={[styles.digitalIdCard, { padding: 22, gap: 14 }]}><Text style={{ fontSize: 16, fontWeight: "700", color: "#193D28" }}>Your next session starts here</Text><Text style={{ fontSize: 12, lineHeight: 20, color: "#708377" }}>Book a facility and complete payment to receive your QR pass here.</Text><TouchableOpacity onPress={() => onNavigateTab?.("explore")} style={{ padding: 14, backgroundColor: "#E8F5EE", borderRadius: 12 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Explore & book a facility</Text></TouchableOpacity></View>}
         </View>
 
         {/* 5. QUICK ACTIONS SECTION (2x2 Grid) */}

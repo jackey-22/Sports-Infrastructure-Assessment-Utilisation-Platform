@@ -3,6 +3,7 @@ import { CalendarCheck, Compass, FileText, Loader2, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { api } from "../../../API/client";
+import { LatestBookingPass } from "../../Booking/BookingPassCard";
 import { Button, Card, KpiCard, PageHeader, PageShell, SectionHeader } from "../Common/CitizenUI";
 
 export default function CitizenDashboard() {
@@ -15,6 +16,7 @@ export default function CitizenDashboard() {
   }, []);
   return <PageShell>
     <PageHeader eyebrow="Citizen account" title={`Welcome${citizen.Name ? `, ${citizen.Name.split(" ")[0]}` : ""}`} description="Explore bookable facilities, manage reservations, submit ratings and track complaints." actions={<Button as={Link} to="/explore"><Compass className="h-4 w-4" />Explore & book</Button>} />
+    <LatestBookingPass />
     {!data ? <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-emerald-700" /></div> : <>
       <div className="mb-5 grid gap-3 sm:grid-cols-3"><KpiCard label="My bookings" value={data.bookings.length} caption={`${data.bookings.filter((item) => item.bookingStatus === "Confirmed").length} confirmed`} icon={CalendarCheck} tone="green" /><KpiCard label="Ratings submitted" value={data.reviews.length} caption="Facility, sport and coach" icon={Star} tone="amber" /><KpiCard label="Complaints" value={data.grievances.length} caption={`${data.grievances.filter((item) => item.workflowStatus === "Resolved").length} resolved`} icon={FileText} tone="violet" /></div>
       <Card><SectionHeader title="What would you like to do?" /><div className="grid gap-3 p-5 md:grid-cols-3"><Action to="/explore" icon={Compass} title="Explore & book" text="Find facilities, view live slots and make a booking." /><Action to="/citizen/bookings" icon={CalendarCheck} title="Bookings & ratings" text="Download invoices and rate facilities, sports or coaches." /><Action to="/citizen/complaints" icon={FileText} title="Complaints" text="Raise a complaint and track manager responses." /></div></Card>

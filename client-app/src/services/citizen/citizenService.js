@@ -369,37 +369,15 @@ export const citizenService = {
   },
 
   // GET /getSession (single date, athlete-scoped by the backend).
-  async listAttendance({ from, to } = {}) {    const { complexId } = await loadIdentity();
-    if (!complexId) return demoAttendance(from, to);
-    const dates = dateRange(from, to);
-    let responses;
-    try {
-      responses = await Promise.all(
-        dates.map((date) =>
-          api.get(
-            `/getSession?sportscomplex=${encodeURIComponent(
-              complexId
-            )}&date=${encodeURIComponent(date)}`
-          )
-        )
-      );
-    } catch {
-      return demoAttendance(from, to);
+  async listAttendance({ from, to } = {}) {
+    const response = await api.get("/api/citizen/booking-attendance");
+    const records = (response.data || []).filter(row => (!from || row.date >= from) && (!to || row.date <= to)).map(row => ({ ...row, entry: row.entry ? new Date(row.entry).getTime() : null, exit: row.exit ? new Date(row.exit).getTime() : null, demo: false }));
+    const { complexId } = await loadIdentity();
+    if (complexId && /^[a-f0-9]{24}$/i.test(String(complexId))) {
+      const legacy = await Promise.all(dateRange(from,to).map(date => api.get(`/getSession?sportscomplex=${encodeURIComponent(complexId)}&date=${encodeURIComponent(date)}`).catch(() => ({data:[]}))));
+      legacy.forEach(result => (result.data || []).forEach(session => (session.enrolls || []).forEach(enroll => records.push(mapEnroll(session,enroll)))));
     }
-    const records = [];
-    responses.forEach((response) => {
-      (response.data || []).forEach((session) => {
-        (session.enrolls || []).forEach((enroll) => {
-          records.push(mapEnroll(session, enroll));
-        });
-      });
-    });
-    if (records.length === 0) return demoAttendance(from, to);
-    return records.sort(
-      (a, b) =>
-        String(b.date).localeCompare(String(a.date)) ||
-        (b.entry || 0) - (a.entry || 0)
-    );
+    return records.sort((a,b) => String(b.date).localeCompare(String(a.date)) || (b.entry || 0) - (a.entry || 0));
   },
 
   // POST /addSession/:complexId — the body's userId is re-checked server-side
