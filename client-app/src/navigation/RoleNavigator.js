@@ -1,5 +1,6 @@
+import { Text } from "../components/AppText";
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from "react-native";
+import { View, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 

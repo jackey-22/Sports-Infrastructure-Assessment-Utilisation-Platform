@@ -1,15 +1,6 @@
+import { Text, TextInput } from "../../components/AppText";
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import { View, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import { SagHeader } from "../../components/common/SagHeader";

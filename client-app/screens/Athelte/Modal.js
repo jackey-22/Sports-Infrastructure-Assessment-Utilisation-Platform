@@ -1,13 +1,8 @@
+import { Text } from "../../src/components/AppText";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import React, { useState } from "react";
-import {
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
+import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 // import * as Print from "expo";
 import { useNavigation } from "@react-navigation/native";
 import { Asset } from 'expo-asset';

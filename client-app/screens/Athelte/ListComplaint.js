@@ -1,11 +1,5 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Pressable,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, StyleSheet, TouchableOpacity, ScrollView, Pressable } from "react-native";
 import { Ionicons, Entypo, AntDesign } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useEffect, useState } from "react";

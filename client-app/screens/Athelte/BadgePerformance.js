@@ -1,15 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  ScrollView,
-  Dimensions,
-  ActivityIndicator,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, ScrollView, Dimensions, ActivityIndicator } from "react-native";
 
 import { api } from "../../src/api/client";
 import {

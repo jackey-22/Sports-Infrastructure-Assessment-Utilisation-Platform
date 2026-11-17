@@ -1,374 +1,53 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  SafeAreaView,
-} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, ScrollView, SafeAreaView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../../theme/colors";
-import { SagHeader } from "../../components/common/SagHeader";
-import { QrPassCard } from "../../components/qr/QrPassCard";
-
-const TIME_SLOTS = [
-  { id: "slot_1", label: "06:00 AM - 07:00 AM", period: "Morning" },
-  { id: "slot_2", label: "07:00 AM - 08:00 AM", period: "Morning" },
-  { id: "slot_3", label: "08:00 AM - 09:00 AM", period: "Morning" },
-  { id: "slot_4", label: "05:00 PM - 06:00 PM", period: "Evening" },
-  { id: "slot_5", label: "06:00 PM - 07:00 PM", period: "Evening" },
-  { id: "slot_6", label: "07:00 PM - 08:00 PM", period: "Evening" },
-];
-
-export const BookingCheckoutScreen = ({ facility, onBack, onDone }) => {
-  const [selectedSport, setSelectedSport] = useState("Badminton");
-  const [selectedSlot, setSelectedSlot] = useState("slot_4");
-  const [name, setName] = useState("Aarav Patel");
-  const [phone, setPhone] = useState("+91 98765 43210");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [generatedPass, setGeneratedPass] = useState(null);
-
-  const handleConfirmBooking = () => {
-    if (!name || !phone) {
-      Alert.alert("Required", "Please provide beneficiary name and contact number.");
-      return;
-    }
-
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      const newPass = {
-        passId: `PASS-SAG-${Math.floor(100000 + Math.random() * 900000)}`,
-        userName: name,
-        facilityName: facility?.name || "SAG Khokhra Sports Complex",
-        sport: selectedSport,
-        validTill: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        status: "Active",
-      };
-      setGeneratedPass(newPass);
-    }, 1200);
+import { Text, TextInput } from "../../components/AppText";
+import { FacilityHeader, Chip, Button, StateMessage, ui, GREEN } from "../../components/FacilityUI";
+import FacilityPayment from "../../components/FacilityPayment";
+import { loadBookingConfigs } from "../../services/facilityService";
+import { api } from "../../api/client";
+const localDate = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`; };
+export default function BookingCheckoutScreen({ facility, onBack, onDone }) {
+  const [configs, setConfigs] = useState([]), [configId, setConfigId] = useState(""), [slotId, setSlotId] = useState("");
+  const [date, setDate] = useState(localDate()), [name, setName] = useState(""), [phone, setPhone] = useState(""), [email, setEmail] = useState(""), [members, setMembers] = useState("1");
+  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState(""), [revision, setRevision] = useState(0);
+  const [pending, setPending] = useState(null), [paymentOpen, setPaymentOpen] = useState(false), [proof, setProof] = useState(null), [confirmed, setConfirmed] = useState(null);
+  const lock = useRef(false);
+  useEffect(() => { let alive = true; setLoading(true); setError(""); loadBookingConfigs(facility?.id).then(rows => { if (alive) { const available = rows.filter(c => c.slots?.length); setConfigs(available); setConfigId(available[0]?.id || ""); setSlotId(""); } }).catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, [facility?.id, revision]);
+  const config = configs.find(c => c.id === configId), slot = config?.slots.find(s => s._id === slotId);
+  const policy = slot?.bookingPolicy || config?.bookingPolicy;
+  const count = Number(members), base = config?.price?.amount || 0, perMember = config?.price?.perMemberAmount || base;
+  const total = config?.price?.calculation === "per-member" ? perMember * count : config?.price?.calculation === "base-plus-member" ? base + (config.price.perMemberAmount || 0) * count : base;
+  const verify = async (data) => {
+    if (lock.current) return;
+    setPaymentOpen(false); setProof(data); setBusy(true); setError(""); lock.current = true;
+    try { const response = await api.post(`/api/public/bookings/${pending.id}/payment/verify`, data, { auth: false }); if (response.data?.bookingStatus !== "Confirmed" || response.data?.paymentStatus !== "Paid") throw new Error("Payment has not been confirmed yet. Retry verification."); setConfirmed(response.data); setProof(null); }
+    catch (err) { setError(err.message); } finally { lock.current = false; setBusy(false); }
   };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <SagHeader
-        title={generatedPass ? "Digital Gate Pass" : "Instant Slot Booking"}
-        subtitle={facility?.name || "Sports Authority of Gujarat"}
-        onBack={onBack}
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {generatedPass ? (
-          <View style={styles.successSection}>
-            <View style={styles.successBadge}>
-              <Ionicons name="checkmark-circle" size={48} color={colors.gov.primary} />
-              <Text style={styles.successTitle}>Booking Confirmed & QR Pass Issued</Text>
-              <Text style={styles.successSub}>
-                Present this digital QR pass at the entrance gate for automated digital check-in.
-              </Text>
-            </View>
-
-            <QrPassCard
-              passId={generatedPass.passId}
-              userName={generatedPass.userName}
-              facilityName={generatedPass.facilityName}
-              sport={generatedPass.sport}
-              validTill={generatedPass.validTill}
-              status="Active"
-            />
-
-            <TouchableOpacity style={styles.doneBtn} onPress={onDone || onBack}>
-              <Text style={styles.doneBtnText}>Return to Facilities</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View>
-            {/* Sport Discipline Picker */}
-            <View style={styles.card}>
-              <Text style={styles.sectionHeading}>SELECT DISCIPLINE</Text>
-              <View style={styles.sportsRow}>
-                {["Badminton", "Cricket", "Athletics", "Swimming", "Table Tennis"].map((sport) => (
-                  <TouchableOpacity
-                    key={sport}
-                    style={[styles.sportChip, selectedSport === sport && styles.sportChipActive]}
-                    onPress={() => setSelectedSport(sport)}
-                  >
-                    <Text style={[styles.sportChipText, selectedSport === sport && styles.sportChipTextActive]}>
-                      {sport}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Time Slot Picker */}
-            <View style={styles.card}>
-              <Text style={styles.sectionHeading}>SELECT SESSION TIME SLOT</Text>
-              <View style={styles.slotsGrid}>
-                {TIME_SLOTS.map((slot) => (
-                  <TouchableOpacity
-                    key={slot.id}
-                    style={[styles.slotItem, selectedSlot === slot.id && styles.slotItemActive]}
-                    onPress={() => setSelectedSlot(slot.id)}
-                  >
-                    <Text style={[styles.slotPeriod, selectedSlot === slot.id && styles.slotTextActive]}>
-                      {slot.period}
-                    </Text>
-                    <Text style={[styles.slotTime, selectedSlot === slot.id && styles.slotTextActive]}>
-                      {slot.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Athlete Contact Info */}
-            <View style={styles.card}>
-              <Text style={styles.sectionHeading}>BENEFICIARY DETAILS</Text>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>FULL NAME</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Athlete / Citizen Name"
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>MOBILE NUMBER (FOR SMS OTP & PASS)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+91 98765 43210"
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-
-            {/* Price Summary */}
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subsidized Pay & Play Fee:</Text>
-                <Text style={styles.summaryValue}>₹50.00</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>SAG Gujarat Facility Tax (0%):</Text>
-                <Text style={styles.summaryValue}>₹0.00</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.totalLabel}>Total Payable:</Text>
-                <Text style={styles.totalValue}>₹50.00</Text>
-              </View>
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={styles.payBtn}
-              onPress={handleConfirmBooking}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <>
-                  <Text style={styles.payBtnText}>Pay ₹50 & Generate Digital Pass</Text>
-                  <Ionicons name="shield-checkmark" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.slate[50],
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    marginBottom: 14,
-  },
-  sectionHeading: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: colors.slate[500],
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  sportsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  sportChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: colors.slate[100],
-  },
-  sportChipActive: {
-    backgroundColor: colors.gov.primary,
-  },
-  sportChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.slate[700],
-  },
-  sportChipTextActive: {
-    color: "#ffffff",
-  },
-  slotsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  slotItem: {
-    width: "48%",
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: colors.slate[50],
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-  },
-  slotItemActive: {
-    backgroundColor: colors.brand.dark,
-    borderColor: colors.brand.dark,
-  },
-  slotPeriod: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.gov.accent,
-    textTransform: "uppercase",
-  },
-  slotTime: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.slate[800],
-    marginTop: 2,
-  },
-  slotTextActive: {
-    color: "#ffffff",
-  },
-  inputGroup: {
-    marginBottom: 10,
-  },
-  inputLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.slate[500],
-    marginBottom: 4,
-  },
-  textInput: {
-    backgroundColor: colors.slate[50],
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 42,
-    fontSize: 14,
-    color: colors.slate[900],
-  },
-  summaryCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 4,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: colors.slate[600],
-  },
-  summaryValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.slate[900],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.slate[100],
-    marginVertical: 8,
-  },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.slate[900],
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.gov.primary,
-  },
-  payBtn: {
-    backgroundColor: colors.gov.primary,
-    borderRadius: 14,
-    height: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  payBtnText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  successSection: {
-    alignItems: "center",
-  },
-  successBadge: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.slate[900],
-    marginTop: 8,
-    textAlign: "center",
-  },
-  successSub: {
-    fontSize: 12,
-    color: colors.slate[500],
-    textAlign: "center",
-    marginTop: 4,
-    paddingHorizontal: 20,
-  },
-  doneBtn: {
-    backgroundColor: colors.brand.dark,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  doneBtnText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-});
-
-export default BookingCheckoutScreen;
+  const submit = async () => {
+    if (lock.current) return;
+    setError("");
+    if (pending) { setPaymentOpen(true); return; }
+    if (!slot) return setError("Select a sport and a time slot.");
+    const parsed = new Date(`${date}T12:00:00`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) || parsed.getFullYear() !== Number(date.slice(0,4)) || parsed.getMonth()+1 !== Number(date.slice(5,7)) || parsed.getDate() !== Number(date.slice(8,10)) || date < localDate()) return setError("Choose a valid date today or later (YYYY-MM-DD).");
+    const weekday = ["sun","mon","tue","wed","thu","fri","sat"][parsed.getDay()];
+    if (slot.days?.length && !slot.days.some(day => day.toLowerCase().slice(0,3) === weekday)) return setError("This time slot does not run on the selected day.");
+    if (!name.trim() || !/^\+?[0-9 ()-]{10,18}$/.test(phone.trim())) return setError("Enter your full name and a valid mobile number.");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError("Enter a valid email address.");
+    if (!Number.isInteger(count) || count < (policy?.minMembers || 1) || count > (policy?.maxMembers || 1)) return setError(`Members must be between ${policy?.minMembers || 1} and ${policy?.maxMembers || 1}.`);
+    setBusy(true); lock.current = true;
+    try { const response = await api.post("/api/public/bookings", { configId, slotId, date, name: name.trim(), phone: phone.trim(), email: email.trim(), memberCount: count }, { auth: false }); setPending(response.data); setPaymentOpen(true); }
+    catch (err) { setError(err.message); } finally { lock.current = false; setBusy(false); }
+  };
+  const field = (label, value, setter, keyboardType = "default") => <View><Text style={ui.label}>{label}</Text><TextInput accessibilityLabel={label} style={ui.input} value={value} onChangeText={setter} editable={!busy && !pending} keyboardType={keyboardType} autoCapitalize="none" /></View>;
+  return <SafeAreaView style={ui.safe}><View style={ui.screen}><FacilityHeader title={confirmed ? "Booking confirmed" : "Book a sports slot"} subtitle={facility?.name} onBack={busy ? undefined : onBack} /><ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+    {confirmed ? <View style={[ui.card, { gap: 16, alignItems: "center" }]}><Ionicons name="checkmark-circle" size={52} color={GREEN} /><Text style={ui.sectionTitle}>Payment verified</Text><Text style={ui.muted}>Reference: {confirmed.bookingReference}</Text><Text style={ui.muted}>{date} | {pending.sport} | {pending.slot.label}</Text><Text style={ui.sectionTitle}>₹{confirmed.totalAmount}</Text><Text style={ui.muted}>Your booking is confirmed. Keep this reference for the facility reception.</Text><Button onPress={onDone || onBack}>Return to facilities</Button></View> : loading ? <ActivityIndicator size="large" color={GREEN} /> : <>
+      {!!error && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
+      {!configs.length ? <StateMessage title="No online slots available" message="Please contact the facility, or try loading its booking schedule again." action="Reload schedule" onAction={() => setRevision(v => v + 1)} /> : <>
+        {pending ? <View style={[ui.card, { gap: 12 }]}><Text style={ui.sectionTitle}>Reservation awaiting payment</Text><Text style={ui.muted}>{pending.reference} | {pending.sport} | {pending.slot.label}</Text><Text style={ui.muted}>The backend holds unpaid reservations for 15 minutes. Confirmation appears after payment verification.</Text></View> : <><View style={[ui.card, { gap: 12 }]}><Text style={ui.sectionTitle}>Select discipline</Text><View style={ui.wrap}>{configs.map(c => <Chip key={c.id} active={c.id === configId} onPress={() => { setConfigId(c.id); setSlotId(""); setMembers(String(c.bookingPolicy?.minMembers || 1)); }}>{c.sport?.SportName || "Sport"}</Chip>)}</View>{field("Date (YYYY-MM-DD)", date, setDate)}<Text style={ui.label}>Available session times</Text>{config?.slots.map(s => <Chip key={s._id} active={slotId === s._id} onPress={() => { setSlotId(s._id); setMembers(String(s.bookingPolicy?.minMembers || policy?.minMembers || 1)); }}>{s.label} | {s.startTime}-{s.endTime}{s.days?.length ? ` | ${s.days.join(", ")}` : ""}</Chip>)}</View><View style={[ui.card, { gap: 14 }]}><Text style={ui.sectionTitle}>Beneficiary details</Text>{field("Full name", name, setName)}{field("Mobile number", phone, setPhone, "phone-pad")}{field("Email (optional)", email, setEmail, "email-address")}{field(`Members (${policy?.minMembers || 1}-${policy?.maxMembers || 1})`, members, setMembers, "number-pad")}</View></>}
+        <View style={[ui.card, { gap: 12 }]}><Text style={ui.sectionTitle}>Total: ₹{pending?.totalAmount ?? (Number.isFinite(total) ? total : 0)}</Text><Text style={ui.muted}>The server checks availability and calculates the final amount before opening secure payment.</Text><Button disabled={busy || (!pending && !slot)} onPress={proof ? () => verify(proof) : submit}>{busy ? "Please wait..." : proof ? "Retry payment verification" : pending ? "Continue payment" : "Continue to payment →"}</Button></View>
+      </>}
+    </>}
+  </ScrollView>{paymentOpen && pending?.payment && <FacilityPayment payment={pending.payment} onPaid={verify} onClose={() => setPaymentOpen(false)} onError={message => { setPaymentOpen(false); setError(message); }} />}</View></SafeAreaView>;
+}

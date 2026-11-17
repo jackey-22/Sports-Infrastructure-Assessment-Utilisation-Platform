@@ -1,5 +1,6 @@
+import { Text } from "../AppText";
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Modal, TouchableOpacity, SafeAreaView, Platform } from "react-native";
+import { View, StyleSheet, Modal, TouchableOpacity, SafeAreaView, Platform } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";

@@ -1,15 +1,5 @@
-import {
-  View,
-  Text,
-  ImageBackground,
-  StyleSheet,
-  Linking,
-  Dimensions,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  Pressable,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, ImageBackground, StyleSheet, Linking, Dimensions, ScrollView, ActivityIndicator, TouchableOpacity, Pressable } from "react-native";
 import { Rating } from "react-native-ratings";
 
 import {

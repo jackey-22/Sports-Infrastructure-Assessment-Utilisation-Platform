@@ -1,15 +1,6 @@
+import { TextInput, Text } from "../../src/components/AppText";
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Button,
-  Alert,
-  Pressable,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, ScrollView, Button, Alert, Pressable } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";

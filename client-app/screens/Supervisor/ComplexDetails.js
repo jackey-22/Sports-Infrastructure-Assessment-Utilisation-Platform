@@ -1,13 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  Pressable,
-  Linking,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, Pressable, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { useEffect } from "react";

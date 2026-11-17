@@ -1,16 +1,7 @@
+import { Text, TextInput } from "../../src/components/AppText";
 import React, { useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Button,
-  Image,
-  Alert,
-  DatePickerAndroid,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, Button, Image, Alert, DatePickerAndroid } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { ScrollView } from "react-native-gesture-handler";
 import DateTimePickerModal from "react-native-modal-datetime-picker";

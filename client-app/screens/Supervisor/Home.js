@@ -1,13 +1,6 @@
+import { Text } from "../../src/components/AppText";
 import React, { useEffect, useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    Pressable,
-    FlatList,
-    ActivityIndicator,
-    RefreshControl,
-} from "react-native";
+import { View, StyleSheet, Pressable, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { useSelector } from "react-redux";
 import ipconfig from "../../ipconfig";
 const Home = () => {

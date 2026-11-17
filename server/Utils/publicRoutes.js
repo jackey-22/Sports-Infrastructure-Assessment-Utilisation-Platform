@@ -3,6 +3,8 @@
 // docs/PHASE_2B_SECURITY_IMPLEMENTATION_REPORT.md
 const PUBLIC_ROUTES = [
   { method: "POST", path: "/login" },
+  { method: "POST", path: "/forgot-password" },
+  { method: "POST", path: "/reset-password" },
   { method: "POST", path: "/verify" },
   { method: "POST", path: "/uploadPhoto" },
   { method: "GET", path: "/getSports" },

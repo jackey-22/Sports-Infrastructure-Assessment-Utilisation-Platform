@@ -1,14 +1,5 @@
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
-  Pressable,
-  Button,
-} from "react-native";
+import { Text, TextInput } from "../../src/components/AppText";
+import { View, StyleSheet, TouchableOpacity, Dimensions, Platform, Pressable, Button } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
 import Carousel, { ParallaxImage } from "react-native-snap-carousel";
 // import LinearGradient from "react-native-linear-gradient";

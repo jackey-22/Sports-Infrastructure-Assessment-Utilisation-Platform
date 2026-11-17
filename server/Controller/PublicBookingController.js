@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { exploreFacilities } = require("../Utils/facilityExplore");
 const mongoose = require("mongoose");
 const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const SportsComplex = require("../Model/SportsComplexModel");
@@ -111,8 +112,9 @@ async function listFacilities(req, res) {
     const data = facilities.map((facility) => {
       const configured = configsByFacility.get(String(facility._id)) || [];
       const sports = configured.length
-        ? configured.map((config) => ({
+        ? configured.filter(config => config.sport && config.sport.status !== "Inactive").map((config) => ({
             id: config.sport?._id,
+            bookable: config.slots?.some(slot => slot.bookable) || false,
             name: config.sport?.SportName || "Sport",
             category: config.sport?.Category || "Sport",
             image: config.sport?.baseUrl || "",
@@ -149,8 +151,8 @@ async function listFacilities(req, res) {
         district: facility.district?.District || "Not specified",
         taluka: facility.taluka || "",
         location: facility.location,
-        latitude: Number(facility.latitude),
-        longitude: Number(facility.longitude),
+        latitude: facility.latitude == null || facility.latitude === "" ? null : Number(facility.latitude),
+        longitude: facility.longitude == null || facility.longitude === "" ? null : Number(facility.longitude),
         category: facility.category,
         ownership: facility.ownership,
         operationalSince: facility.operationalSince,
@@ -161,7 +163,7 @@ async function listFacilities(req, res) {
         gallery: facility.images || [],
         timings: facility.timings,
         amenities: facility.amenities,
-        status: facility.status,
+        status: facility.status || "Active",
         condition: {
           grade: facility.conditionGrade,
           score: facility.conditionScore,
@@ -183,7 +185,10 @@ async function listFacilities(req, res) {
         sports,
       };
     });
-    return res.json({ data, rcode: 200 });
+    let result;
+    try { result = exploreFacilities(data, req.query); }
+    catch (error) { return fail(res, 400, error.message); }
+    return res.json({ ...result, rcode: 200 });
   } catch (error) {
     return fail(res, 500, "Could not load facilities");
   }
@@ -217,6 +222,8 @@ async function createBooking(req, res) {
       status: "Active",
     }).populate("sport", "SportName");
     if (!config) return fail(res, 404, "Sport configuration not found");
+    const facility = await SportsComplex.findById(config.facility).select("status");
+    if (!facility || (facility.status && facility.status !== "Active")) return fail(res, 409, "This facility is not accepting bookings");
     const slot = config.slots.id(body.slotId);
     if (!slot || !slot.bookable) return fail(res, 400, "Selected slot is not bookable");
 
@@ -229,6 +236,11 @@ async function createBooking(req, res) {
     }
     const date = String(body.date || "");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, "Select a valid date");
+    const parsedDate = new Date(`${date}T12:00:00+05:30`);
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    if (!Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || date < today) return fail(res, 400, "Choose a valid date today or later");
+    const day = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "short" }).format(parsedDate).toLowerCase();
+    if (slot.days?.length && !slot.days.some(value => value.toLowerCase().slice(0, 3) === day)) return fail(res, 400, "This slot does not run on the selected day");
     if (!String(body.name || "").trim() || !String(body.phone || "").trim()) {
       return fail(res, 400, "Booker name and mobile number are required");
     }

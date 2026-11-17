@@ -1,3 +1,4 @@
+import { Text } from "../AppText";
 /**
  * CitizenHeader — unified header for all Citizen/Athlete tab screens.
  * Usage:
@@ -12,7 +13,7 @@
  *   />
  */
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const SAG_DARK = '#0B3D2E';

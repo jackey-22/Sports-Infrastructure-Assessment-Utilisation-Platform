@@ -1,15 +1,6 @@
+import { Text } from "../../components/AppText";
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  Share,
-  Platform,
-  Dimensions,
-} from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Share, Platform, Dimensions } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import { colors } from "../../theme/colors";

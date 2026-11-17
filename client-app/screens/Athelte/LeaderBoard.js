@@ -1,15 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Button,
-  TouchableOpacity,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import { Text } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import ipconfig from "../../ipconfig";
 import { captureRef } from "react-native-view-shot";
 import { Picker } from "@react-native-picker/picker";

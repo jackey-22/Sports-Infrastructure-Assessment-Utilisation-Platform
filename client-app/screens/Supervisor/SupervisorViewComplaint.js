@@ -1,15 +1,5 @@
-import {
-    View,
-    Text,
-    Image,
-    StyleSheet,
-    Button,
-    TouchableOpacity,
-    ScrollView,
-    TextInput,
-    Pressable,
-    Alert,
-} from "react-native";
+import { Text, TextInput } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, ScrollView, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { useNavigation } from "@react-navigation/native";

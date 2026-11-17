@@ -15,6 +15,10 @@ export async function login(email, password) {
   return result.data;
 }
 
+export const register = (details) => api.post("/signup", { ...details, Role: 0 }, { auth: false });
+export const forgotPassword = (email) => api.post("/forgot-password", { Email: email.trim() }, { auth: false });
+export const resetPassword = (email, code, password) => api.post("/reset-password", { Email: email.trim(), code: code.trim(), Password: password }, { auth: false });
+
 export async function logout() {
   await AsyncStorage.removeItem("token");
   await AsyncStorage.removeItem("userData");

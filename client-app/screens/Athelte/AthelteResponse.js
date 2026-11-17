@@ -1,15 +1,5 @@
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TextInput,
-  Button,
-  TouchableOpacity,
-  ScrollView,
-  Pressable,
-  Dimensions,
-} from "react-native";
+import { Text, TextInput } from "../../src/components/AppText";
+import { View, Image, StyleSheet, Button, TouchableOpacity, ScrollView, Pressable, Dimensions } from "react-native";
 import React, { useEffect } from "react";
 const { height: screenHeight } = Dimensions.get("window");
 import { Picker } from "@react-native-picker/picker";
