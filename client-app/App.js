@@ -1,77 +1,144 @@
-import "react-native-gesture-handler";
-import { useEffect, useState } from "react";
-import { LogBox } from "react-native";
-import { useDispatch } from "react-redux";
-import { Provider } from "react-redux";
-import store from "./store";
-import { NetworkActions } from "./store/Network";
-import { NavigationContainer } from "@react-navigation/native";
-import Main from "./screens/General/Main";
-import { PermissionsAndroid } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, ActivityIndicator, StatusBar, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StripeProvider } from "@stripe/stripe-react-native";
-import ipconfig from "./ipconfig";
-LogBox.ignoreLogs([
-  'Key "cancelled" in the image picker result is deprecated and will be removed in SDK 48, use "canceled" instead',
-  "ViewPropTypes will be removed from React Native, along with all other PropTypes. We recommend that you migrate away from PropTypes and switch to a type system like TypeScript. If you need to continue using ViewPropTypes, migrate to the 'deprecated-react-native-prop-types' package.",
-]);
+import { colors } from "./src/theme/colors";
 
-// Attach the stored token to every backend call. Session restore (Main.js)
-// still verifies the token with /verify before rendering.
-const nativeFetch = global.fetch.bind(global);
-global.fetch = async (input, init = {}) => {
-  const url = typeof input === "string" ? input : input && input.url;
-  const isBackend = typeof url === "string" && url.includes(":9999/");
-  const token = await AsyncStorage.getItem("token");
-  let requestInit = init;
+// Auth & Public Screens
+import LoginScreen from "./src/screens/Auth/LoginScreen";
+import GujaratExploreMapScreen from "./src/screens/Public/GujaratExploreMapScreen";
+import ComplexDetailScreen from "./src/screens/Public/ComplexDetailScreen";
+import BookingCheckoutScreen from "./src/screens/Public/BookingCheckoutScreen";
 
-  if (isBackend && token) {
-    const headers = new Headers(
-      init.headers || (typeof input === "string" ? undefined : input.headers)
-    );
-    if (!headers.has("Authorization")) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-    requestInit = { ...init, headers };
-  }
-
-  const response = await nativeFetch(input, requestInit);
-  if (
-    isBackend &&
-    response.status === 401 &&
-    !url.includes("/login") &&
-    !url.includes("/verify")
-  ) {
-    await AsyncStorage.removeItem("token");
-  }
-  return response;
-};
-const Network1 = ({ navigation }) => {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-    );
-    const getIpAddress = async () => {
-      // Single source of truth for the backend host (client-app/ipconfig.js).
-      dispatch(NetworkActions.getip(ipconfig.ip));
-    };
-    getIpAddress();
-  }, []);
-  return <Main />;
-};
+// Unified Role Navigator
+import RoleNavigator from "./src/navigation/RoleNavigator";
 
 const STRIPE_KEY =
   "pk_test_51OHNVKSIijB4dZ7nuHBY1SWlQ8Jk0s0vVK5MMqy2fA81z0SfazlNSqilcLW4Do6bBpiKaM1PTDZ8sTdyGDUURdG400nSDgpU2Q";
 
 export default function App() {
-  return (
-    <Provider store={store}>
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isPublicMode, setIsPublicMode] = useState(false);
+  const [publicFacility, setPublicFacility] = useState(null);
+  const [publicBookingFacility, setPublicBookingFacility] = useState(null);
+
+  // Restore user session on launch
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const storedUserData = await AsyncStorage.getItem("userData");
+
+        if (token && storedUserData) {
+          const parsed = JSON.parse(storedUserData);
+          setCurrentUser(parsed);
+        }
+      } catch (e) {
+        console.warn("Session restore error", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setIsPublicMode(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("userData");
+    } catch (e) {
+      // ignore
+    }
+    setCurrentUser(null);
+    setIsPublicMode(false);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.splashCenter}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+        <ActivityIndicator size="large" color={colors.gov.primary} />
+      </View>
+    );
+  }
+
+  // If user is authenticated, route to the unified role navigator
+  if (currentUser) {
+    return (
       <StripeProvider publishableKey={STRIPE_KEY}>
-        <NavigationContainer>
-          <Network1 />
-        </NavigationContainer>
+        <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+        <RoleNavigator user={currentUser} onLogout={handleLogout} />
       </StripeProvider>
-    </Provider>
+    );
+  }
+
+  // If in Public Visitor Exploration mode
+  if (isPublicMode) {
+    if (publicBookingFacility) {
+      return (
+        <StripeProvider publishableKey={STRIPE_KEY}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+          <BookingCheckoutScreen
+            facility={publicBookingFacility}
+            onBack={() => setPublicBookingFacility(null)}
+            onDone={() => {
+              setPublicBookingFacility(null);
+              setPublicFacility(null);
+            }}
+          />
+        </StripeProvider>
+      );
+    }
+
+    if (publicFacility) {
+      return (
+        <StripeProvider publishableKey={STRIPE_KEY}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+          <ComplexDetailScreen
+            facility={publicFacility}
+            onBack={() => setPublicFacility(null)}
+            onBookSlot={(fac) => {
+              setPublicBookingFacility(fac);
+            }}
+          />
+        </StripeProvider>
+      );
+    }
+
+    return (
+      <StripeProvider publishableKey={STRIPE_KEY}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+        <GujaratExploreMapScreen
+          onSelectFacility={(fac) => setPublicFacility(fac)}
+        />
+      </StripeProvider>
+    );
+  }
+
+  // Default: Login screen with live credentials + 1-Tap Quick Demo Switcher + Public Explore
+  return (
+    <StripeProvider publishableKey={STRIPE_KEY}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.brand.dark} />
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
+        onExplorePublic={() => setIsPublicMode(true)}
+      />
+    </StripeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  splashCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.brand.dark,
+  },
+});
