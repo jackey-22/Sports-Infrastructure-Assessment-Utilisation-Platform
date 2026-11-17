@@ -1,9 +1,12 @@
 const crypto = require("crypto");
+const { exploreFacilities } = require("../Utils/facilityExplore");
 const mongoose = require("mongoose");
 const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const SportsComplex = require("../Model/SportsComplexModel");
 const Guest = require("../Model/GuestModel");
 const BookingPayment = require("../Model/BookingPaymentModel");
+const Review = require("../Model/ReviewModel");
+const { ROLE } = require("../Utils/roles");
 const {
   checkoutKeyId,
   createOrder,
@@ -107,12 +110,33 @@ async function listFacilities(req, res) {
       if (!configsByFacility.has(key)) configsByFacility.set(key, []);
       configsByFacility.get(key).push(config);
     });
+    const reviews = await Review.find({
+      facility: { $in: facilityIds },
+      targetType: { $in: ["facility", "sport"] },
+    }).select("facility sport targetType rating").lean();
+    const ratingStats = new Map();
+    reviews.forEach((review) => {
+      const key = review.targetType === "facility"
+        ? `facility:${review.facility}`
+        : `sport:${review.facility}:${review.sport}`;
+      const stat = ratingStats.get(key) || { sum: 0, count: 0 };
+      stat.sum += Number(review.rating) || 0;
+      stat.count += 1;
+      ratingStats.set(key, stat);
+    });
+    const ratingFor = (key) => {
+      const stat = ratingStats.get(key);
+      return stat ? { average: Math.round((stat.sum / stat.count) * 10) / 10, count: stat.count } : null;
+    };
 
     const data = facilities.map((facility) => {
       const configured = configsByFacility.get(String(facility._id)) || [];
       const sports = configured.length
-        ? configured.map((config) => ({
+        ? configured
+            .filter((config) => config.sport && config.sport.status !== "Inactive")
+            .map((config) => ({
             id: config.sport?._id,
+            bookable: config.slots?.some((slot) => slot.bookable) || false,
             name: config.sport?.SportName || "Sport",
             category: config.sport?.Category || "Sport",
             image: config.sport?.baseUrl || "",
@@ -125,7 +149,8 @@ async function listFacilities(req, res) {
             feePerHour: `₹${config.price?.amount || 0}/${config.price?.unit || "slot"}`,
             price: config.price,
             surface: config.notes || "Details available at facility",
-          }))
+            rating: ratingFor(`sport:${facility._id}:${config.sport?._id}`)?.average,
+            }))
         : (facility.sports || [])
             .filter((entry) => entry.sport && entry.sport.status !== "Inactive")
             .map((entry) => ({
@@ -141,16 +166,18 @@ async function listFacilities(req, res) {
               availability: "Active",
               feePerHour: entry.fees ? `₹${entry.fees}` : "Contact facility",
               surface: "Details available at facility",
-              rating: entry.rating,
+              rating: ratingFor(`sport:${facility._id}:${entry.sport._id}`)?.average,
             }));
       return {
         id: facility._id,
+        bookingAvailable: configured.length > 0,
+        ratingSummary: ratingFor(`facility:${facility._id}`),
         name: facility.name,
         district: facility.district?.District || "Not specified",
         taluka: facility.taluka || "",
         location: facility.location,
-        latitude: Number(facility.latitude),
-        longitude: Number(facility.longitude),
+        latitude: facility.latitude == null || facility.latitude === "" ? null : Number(facility.latitude),
+        longitude: facility.longitude == null || facility.longitude === "" ? null : Number(facility.longitude),
         category: facility.category,
         ownership: facility.ownership,
         operationalSince: facility.operationalSince,
@@ -161,7 +188,7 @@ async function listFacilities(req, res) {
         gallery: facility.images || [],
         timings: facility.timings,
         amenities: facility.amenities,
-        status: facility.status,
+        status: facility.status || "Active",
         condition: {
           grade: facility.conditionGrade,
           score: facility.conditionScore,
@@ -183,7 +210,16 @@ async function listFacilities(req, res) {
         sports,
       };
     });
-    return res.json({ data, rcode: 200 });
+    let result;
+    try {
+      result = exploreFacilities(data, req.query);
+    } catch (error) {
+      return fail(res, 400, error.message);
+    }
+    const visibleData = req.query.bookableOnly === "true"
+      ? result.data.filter((facility) => facility.bookingAvailable)
+      : result.data;
+    return res.json({ ...result, data: visibleData, rcode: 200 });
   } catch (error) {
     return fail(res, 500, "Could not load facilities");
   }
@@ -203,6 +239,101 @@ function totalFor(config, memberCount) {
   return { total: base, base, perMember: 0 };
 }
 
+function dateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function bookingWindow() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const start = `${value.year}-${value.month}-${value.day}`;
+  const end = new Date(Date.UTC(Number(value.year), Number(value.month) - 1, Number(value.day)));
+  end.setUTCMonth(end.getUTCMonth() + 2);
+  return { start, end: dateOnly(end) };
+}
+
+function slotRunsOn(slot, date) {
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+    new Date(`${date}T00:00:00Z`).getUTCDay()
+  ];
+  return !slot.days?.length || slot.days.includes(day);
+}
+
+function currentIndiaTime() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.hour}:${value.minute}`;
+}
+
+function slotCanStillBeBooked(slot, date, window) {
+  return slotRunsOn(slot, date) && (date !== window.start || slot.startTime > currentIndiaTime());
+}
+
+async function availability(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return fail(res, 400, "Invalid sport configuration");
+    const config = await FacilitySportConfig.findOne({ _id: req.params.id, status: "Active" })
+      .populate("sport", "SportName")
+      .populate({ path: "slots.coach", select: "userId", populate: { path: "userId", select: "Name" } });
+    if (!config) return fail(res, 404, "Sport configuration not found");
+    const window = bookingWindow();
+    const pendingCutoff = new Date(Date.now() - 15 * 60 * 1000);
+    const bookings = await Guest.find({
+      facilitySportConfig: config._id,
+      Startdate: { $gte: window.start, $lte: window.end },
+      $or: [
+        { bookingStatus: "Confirmed" },
+        { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
+      ],
+    }).select("Startdate slotId memberCount reservedUnits").lean();
+    const used = new Map();
+    bookings.forEach((booking) => {
+      const key = `${booking.Startdate}:${booking.slotId}`;
+      const current = used.get(key) || { members: 0, units: 0 };
+      current.members += Number(booking.memberCount) || 1;
+      current.units += Number(booking.reservedUnits) || 1;
+      used.set(key, current);
+    });
+    const dates = [];
+    for (let cursor = new Date(`${window.start}T00:00:00Z`); dateOnly(cursor) <= window.end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      const date = dateOnly(cursor);
+      const slots = config.slots.filter((slot) => slot.bookable && slotCanStillBeBooked(slot, date, window)).map((slot) => {
+        const policy = effectivePolicy(config, slot);
+        const consumed = used.get(`${date}:${slot._id}`) || { members: 0, units: 0 };
+        const remaining = policy.inventoryMode === "exclusive-unit"
+          ? Math.max(0, config.unitCount - consumed.units)
+          : Math.max(0, slot.capacity - consumed.members);
+        return {
+          id: slot._id,
+          label: slot.label,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          audience: slot.audience,
+          purpose: slot.purpose,
+          coach: slot.coach?.userId?.Name || "",
+          remaining,
+          inventoryLabel: policy.inventoryMode === "exclusive-unit" ? config.unitLabel : "places",
+          bookingPolicy: policy,
+        };
+      });
+      dates.push({ date, available: slots.reduce((sum, slot) => sum + slot.remaining, 0), slots });
+    }
+    return res.json({ data: { window, sport: config.sport?.SportName, unitLabel: config.unitLabel, dates }, rcode: 200 });
+  } catch (error) {
+    return fail(res, 500, "Could not load availability");
+  }
+}
+
 async function createBooking(req, res) {
   try {
     const body = req.body || {};
@@ -217,6 +348,10 @@ async function createBooking(req, res) {
       status: "Active",
     }).populate("sport", "SportName");
     if (!config) return fail(res, 404, "Sport configuration not found");
+    const facility = await SportsComplex.findById(config.facility).select("status");
+    if (!facility || (facility.status && facility.status !== "Active")) {
+      return fail(res, 409, "This facility is not accepting bookings");
+    }
     const slot = config.slots.id(body.slotId);
     if (!slot || !slot.bookable) return fail(res, 400, "Selected slot is not bookable");
 
@@ -229,7 +364,40 @@ async function createBooking(req, res) {
     }
     const date = String(body.date || "");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, "Select a valid date");
-    if (!String(body.name || "").trim() || !String(body.phone || "").trim()) {
+    const parsedDate = new Date(`${date}T12:00:00+05:30`);
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    if (
+      !Number.isFinite(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== date ||
+      date < today
+    ) {
+      return fail(res, 400, "Choose a valid date today or later");
+    }
+    const day = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+    }).format(parsedDate).toLowerCase();
+    if (
+      slot.days?.length &&
+      !slot.days.some((value) => value.toLowerCase().slice(0, 3) === day)
+    ) {
+      return fail(res, 400, "This slot does not run on the selected day");
+    }
+    const window = bookingWindow();
+    if (date < window.start || date > window.end) {
+      return fail(res, 400, `Bookings are available only from ${window.start} to ${window.end}`);
+    }
+    if (!slotCanStillBeBooked(slot, date, window)) return fail(res, 400, "This slot is not available at the selected date and time");
+    const citizen = req.user?.Role === ROLE.ATHLETE ? req.user : null;
+    const bookerName = citizen?.Name || String(body.name || "").trim();
+    const bookerEmail = citizen?.Email || String(body.email || "").trim();
+    const bookerPhone = citizen?.ContactNum || String(body.phone || "").trim();
+    if (!bookerName || !bookerPhone) {
       return fail(res, 400, "Booker name and mobile number are required");
     }
 
@@ -275,9 +443,10 @@ async function createBooking(req, res) {
       },
     });
     const booking = await Guest.create({
-      Name: String(body.name).trim(),
-      Email: String(body.email || "").trim(),
-      ContactNum: String(body.phone).trim(),
+      Name: bookerName,
+      Email: bookerEmail,
+      ContactNum: bookerPhone,
+      citizenUser: citizen?._id || null,
       Role: 0,
       IsActive: 1,
       timeslot: { from: slot.startTime, to: slot.endTime },
@@ -314,9 +483,9 @@ async function createBooking(req, res) {
       status: "Created",
       razorpayOrderId: order.id,
       payer: {
-        name: String(body.name).trim(),
-        email: String(body.email || "").trim(),
-        phone: String(body.phone).trim(),
+        name: bookerName,
+        email: bookerEmail,
+        phone: bookerPhone,
       },
     });
 
@@ -349,6 +518,51 @@ async function createBooking(req, res) {
   } catch (error) {
     console.error("Public booking failed:", error.message);
     return fail(res, 500, "Could not create booking");
+  }
+}
+
+async function myBookings(req, res) {
+  try {
+    const query = {
+      $or: [
+        { citizenUser: req.user._id },
+        ...(req.user.Email ? [{ citizenUser: null, Email: req.user.Email }] : []),
+      ],
+    };
+    const bookings = await Guest.find(query)
+      .populate("sport", "SportName baseUrl")
+      .populate("SportComplexId", "name location district")
+      .populate({ path: "coach", select: "userId", populate: { path: "userId", select: "Name" } })
+      .sort({ Startdate: -1, createdAt: -1 })
+      .lean();
+    return res.json({
+      data: bookings.map((booking) => ({
+        id: booking._id,
+        reference: booking.bookingReference,
+        facility: booking.SportComplexId?.name || "Facility",
+        facilityId: booking.SportComplexId?._id || booking.SportComplexId,
+        location: booking.SportComplexId?.location || "",
+        sport: booking.sport?.SportName || "Sport",
+        sportId: booking.sport?._id || booking.sport,
+        coach: booking.coach?.userId?.Name || "—",
+        coachId: booking.coach?._id || booking.coach || null,
+        date: booking.Startdate,
+        time: booking.timeslot,
+        members: booking.memberCount || 1,
+        amount: booking.totalAmount || 0,
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        paymentId: booking.razorpayPaymentId || "",
+        paidAt: booking.paidAt,
+        name: booking.Name,
+        email: booking.Email,
+        phone: booking.ContactNum,
+        createdAt: booking.createdAt,
+      })),
+      rcode: 200,
+    });
+  } catch (error) {
+    return fail(res, 500, "Could not load your bookings");
   }
 }
 
@@ -423,4 +637,4 @@ async function verifyBookingPayment(req, res) {
   }
 }
 
-module.exports = { listFacilities, listConfigs, createBooking, verifyBookingPayment };
+module.exports = { listFacilities, listConfigs, availability, createBooking, verifyBookingPayment, myBookings };

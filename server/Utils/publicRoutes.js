@@ -3,6 +3,8 @@
 // docs/PHASE_2B_SECURITY_IMPLEMENTATION_REPORT.md
 const PUBLIC_ROUTES = [
   { method: "POST", path: "/login" },
+  { method: "POST", path: "/forgot-password" },
+  { method: "POST", path: "/reset-password" },
   { method: "POST", path: "/verify" },
   { method: "POST", path: "/uploadPhoto" },
   { method: "GET", path: "/getSports" },
@@ -27,6 +29,7 @@ const PUBLIC_ROUTES = [
 // an Authorization header, so these stay public and are documented as a
 // remaining limitation in the Phase 2B report.
 const PUBLIC_PREFIXES = [
+  { method: "GET", prefix: "/api/public/sport-configs/" },
   { method: "POST", prefix: "/api/public/bookings/" },
   { method: "GET", prefix: "/athelteperformance/" },
   { method: "GET", prefix: "/comparativeathelteperformance/" },
