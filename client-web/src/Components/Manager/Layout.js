@@ -17,30 +17,20 @@ import {
   ShieldCheck,
   Users,
   LogOut,
-  Calendar,
-  BarChart3,
   FileText,
   ListChecks,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { to: "/manager/overview", label: "Dashboard", icon: Activity },
-  { to: "/manager/profile", label: "Profile", icon: Users },
-  { to: "/manager/analysis", label: "Analysis", icon: BarChart3 },
+  { to: "/manager", label: "Dashboard", icon: Activity },
   { to: "/manager/facilitydetails", label: "Facility Details", icon: Building2 },
   { to: "/manager/sports-configuration", label: "Sports & Slots", icon: ListChecks },
   { to: "/manager/allcomplaint", label: "Grievances", icon: FileText },
-  { to: "/manager/addcomplaint", label: "Submit Grievance", icon: FileText },
-  { to: "/manager/gate-operators", label: "Gate operators", icon: Users },
-  { to: "/manager/allsupervisor", label: "Supervisor", icon: Users },
-  { to: "/manager/allinstructor", label: "Instructors", icon: Users },
-  { to: "/manager/allathelte", label: "Athletes", icon: Users },
-  { to: "/manager/slottable", label: "Time Slots", icon: Calendar },
-  { to: "/manager/leaderboard", label: "Leaderboard", icon: BarChart3 },
-  { to: "/manager/complexevents", label: "Updates", icon: Activity },
 ];
 
 const OPS_ITEMS = [
+  { to: "/manager/gate-operators", label: "Gate Operators", icon: Users },
+  { to: "/manager/gate-desk", label: "Gate Desk & Scanner", icon: ShieldCheck },
   { to: "/manager/transactions", label: "Bookings & payments", icon: Building2 },
   { to: "/manager/grants", label: "Grants", icon: ShieldCheck },
   { to: "/manager/assessment", label: "Condition Assessment", icon: Activity },
@@ -112,11 +102,8 @@ const Layout = () => {
               {label}
             </NavLink>
           ))}
-        </nav>
-
-        <nav className="space-y-1 overflow-y-auto px-3 py-5" aria-label="Facility modules">
-          <p className="mb-2 px-3 text-xs font-semibold text-emerald-100/90">
-            Facility records
+          <p className="mb-2 mt-6 border-t border-white/10 px-3 pt-5 text-xs font-semibold text-emerald-100/90">
+            Facility access & records
           </p>
           {OPS_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -208,10 +195,8 @@ const Layout = () => {
                   {label}
                 </NavLink>
               ))}
-            </nav>
-            <nav className="space-y-1 overflow-y-auto px-3 py-5">
-              <p className="mb-2 px-3 text-xs font-semibold text-emerald-100/90">
-                Facility records
+              <p className="mb-2 mt-6 border-t border-white/10 px-3 pt-5 text-xs font-semibold text-emerald-100/90">
+                Facility access & records
               </p>
               {OPS_ITEMS.map(({ to, label, icon: Icon }) => (
                 <NavLink

@@ -218,6 +218,7 @@ async function assignedFacility(req, res) {
       location: facility.location || "",
       taluka: facility.taluka || "",
       area: facility.area || "",
+      facilityType: facility.facilityType || "Sports Complex",
       category: facility.category || "",
       ownership: facility.ownership || "",
       operationalSince: facility.operationalSince || "",

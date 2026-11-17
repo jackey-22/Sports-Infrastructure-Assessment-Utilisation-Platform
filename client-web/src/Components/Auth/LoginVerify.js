@@ -28,7 +28,7 @@ const LoginVerify = async () => {
       } else if (result.data.Role === 4) {
         return redirect("/authority");
       } else if (result.data.Role === 3) {
-        return redirect("/manager/overview");
+        return redirect("/manager");
       } else if (result.data.Role === 2) {
         return redirect("/coach/dashboard");
       } else if (result.data.Role === 0) {

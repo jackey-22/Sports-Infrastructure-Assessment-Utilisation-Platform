@@ -112,7 +112,7 @@ export function homeForRole(role) {
     case 4:
       return "/authority";
     case 3:
-      return "/manager/overview";
+      return "/manager";
     case 2:
       return "/coach/dashboard";
     case 0:

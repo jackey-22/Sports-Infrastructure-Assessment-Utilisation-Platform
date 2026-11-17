@@ -29,6 +29,7 @@ function scanFixture() {
     Object.assign(state.attendance,update.$set);return state.attendance;
   });
   stub(Attendance,"findOne",async()=>state.attendance);
+  stub(Attendance,"exists",async query=>query.exitAt ? Boolean(state.attendance?.exitAt) : Boolean(state.attendance));
   state.token=JSON.parse(buildBookingPass(state.booking).qrPayload).token;
   return state;
 }

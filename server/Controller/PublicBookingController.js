@@ -535,6 +535,7 @@ async function createBooking(req, res) {
 
 async function myBookings(req, res) {
   try {
+    const Attendance = require("../Model/BookingAttendanceModel");
     const query = {
       $or: [
         { citizenUser: req.user._id },
@@ -547,8 +548,16 @@ async function myBookings(req, res) {
       .populate({ path: "coach", select: "userId", populate: { path: "userId", select: "Name" } })
       .sort({ Startdate: -1, createdAt: -1 })
       .lean();
+    const attendanceRows = bookings.length
+      ? await Attendance.find({ booking: { $in: bookings.map((booking) => booking._id) } })
+        .select("booking entryAt exitAt")
+        .lean()
+      : [];
+    const attendanceByBooking = new Map(attendanceRows.map((item) => [String(item.booking), item]));
     return res.json({
-      data: bookings.map((booking) => ({
+      data: bookings.map((booking) => {
+        const attendance = attendanceByBooking.get(String(booking._id));
+        return ({
         id: booking._id,
         reference: booking.bookingReference,
         facility: booking.SportComplexId?.name || "Facility",
@@ -569,8 +578,12 @@ async function myBookings(req, res) {
         name: booking.Name,
         email: booking.Email,
         phone: booking.ContactNum,
+        attendanceStatus: attendance?.exitAt ? "Completed" : attendance?.entryAt ? "Checked In" : "Not Checked In",
+        checkedInAt: attendance?.entryAt || null,
+        checkedOutAt: attendance?.exitAt || null,
+        qrAvailable: booking.bookingStatus === "Confirmed" && booking.paymentStatus === "Paid" && !attendance?.exitAt,
         createdAt: booking.createdAt,
-      })),
+      }); }),
       rcode: 200,
     });
   } catch (error) {

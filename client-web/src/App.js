@@ -33,26 +33,13 @@ import Profile from "./Components/Authority/Profile/Profile";
 
 // Manager Pages
 
-import AuthorityProfile from "./Components/Manager/Profile";
-import AddSupervisor from "./Components/Manager/Supervisor/AddSupervisor";
-import AllSupervisor from "./Components/Manager/Supervisor/AllSupervisor";
-import AddInstructor from "./Components/Manager/Instructor/AddInstructor";
-import AllInstructor from "./Components/Manager/Instructor/AllInstructor";
 import SportsComplexDetails from "./Components/Manager/SportsComplexDetails/SportsComplexDetails";
 import EditSportsComplexDetails from "./Components/Manager/SportsComplexDetails/EditSportsComplexDetails";
 import SportsConfiguration from "./Components/Manager/SportsConfiguration/SportsConfiguration";
-import ComplaintDetails from "./Components/Manager/Complaint/ComplainDetails";
 import AuthorityComplaintDataTable from "./Components/Authority/Complaint/ComplaintDetails";
-import Athelte from "./Components/Manager/Athelte/Athelte";
 import AddComplaint from "./Components/Authority/Complaint/AddComplaint";
-import ManagerAddComplaint from "./Components/Manager/Complaint/ManagerAddComplaint";
-import ComplexNews from "./Components/Manager/News/ComplexNews";
-import AddComplexNews from "./Components/Manager/News/AddComplexNews";
 import Leaderboard from "./Components/Admin/LeaderBoard/Leaderboard";
-import Utilization from "./Components/Manager/Analysis/Utilization";
 import AuthorityAnalysis from "./Components/Authority/Analysis/AuthorityAnalysis";
-// import SlotDataTable from "./Components/Manager/SlotDataTable";
-import Slot from "./Components/Manager/Slot";
 
 // Phase 2C.2 Manager modules
 import ManagerGrantList from "./Components/Manager/Grant/ManagerGrantList";
@@ -61,7 +48,6 @@ import ManagerProofSubmission from "./Components/Manager/Grant/ManagerProofSubmi
 import ManagerAssessmentList from "./Components/Manager/Assessment/ManagerAssessmentList";
 import ManagerAssessmentForm from "./Components/Manager/Assessment/ManagerAssessmentForm";
 import ManagerAssessmentDetail from "./Components/Manager/Assessment/ManagerAssessmentDetail";
-import ManagerOverviewDashboard from "./Components/Manager/Dashboard/ManagerDashboard";
 
 // Phase 2C.3 Coach modules
 import CoachLayout from "./Components/Coach/Layout";
@@ -209,21 +195,6 @@ const routes = createBrowserRouter([
         element: <ManagerDashboard />,
       },
       {
-        path: "overview",
-        element: <ManagerOverviewDashboard />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "profile",
-        element: <AuthorityProfile />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "analysis",
-        element: <Utilization />,
-        errorElement: <ErrorPage />,
-      },
-      {
         path: "facilitydetails",
         element: <SportsComplexDetails />,
         errorElement: <ErrorPage />,
@@ -236,26 +207,6 @@ const routes = createBrowserRouter([
       {
         path: "sports-configuration",
         element: <SportsConfiguration />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allsupervisor",
-        element: <AllSupervisor />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addsupervisor",
-        element: <AddSupervisor />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allinstructor",
-        element: <AllInstructor />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addinstructor",
-        element: <AddInstructor />,
         errorElement: <ErrorPage />,
       },
       {
@@ -296,36 +247,6 @@ const routes = createBrowserRouter([
       {
         path: "assessment/:assessmentId",
         element: <ManagerAssessmentDetail />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allathelte",
-        element: <Athelte />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addcomplaint",
-        element: <ManagerAddComplaint />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "complexevents",
-        element: <ComplexNews />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addcomplexevent",
-        element: <AddComplexNews />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "leaderboard",
-        element: <Leaderboard />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "slottable",
-        element: <Slot />,
         errorElement: <ErrorPage />,
       },
     ],

@@ -11,17 +11,38 @@ import { citizenService } from "../../services/citizen/citizenService";
 const { width } = Dimensions.get("window");
 
 export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
-  const [bookingPass, setBookingPass] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [bookingPasses, setBookingPasses] = useState({});
+  const [expandedBookingId, setExpandedBookingId] = useState(null);
+  const [loadingPassId, setLoadingPassId] = useState(null);
   const [passLoading, setPassLoading] = useState(true);
   const [passError, setPassError] = useState("");
   const [passRevision, setPassRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    const load = () => { setPassLoading(true); setPassError(""); api.get("/api/citizen/booking-pass/latest").then(result => { if (active) setBookingPass(result.data); }).catch(error => { if (active) { setPassError(error.message); setBookingPass(null); } }).finally(() => { if (active) setPassLoading(false); }); };
+    const load = () => { setPassLoading(true); setPassError(""); api.get("/api/citizen/bookings").then(result => { if (active) setBookings(result.data || []); }).catch(error => { if (active) { setPassError(error.message); setBookings([]); } }).finally(() => { if (active) setPassLoading(false); }); };
     load();
     const listener = AppState.addEventListener("change", state => { if (state === "active") load(); });
     return () => { active = false; listener.remove(); };
   }, [user?._id, passRevision]);
+  const toggleBooking = async (booking) => {
+    if (expandedBookingId === booking.id) {
+      setExpandedBookingId(null);
+      return;
+    }
+    setExpandedBookingId(booking.id);
+    if (!booking.qrAvailable || bookingPasses[booking.id]) return;
+    setLoadingPassId(booking.id);
+    setPassError("");
+    try {
+      const result = await api.get(`/api/citizen/bookings/${booking.id}/pass`);
+      setBookingPasses((current) => ({ ...current, [booking.id]: result.data }));
+    } catch (error) {
+      setPassError(error.message);
+    } finally {
+      setLoadingPassId(null);
+    }
+  };
   const [identity, setIdentity] = useState(null);
   const [identityError, setIdentityError] = useState("");
 
@@ -131,8 +152,19 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
         </View>
 
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeaderTitle}>YOUR LATEST FACILITY BOOKING</Text>
-          {passLoading ? <ActivityIndicator color="#007D40" style={{ padding: 25 }} /> : passError ? <View style={styles.digitalIdCard}><Text style={styles.identityError}>{passError}</Text><TouchableOpacity onPress={() => setPassRevision(value => value + 1)} style={{ padding: 18 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Retry booking pass</Text></TouchableOpacity></View> : bookingPass ? <BookingPassCard pass={bookingPass} /> : <View style={[styles.digitalIdCard, { padding: 22, gap: 14 }]}><Text style={{ fontSize: 16, fontWeight: "700", color: "#193D28" }}>Your next session starts here</Text><Text style={{ fontSize: 12, lineHeight: 20, color: "#708377" }}>Book a facility and complete payment to receive your QR pass here.</Text><TouchableOpacity onPress={() => onNavigateTab?.("explore")} style={{ padding: 14, backgroundColor: "#E8F5EE", borderRadius: 12 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Explore & book a facility</Text></TouchableOpacity></View>}
+          <Text style={styles.sectionHeaderTitle}>MY FACILITY BOOKINGS</Text>
+          {passLoading ? <ActivityIndicator color="#007D40" style={{ padding: 25 }} /> : passError && !bookings.length ? <View style={styles.digitalIdCard}><Text style={styles.identityError}>{passError}</Text><TouchableOpacity onPress={() => setPassRevision(value => value + 1)} style={{ padding: 18 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Retry bookings</Text></TouchableOpacity></View> : bookings.length ? <View style={{ gap: 12 }}>{bookings.map((booking) => {
+            const expanded = expandedBookingId === booking.id;
+            return <View key={booking.id} style={styles.bookingCard}>
+              <TouchableOpacity onPress={() => toggleBooking(booking)} activeOpacity={0.75} style={styles.bookingSummary}>
+                <View style={{ flex: 1, gap: 4 }}><Text style={styles.bookingFacility}>{booking.facility}</Text><Text style={styles.bookingMeta}>{booking.sport} · {booking.date} · {booking.time?.from || ""}-{booking.time?.to || ""}</Text><Text style={styles.bookingReference}>{booking.reference || String(booking.id).slice(-8).toUpperCase()}</Text></View>
+                <View style={{ alignItems: "flex-end", gap: 6 }}><Text style={[styles.bookingStatus, booking.attendanceStatus === "Completed" && styles.bookingCompleted]}>{booking.attendanceStatus === "Completed" ? "Visit completed" : booking.bookingStatus}</Text><Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color="#007D40" /></View>
+              </TouchableOpacity>
+              {expanded ? <View style={styles.bookingExpanded}>
+                {loadingPassId === booking.id ? <ActivityIndicator color="#007D40" style={{ padding: 20 }} /> : booking.attendanceStatus === "Completed" ? <Text style={styles.completedMessage}>Check-in and check-out are complete. This booking QR pass is no longer available.</Text> : !booking.qrAvailable ? <Text style={styles.completedMessage}>{booking.paymentStatus !== "Paid" ? "The QR pass becomes available after successful payment." : "A QR pass is not available for this booking."}</Text> : bookingPasses[booking.id] ? <BookingPassCard pass={bookingPasses[booking.id]} /> : passError ? <Text style={styles.identityError}>{passError}</Text> : null}
+              </View> : null}
+            </View>;
+          })}</View> : <View style={[styles.digitalIdCard, { padding: 22, gap: 14 }]}><Text style={{ fontSize: 16, fontWeight: "700", color: "#193D28" }}>Your bookings will appear here</Text><Text style={{ fontSize: 12, lineHeight: 20, color: "#708377" }}>Book a facility and complete payment to receive a QR pass.</Text><TouchableOpacity onPress={() => onNavigateTab?.("explore")} style={{ padding: 14, backgroundColor: "#E8F5EE", borderRadius: 12 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Explore & book a facility</Text></TouchableOpacity></View>}
         </View>
 
         {/* 5. QUICK ACTIONS SECTION (2x2 Grid) */}
@@ -489,6 +521,60 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: "uppercase",
     marginBottom: 10,
+  },
+  bookingCard: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#DCE9E0",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  bookingSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 15,
+  },
+  bookingFacility: {
+    color: "#193D28",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  bookingMeta: {
+    color: "#5E7566",
+    fontSize: 11,
+  },
+  bookingReference: {
+    color: "#007D40",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  bookingStatus: {
+    overflow: "hidden",
+    borderRadius: 8,
+    backgroundColor: "#D5F5DF",
+    color: "#007D40",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  bookingCompleted: {
+    backgroundColor: "#EEF2F0",
+    color: "#64748B",
+  },
+  bookingExpanded: {
+    borderTopWidth: 1,
+    borderTopColor: "#E7EEE9",
+    padding: 12,
+  },
+  completedMessage: {
+    borderRadius: 12,
+    backgroundColor: "#F1F5F3",
+    color: "#5E7566",
+    padding: 15,
+    fontSize: 12,
+    lineHeight: 18,
   },
 
   // Digital ID Card
