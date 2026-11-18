@@ -1,3 +1,4 @@
+import { grievanceService } from "../grievanceService";
 // Manager feature service layer. Phase 2D.2 reads and writes the shared
 // in-memory demo store (src/data/demoStore.js) scoped to the manager's facility,
 // so Admin allocations, proofs and grievance changes appear here and vice versa.
@@ -18,8 +19,7 @@ const DEMO_LATENCY_MS = 220;
 const wait = (value) =>
   new Promise((resolve) => setTimeout(() => resolve(value), DEMO_LATENCY_MS));
 
-function managerDashboard() {
-  const grievances = demoStore.grievancesForFacility(MANAGER_FACILITY_ID);
+function managerDashboard(grievances) {
   const transactions = demoStore.transactionsForFacility(MANAGER_FACILITY_ID);
   const grants = demoStore.grantsForFacility(MANAGER_FACILITY_ID);
   const assessments = demoStore.assessmentsForFacility(MANAGER_FACILITY_ID);
@@ -46,34 +46,13 @@ function managerDashboard() {
 
 export const managerService = {
   // GET /api/manager/dashboard
-  getDashboard() {
-    return wait(managerDashboard());
+  async getDashboard() {
+    return managerDashboard(await grievanceService.list("assigned"));
   },
 
-  // GET /api/manager/grievances
-  listGrievances() {
-    return wait(demoStore.grievancesForFacility(MANAGER_FACILITY_ID));
-  },
-
-  // GET /api/manager/grievances/:id
-  getGrievance(id) {
-    return wait(
-      demoStore.grievancesForFacility(MANAGER_FACILITY_ID).find((row) => row.id === id) ||
-        null
-    );
-  },
-
-  // PATCH /api/manager/grievances/:id — demo-only; persists to the shared store
-  // so the Admin grievance view sees the same status.
-  updateGrievanceStatus({ id, status, remark }) {
-    const grievance = demoStore.updateGrievanceStatus({
-      id,
-      status,
-      remark,
-      actor: "Facility Manager",
-    });
-    return wait({ demo: true, id, status, remark, grievance });
-  },
+  async listGrievances() { return grievanceService.list("assigned"); },
+  async getGrievance(id) { return (await this.listGrievances()).find(row => row.id === id) || null; },
+  updateGrievanceStatus(input) { return grievanceService.update(input); },
 
   // GET /api/manager/transactions
   listTransactions() {

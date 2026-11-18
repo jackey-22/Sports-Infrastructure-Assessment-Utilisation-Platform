@@ -77,6 +77,8 @@ import GateOperators from "./Components/Gate/GateOperators";
 import GateScanner from "./Components/Gate/GateScanner";
 
 const routes = createBrowserRouter([
+  { path: "/gate/grievances", element: <GrievanceWorkspace role="gate" />, loader: () => Verify(6), errorElement: <ErrorPage /> },
+  { path: "/supervisor", element: <GrievanceWorkspace role="supervisor" />, loader: () => Verify(1), errorElement: <ErrorPage /> },
   { path: "/gate", element: <GateScanner />, loader: () => Verify(6), errorElement: <ErrorPage /> },
   {
     path: "/",
@@ -165,12 +167,12 @@ const routes = createBrowserRouter([
       },
       {
         path: "allcomplaint",
-        element: <AuthorityComplaintDataTable />,
+        element: <GrievanceWorkspace role="authority" />,
         errorElement: <ErrorPage />,
       },
       {
         path: "addcomplaint",
-        element: <AddComplaint />,
+        element: <GrievanceWorkspace role="authority" />,
         errorElement: <ErrorPage />,
       },
       {
@@ -259,6 +261,7 @@ const routes = createBrowserRouter([
     },
     errorElement: <ErrorPage />,
     children: [
+      { path: "grievances", element: <GrievanceWorkspace role="coach" /> },
       {
         path: "dashboard",
         element: <CoachDashboard />,

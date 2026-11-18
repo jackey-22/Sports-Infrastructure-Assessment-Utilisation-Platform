@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { to: "/coach/grievances", label: "Grievances", icon: Receipt },
   { to: "/coach/dashboard", label: "Dashboard", icon: Activity },
   { to: "/coach/athletes", label: "Athletes & Ratings", icon: Users },
   { to: "/coach/bookings", label: "Bookings", icon: Receipt },

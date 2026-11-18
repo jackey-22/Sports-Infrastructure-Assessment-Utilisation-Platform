@@ -1,3 +1,4 @@
+import { grievanceService } from "../grievanceService";
 // Admin feature service layer. Phase 2D.2 reads and writes the shared
 // in-memory demo store (src/data/demoStore.js) instead of the static demo
 // arrays, so a mutation made here is visible to the Manager and Coach screens
@@ -41,7 +42,7 @@ function average(values) {
   return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
 }
 
-function buildDashboard(filters = {}) {
+function buildDashboard(filters = {}, liveGrievances = []) {
   const facilities = filterFacilities(demoStore.listFacilities(), filters);
   const facilityIds = new Set(facilities.map((facility) => facility.id));
 
@@ -50,9 +51,7 @@ function buildDashboard(filters = {}) {
   const sharedFilters = { ...filters };
   delete sharedFilters.status;
 
-  const grievances = filterGrievances(demoStore.listGrievances(), filters).filter(
-    (row) => facilityIds.has(row.facilityId)
-  );
+  const grievances = filterGrievances(liveGrievances, filters);
   const transactions = filterTransactions(
     demoStore.listTransactions(),
     sharedFilters
@@ -207,32 +206,13 @@ function buildDashboard(filters = {}) {
 
 export const adminService = {
   // GET /api/admin/dashboard
-  getDashboard(filters = {}) {
-    return wait(buildDashboard(filters));
+  async getDashboard(filters = {}) {
+    return buildDashboard(filters, await grievanceService.list("assigned"));
   },
 
-  // GET /api/admin/grievances
-  listGrievances(filters = {}) {
-    return wait(filterGrievances(demoStore.listGrievances(), filters));
-  },
-
-  // GET /api/admin/grievances/:id
-  getGrievance(id) {
-    return wait(demoStore.listGrievances().find((row) => row.id === id) || null);
-  },
-
-  // PATCH /api/admin/grievances/:id — demo-only until the policy in Phase 2B.1
-  // section 10 is resolved. Persists to the shared demo store so the Manager
-  // grievance view sees the same status; never a backend success.
-  updateGrievanceStatus({ id, status, remark }) {
-    const grievance = demoStore.updateGrievanceStatus({
-      id,
-      status,
-      remark,
-      actor: "Admin",
-    });
-    return wait({ demo: true, id, status, remark, grievance });
-  },
+  async listGrievances() { return grievanceService.list("assigned"); },
+  async getGrievance(id) { return (await this.listGrievances()).find(row => row.id === id) || null; },
+  updateGrievanceStatus(input) { return grievanceService.update(input); },
 
   // GET /api/admin/transactions
   listTransactions(filters = {}) {

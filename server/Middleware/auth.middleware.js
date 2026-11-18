@@ -44,6 +44,9 @@ async function resolveUser(token) {
 function gateOperatorAllowed(req, user) {
   if (Number(user.Role) !== ROLE.GATE_OPERATOR) return true;
   const path = req.path.replace(/\/$/, "");
+  if (req.method === "GET" && ["/api/grievances", "/api/grievances/facilities"].includes(path)) return true;
+  if (req.method === "POST" && ["/api/grievances", "/api/uploads/attachment"].includes(path)) return true;
+  if (req.method === "POST" && /^\/api\/grievances\/[a-f0-9]{24}\/escalate$/i.test(path)) return true;
   return (req.method === "POST" && ["/api/booking-passes/verify", "/api/gate/attendance"].includes(path)) || (req.method === "GET" && path === "/api/gate/attendance");
 }
 

@@ -46,7 +46,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
   const getTabsForRole = () => {
     switch (role) {
       case 6:
-        return [{ key: "home", label: "Gate scanner", icon: "qr-code" }];
+        return [{ key: "home", label: "Gate scanner", icon: "qr-code" }, { key: "complaints", label: "Grievances", icon: "warning-outline" }];
       case 5: // State Admin
         return [
           { key: "home", label: "State Desk", icon: "shield-checkmark" },
@@ -136,6 +136,8 @@ export const RoleNavigator = ({ user, onLogout }) => {
         />
       );
     }
+
+    if (activeTab === "complaints" || activeTab === "grievance") return <ComplaintsScreen user={user} onBack={() => setActiveTab("home")} />;
 
     if (role === 6) return <SupervisorScanScreen user={user} onLogout={onLogout} />;
 

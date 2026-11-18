@@ -2,6 +2,9 @@ const { default: mongoose } = require("mongoose");
 
 const complaintSchema = new mongoose.Schema(
   {
+    workflowVersion: { type: Number, index: true },
+    revision: { type: Number, default: 0 },
+    history: [{ action: String, userId: { type: mongoose.SchemaTypes.ObjectId, ref: "users" }, role: Number, fromLevel: Number, toLevel: Number, reason: String, date: Date }],
     type: { type: mongoose.SchemaTypes.ObjectId, ref: "complainttypes" }, // , Maintenance Requirement
     Description: String,
     subject: { type: String, trim: true, default: "Facility grievance" },
@@ -26,7 +29,7 @@ const complaintSchema = new mongoose.Schema(
     status: Number, //0 - Active(Not Solved), 1 - Solved
     workflowStatus: {
       type: String,
-      enum: ["Open", "Manager Responded", "Escalated", "Resolved"],
+      enum: ["Open", "Manager Responded", "Responded", "Escalated", "Resolved"],
       default: "Open",
       index: true,
     },

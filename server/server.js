@@ -900,9 +900,11 @@ app.get("/api/dashboard/admin", requireRole(ROLE.ADMIN), DashboardController.adm
 app.get("/api/dashboard/manager", requireRole(ROLE.MANAGER), DashboardController.manager);
 app.get("/api/dashboard/coach", requireRole(ROLE.COACH), DashboardController.coach);
 
-app.get("/api/grievances", requireRole(ROLE.ATHLETE, ROLE.MANAGER, ROLE.ADMIN), WorkflowController.grievanceList);
-app.post("/api/grievances", requireRole(ROLE.ATHLETE), WorkflowController.createGrievance);
-app.post("/api/grievances/:id/respond", requireRole(ROLE.MANAGER, ROLE.ADMIN), WorkflowController.respondGrievance);
+app.get("/api/grievances", requireRole(...Object.values(ROLE)), WorkflowController.grievanceList);
+app.get("/api/grievances/facilities", requireRole(...Object.values(ROLE)), require("./Controller/GrievanceController").facilities);
+app.post("/api/grievances/:id/escalate", requireRole(...Object.values(ROLE)), require("./Controller/GrievanceController").escalateGrievance);
+app.post("/api/grievances", requireRole(...Object.values(ROLE)), WorkflowController.createGrievance);
+app.post("/api/grievances/:id/respond", requireRole(...Object.values(ROLE)), WorkflowController.respondGrievance);
 
 app.get("/api/citizen/rating-catalog", requireRole(ROLE.ATHLETE), WorkflowController.ratingCatalog);
 app.get("/api/citizen/reviews", requireRole(ROLE.ATHLETE), WorkflowController.citizenReviews);
@@ -935,7 +937,7 @@ app.post(
 );
 app.post(
   "/api/uploads/attachment",
-  requireRole(ROLE.ADMIN, ROLE.MANAGER, ROLE.ATHLETE),
+  requireRole(...Object.values(ROLE)),
   FileUploadController.parseAttachment,
   FileUploadController.uploadAttachment
 );

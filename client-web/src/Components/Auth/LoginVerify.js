@@ -21,7 +21,9 @@ const LoginVerify = async () => {
     });
     const result = await response.json();
     if (response.ok && result && result.rcode === 200) {
-      if (result.data.Role === 6) {
+      if (result.data.Role === 1) {
+        return redirect("/supervisor");
+      } else if (result.data.Role === 6) {
         return redirect("/gate");
       } else if (result.data.Role === 5) {
         return redirect("/admin");

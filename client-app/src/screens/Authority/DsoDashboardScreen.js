@@ -1,15 +1,23 @@
 import { Text } from "../../components/AppText";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import { SagHeader } from "../../components/common/SagHeader";
 import { StatCard } from "../../components/common/StatCard";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { api } from "../../api/client";
 import { GUJARAT_FACILITIES } from "../../data/gujaratSportsData";
 
 export const DsoDashboardScreen = ({ user, onLogout }) => {
   const [district] = useState("Ahmedabad");
+  const [grievances, setGrievances] = useState(null);
+  const [grievanceError, setGrievanceError] = useState("");
+  const loadGrievances = async () => { try { const result = await api.get("/api/grievances?view=assigned"); setGrievances(result.data || []); setGrievanceError(""); } catch (error) { setGrievanceError(error.message); } };
+  useEffect(() => { loadGrievances(); }, []);
+  const resolved = grievances?.filter(item => item.status === 1).length || 0;
+  const pending = grievances ? grievances.length - resolved : 0;
+
 
   const districtFacilities = GUJARAT_FACILITIES.filter(
     (f) => f.district.toLowerCase() === district.toLowerCase()
@@ -47,28 +55,30 @@ export const DsoDashboardScreen = ({ user, onLogout }) => {
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>District Grievance Oversight</Text>
-            <StatusBadge status="resolved" size="sm" />
+            <StatusBadge status={pending ? "pending" : "resolved"} size="sm" />
           </View>
           <Text style={styles.summaryDesc}>
-            18 total complaints filed across district complexes this month: 15 resolved, 3 under verification by ground managers.
+            {grievanceError || (grievances ? `${grievances.length} grievances assigned to your district authority queue.` : "Loading grievances...")}
           </Text>
           <View style={styles.metricsBar}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricNum}>15</Text>
-              <Text style={styles.metricLabel}>Resolved (83%)</Text>
+              <Text style={styles.metricNum}>{grievances ? resolved : "..."}</Text>
+              <Text style={styles.metricLabel}>Resolved</Text>
             </View>
             <View style={styles.metricDivider} />
             <View style={styles.metricItem}>
-              <Text style={[styles.metricNum, { color: colors.gov.accent }]}>3</Text>
+              <Text style={[styles.metricNum, { color: colors.gov.accent }]}>{grievances ? pending : "..."}</Text>
               <Text style={styles.metricLabel}>In Progress</Text>
             </View>
             <View style={styles.metricDivider} />
             <View style={styles.metricItem}>
-              <Text style={[styles.metricNum, { color: "#10b981" }]}>48 hrs</Text>
-              <Text style={styles.metricLabel}>Avg Redress Time</Text>
+              <Text style={[styles.metricNum, { color: "#10b981" }]}>{grievances ? grievances.filter(item => item.overdue && item.status !== 1).length : "..."}</Text>
+              <Text style={styles.metricLabel}>Overdue</Text>
             </View>
           </View>
         </View>
+
+        {!!grievanceError && <TouchableOpacity onPress={loadGrievances}><Text>Retry loading grievances</Text></TouchableOpacity>}
 
         {/* Facilities under this DSO */}
         <Text style={styles.sectionHeading}>SPORTS COMPLEXES IN AHMEDABAD DISTRICT</Text>

@@ -17,7 +17,7 @@
 // scanning on web, or a per-user rating history (GET /getAllRatings is public
 // and unscoped). Those stay demo-only.
 import { api } from "../../api/client";
-import { linkedCitizenComplaints, registerComplaint } from "../../data/demoComplaints";
+import { grievanceService, mapGrievance } from "../grievanceService";
 import {
   CITIZEN_FEEDBACK_SUMMARY,
   CITIZEN_FACILITY_FEEDBACK,
@@ -186,16 +186,7 @@ function demoAttendance(from, to) {
   );
 }
 
-function mergeCitizenComplaints(serverRows) {
-  const linked = linkedCitizenComplaints();
-  const seen = new Set(linked.map((row) => row.id));
-  const seeds = CITIZEN_COMPLAINTS.filter((row) => !seen.has(row.id)).map((row) => ({
-    ...row,
-    demo: true,
-  }));
-  const rest = (serverRows || []).filter((row) => row && !seen.has(row.id) && !seeds.some((seed) => seed.id === row.id));
-  return [...linked, ...seeds, ...rest];
-}
+
 
 const DEMO_ACTIVITY_KEY = "khelgujarat-citizen-activity";
 
@@ -512,58 +503,18 @@ export const citizenService = {
     ].map((name) => ({ id: name, name }));
   },
 
-  // GET /getAllComplaints — server-scoped to the caller's own complaints.
-  async listComplaints() {
-    let result;
-    let types;
-    try {
-      [result, types] = await Promise.all([
-        api.get("/getAllComplaints"),
-        this.listComplaintTypes().catch(() => []),
-      ]);
-    } catch {
-      return mergeCitizenComplaints([]);
-    }
-    const names = typeNameMap(types.map((type) => ({ _id: type.id, Type: type.name })));
-    const rows = (result.data || []).map((row) => mapComplaint(row, names));
-    if (rows.length === 0) return mergeCitizenComplaints([]);
-    return mergeCitizenComplaints(rows);
-  },
-
-  async getComplaint(id) {
-    const rows = await this.listComplaints();
-    return rows.find((row) => row.id === id) || null;
-  },
-
-  // POST /addComplaint — multipart, field name "picture", jpeg/png only.
-  async submitComplaint({ typeId, description, photoFile }) {
+  async listComplaints() { return grievanceService.list("mine"); },
+  async getComplaint(id) { return (await this.listComplaints()).find(row => row.id === id) || null; },
+  async submitComplaint({ typeId, subject = "Facility grievance", description, sportsComplex, photoFile }) {
     const { complexId } = await loadIdentity();
-    if (!complexId) {
-      throw new Error("No facility is assigned to your account.");
-    }
-    const form = new FormData();
-    form.append("type", typeId);
-    form.append("Description", description);
-    form.append("sportsComplex", complexId);
+    let proof = {};
     if (photoFile) {
-      form.append("picture", photoFile);
+      const form = new FormData(); form.append("file", photoFile);
+      const uploaded = await api.upload("/api/uploads/attachment", form);
+      proof = { proofUrl:uploaded.data.url, proofName:uploaded.data.name, proofKey:uploaded.data.key };
     }
-    try {
-      const result = await api.upload("/addComplaint", form);
-      return { complaint: mapComplaint(result.data || {}, {}), rcode: result.rcode };
-    } catch {
-      const complaint = registerComplaint({
-        description,
-        typeId,
-        category: typeId,
-        raisedBy: "citizen",
-        citizenName: CITIZEN.name,
-        role: 0,
-        level: 0,
-        forCitizen: true,
-      });
-      return { rcode: 200, complaint };
-    }
+    const result = await api.post("/api/grievances", { type:typeId, subject, description, sportsComplex:sportsComplex || complexId, ...proof });
+    return { complaint:mapGrievance(result.data), rcode:result.rcode };
   },
 
   // GET /api/citizen/capabilities
