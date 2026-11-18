@@ -11,12 +11,14 @@ import {
   ShieldCheck,
   UserRound,
   Wallet,
+  ClipboardList,
 } from "lucide-react";
 
 const MANAGEMENT = [
   { id: "facilities", label: "Facility management", icon: Building2 },
   { id: "sports", label: "Sports management", icon: LayoutDashboard },
   { id: "coaches", label: "Coach management", icon: UserRound },
+  { id: "evaluationTemplates", label: "Evaluation templates", icon: ClipboardList },
 ];
 
 const PLATFORM = [

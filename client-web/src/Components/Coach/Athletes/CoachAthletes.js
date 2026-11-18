@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, Loader2, Search, Star, Users } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Clock3, Loader2, Search, Star, Users } from "lucide-react";
 import { api } from "../../../API/client";
 import { Card, EmptyState, ErrorState, KpiCard, PageHeader, PageShell, TableSkeleton } from "../Common/CoachUI";
 
@@ -16,7 +16,8 @@ export default function CoachAthletes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [ratingOpen, setRatingOpen] = useState(null);
+  const [evaluationOpen, setEvaluationOpen] = useState(null);
+  const [templates, setTemplates] = useState({});
   const [forms, setForms] = useState({});
   const [saving, setSaving] = useState(null);
   const [notice, setNotice] = useState("");
@@ -35,19 +36,60 @@ export default function CoachAthletes() {
     return (data?.athletes || []).filter((row) => [row.name, row.email, row.phone, ...row.sports.map((sport) => sport.name)].some((value) => String(value || "").toLowerCase().includes(needle)));
   }, [data, search]);
 
-  const updateForm = (id, patch) => setForms((old) => ({ ...old, [id]: { rating: 5, remarks: "", ...old[id], ...patch } }));
-  const submitRating = async (row) => {
-    const form = { rating: 5, remarks: "", ...forms[row.id] };
+  const updateForm = (id, patch) =>
+    setForms((old) => {
+      const current = { sportId: "", scores: {}, remarks: "", ...(old[id] || {}) };
+      return {
+        ...old,
+        [id]: {
+          ...current,
+          ...patch,
+          scores: patch.scores
+            ? { ...current.scores, ...patch.scores }
+            : current.scores,
+        },
+      };
+    });
+  const openEvaluation = async (row) => {
+    const sportId = row.nextBooking?.sportId || row.latestBooking?.sportId || row.sports[0]?.id;
+    if (!sportId) return setNotice("No sport is associated with this athlete.");
+    setNotice("");
+    try {
+      const response = await api.get(`/api/evaluation-templates/${sportId}`);
+      const template = response.data;
+      setTemplates((old) => ({ ...old, [row.id]: template }));
+      updateForm(row.id, {
+        sportId,
+        scores: Object.fromEntries(template.parameters.filter((parameter) => parameter.active).map((parameter) => [parameter._id, parameter.evaluationType === "qualitative" ? 5 : parameter.benchmark?.min ?? 0])),
+        remarks: "",
+      });
+      setEvaluationOpen(row.id);
+    } catch (error) { setNotice(error.message); }
+  };
+  const submitEvaluation = async (row) => {
+    const form = { sportId: "", scores: {}, remarks: "", ...(forms[row.id] || {}) };
+    const template = templates[row.id];
+    if (!template) return setNotice("Open the evaluation form before submitting.");
+    const activeParameters = template.parameters.filter((parameter) => parameter.active);
+    const missing = activeParameters.find((parameter) =>
+      form.scores[parameter._id] === undefined ||
+      form.scores[parameter._id] === null ||
+      form.scores[parameter._id] === ""
+    );
+    if (missing) return setNotice(`Enter a mark for ${missing.name}.`);
     setSaving(row.id); setNotice("");
     try {
-      await api.post("/api/coach/athlete-ratings", {
+      await api.post("/api/coach/evaluations", {
         athleteId: row.athleteId,
-        sport: row.nextBooking?.sportId || row.latestBooking?.sportId || row.sports[0]?.id,
-        rating: form.rating,
+        sportId: form.sportId,
+        details: template.parameters.filter((parameter) => parameter.active).map((parameter) => ({
+          parameterId: parameter._id,
+          actualValue: Number(form.scores[parameter._id]),
+        })),
         remarks: form.remarks,
       });
-      setNotice(`Rating saved for ${row.name}.`);
-      setRatingOpen(null);
+      setNotice(`Performance evaluation saved for ${row.name}.`);
+      setEvaluationOpen(null);
       await load();
     } catch (saveError) { setNotice(saveError.message); }
     finally { setSaving(null); }
@@ -58,7 +100,7 @@ export default function CoachAthletes() {
 
   const summary = data.summary;
   return <PageShell>
-    <PageHeader eyebrow="Coach Console · Live booking data" title="Booked athletes & citizens" description="People who selected a coaching slot assigned to you. Ratings are available after a booking is confirmed." />
+    <PageHeader eyebrow="Coach Console · Performance evaluation" title="Athlete performance evaluations" description="Evaluate athletes using the published sport-specific parameters. Scores are calculated out of 100." />
     {notice ? <div className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{notice}</div> : null}
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCard label="People" value={summary.people} caption="Across all booking attempts" icon={Users} tone="blue" />
@@ -69,15 +111,15 @@ export default function CoachAthletes() {
     <Card className="overflow-hidden">
       <div className="border-b border-slate-100 p-4"><div className="relative max-w-lg"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input className={`${input} pl-9`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search athlete, email, phone or sport" /></div></div>
       {rows.length ? <div className="divide-y divide-slate-100">{rows.map((row) => {
-        const form = { rating: 5, remarks: "", ...forms[row.id] };
-        const expanded = ratingOpen === row.id;
+        const form = { sportId: "", scores: {}, remarks: "", ...forms[row.id] };
+        const expanded = evaluationOpen === row.id;
         return <article key={row.id} className="p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-extrabold text-slate-900">{row.name}</h2>{row.confirmedBookings > 0 ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">CONFIRMED</span> : <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">PAYMENT PENDING</span>}</div><p className="mt-1 text-xs text-slate-500">{row.email || "No email"}{row.phone ? ` · ${row.phone}` : ""}</p><p className="mt-2 text-sm font-semibold text-slate-700">{row.sports.map((sport) => sport.name).join(", ") || "Sport unavailable"}</p></div>
-            <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 xl:min-w-[520px]"><Metric label="Bookings" value={`${row.confirmedBookings}/${row.bookings} confirmed`} /><Metric label="Paid" value={`${row.paidBookings} · ${money.format(row.totalPaid)}`} /><Metric label="Next session" value={row.nextBooking ? `${date(row.nextBooking.date)} · ${row.nextBooking.time?.from || ""}` : "None scheduled"} /><Metric label="Latest rating" value={row.latestRating ? `${row.latestRating.rating} / 5` : "Not rated"} /></div>
-            <div className="xl:w-40">{row.canRate ? <button type="button" onClick={() => { setRatingOpen(expanded ? null : row.id); updateForm(row.id, row.latestRating ? { rating: row.latestRating.rating, remarks: "" } : {}); }} className="w-full rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-extrabold text-slate-900">{row.latestRating ? "Rate again" : "Rate athlete"}</button> : <p className="text-center text-xs font-semibold text-slate-400">{row.confirmedBookings ? "Athlete profile unavailable" : "Available after payment"}</p>}</div>
+            <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 xl:min-w-[520px]"><Metric label="Bookings" value={`${row.confirmedBookings}/${row.bookings} confirmed`} /><Metric label="Paid" value={`${row.paidBookings} · ${money.format(row.totalPaid)}`} /><Metric label="Next session" value={row.nextBooking ? `${date(row.nextBooking.date)} · ${row.nextBooking.time?.from || ""}` : "None scheduled"} /><Metric label="Latest score" value={row.latestEvaluation ? `${row.latestEvaluation.totalScore} / 100` : "Not evaluated"} /></div>
+            <div className="xl:w-40">{row.canRate ? <button type="button" onClick={() => { if (evaluationOpen === row.id) setEvaluationOpen(null); else openEvaluation(row); }} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-extrabold text-slate-900"><ClipboardCheck className="h-4 w-4" />{row.latestEvaluation ? "Evaluate again" : "Evaluate athlete"}</button> : <p className="text-center text-xs font-semibold text-slate-400">{row.athleteId && !row.eligibleRatingBookings ? "Available after confirmation and payment" : "Athlete profile unavailable"}</p>}</div>
           </div>
-          {expanded ? <div className="mt-4 grid gap-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-4 md:grid-cols-[220px_1fr_auto] md:items-end"><div><p className="mb-2 text-xs font-bold text-slate-600">Performance rating</p><Stars value={form.rating} onChange={(rating) => updateForm(row.id, { rating })} /></div><label><span className="mb-1.5 block text-xs font-bold text-slate-600">Coach comments</span><textarea rows="2" className={input} value={form.remarks} onChange={(event) => updateForm(row.id, { remarks: event.target.value })} placeholder="Add useful feedback for the athlete" /></label><button type="button" disabled={saving === row.id} onClick={() => submitRating(row)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{saving === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}Save rating</button></div> : null}
+          {expanded ? <EvaluationForm rowId={row.id} template={templates[row.id]} form={form} updateForm={updateForm} saving={saving === row.id} onSubmit={() => submitEvaluation(row)} /> : null}
         </article>;
       })}</div> : <EmptyState title="No booked athletes yet" description="An assigned slot is only a schedule. Athletes will appear here after someone starts a booking for that coaching slot." />}
     </Card>
@@ -85,3 +127,28 @@ export default function CoachAthletes() {
 }
 
 function Metric({ label, value }) { return <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-bold text-slate-700">{value}</p></div>; }
+
+function EvaluationForm({ rowId, template, form, updateForm, saving, onSubmit }) {
+  if (!template) return <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">Loading the published evaluation template…</div>;
+  const parameters = template.parameters.filter((parameter) => parameter.active);
+  const total = parameters.reduce((sum, parameter) => {
+    const value = Number(form.scores[parameter._id]);
+    if (!Number.isFinite(value)) return sum;
+    if (parameter.evaluationType === "qualitative") return sum + (value / parameter.maxScore) * parameter.weightage;
+    const min = Number(parameter.benchmark?.min);
+    const max = Number(parameter.benchmark?.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return sum;
+    const normalized = parameter.scoringMethod === "lower_is_better"
+      ? ((max - value) / (max - min)) * 100
+      : ((value - min) / (max - min)) * 100;
+    return sum + Math.max(0, Math.min(100, normalized)) * parameter.weightage / 100;
+  }, 0);
+  return <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-amber-700">{template.sport?.SportName || "Sport"} · Template v{template.version}</p><p className="mt-1 text-sm font-semibold text-slate-700">Enter each parameter mark. The weighted score is calculated out of 100.</p></div><div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm"><p className="text-[10px] font-bold uppercase text-slate-400">Current total</p><p className="text-2xl font-extrabold text-emerald-700">{total.toFixed(2)} / 100</p></div></div>
+    <div className="grid gap-3 md:grid-cols-2">{parameters.map((parameter) => <label key={parameter._id} className="rounded-xl border border-white bg-white p-3"><span className="flex items-center justify-between gap-2 text-sm font-bold text-slate-700"><span>{parameter.name}</span><span className="text-xs text-emerald-700">{parameter.weightage}%</span></span><span className="mt-2 block text-xs text-slate-500">{parameter.evaluationType === "qualitative" ? `Rating 0–${parameter.maxScore}` : `Range ${parameter.benchmark?.min ?? "—"}–${parameter.benchmark?.max ?? "—"}`}</span><input required type="number" min={parameter.evaluationType === "qualitative" ? 0 : parameter.benchmark?.min} max={parameter.evaluationType === "qualitative" ? parameter.maxScore : parameter.benchmark?.max} step="1" className={`${input} mt-2`} value={form.scores[parameter._id] ?? ""} onChange={(event) => {
+      const value = event.target.value;
+      updateForm(rowId, { scores: { [parameter._id]: value === "" ? "" : Number(value) } });
+    }} /></label>)}</div>
+    <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] md:items-end"><label><span className="mb-1.5 block text-xs font-bold text-slate-600">Coach observations</span><textarea rows="2" className={input} value={form.remarks} onChange={(event) => updateForm(rowId, { remarks: event.target.value })} placeholder="Add feedback and improvement suggestions" /></label><button type="button" disabled={saving} onClick={onSubmit} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}Submit evaluation</button></div>
+  </div>;
+}

@@ -60,6 +60,7 @@ import CitizenDashboard from "./Components/Citizen/Dashboard/CitizenDashboard";
 import CitizenComplaints from "./Components/Citizen/Complaints/CitizenComplaints";
 import CitizenBookings from "./Components/Citizen/Bookings/CitizenBookings";
 import CitizenProfile from "./Components/Citizen/Profile/CitizenProfile";
+import AthletePerformance from "./Components/Citizen/Performance/AthletePerformance";
 
 // Admin Phase 2C.1 modules
 import AdminModuleLayout from "./Components/Admin/ModuleLayout";
@@ -302,6 +303,11 @@ const routes = createBrowserRouter([
       {
         path: "profile",
         element: <CitizenProfile />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "performance",
+        element: <AthletePerformance />,
         errorElement: <ErrorPage />,
       },
     ],

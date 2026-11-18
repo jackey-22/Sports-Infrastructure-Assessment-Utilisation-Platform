@@ -8,7 +8,8 @@
     "bootstrap": "node bootstrapAccess.js",
     "seed": "node seedDatabase.js",
     "seed:manager": "node seedManagerPageData.js",
-    "seed:management-demo": "node seedManagementDemo.js"
+    "seed:management-demo": "node seedManagementDemo.js",
+    "seed:performance": "node seedPerformanceTemplates.js"
   },
   "keywords": [
     "sports",

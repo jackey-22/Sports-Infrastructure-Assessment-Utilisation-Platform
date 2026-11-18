@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Edit3, LayoutDashboard, Loader2, Menu, Plus, Search, Trash2, UserRound, X } from "lucide-react";
+import { Building2, ClipboardList, Edit3, LayoutDashboard, Loader2, Menu, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import AdminSidebar from "./AdminSidebar";
@@ -10,12 +10,14 @@ const MODULES = [
   { id: "facilities", label: "Facility Management", icon: Building2 },
   { id: "sports", label: "Sports Management", icon: LayoutDashboard },
   { id: "coaches", label: "Coach Management", icon: UserRound },
+  { id: "evaluationTemplates", label: "Evaluation Templates", icon: ClipboardList },
 ];
 const FACILITY_TYPES = ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"];
 const EMPTY = {
   facilities: { name: "", facilityType: "Sports Complex", district: "", city: "", location: "", latitude: "", longitude: "", contactPhone: "", contactEmail: "", operationalSince: "", status: "Active", picture: "", managerName: "", managerEmail: "", managerContact: "", managerPassword: "" },
   sports: { name: "", category: "", description: "", formats: "", defaultBookingMode: "capacity", unitLabel: "participants", parameters: "", image: "", status: "Active" },
   coaches: { name: "", email: "", contact: "", password: "", facilityId: "", sportIds: [], qualification: "", experience: 0, status: "Active" },
+  evaluationTemplates: { sportId: "", parameters: [{ name: "", weightage: 20, evaluationType: "qualitative", maxScore: 5, scoringMethod: "higher_is_better", instructions: "" }], recognitionLevels: [{ minScore: 90, label: "Outstanding", badge: "gold" }] },
 };
 const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10";
 const idOf = (row) => row._id || row.id;
@@ -23,6 +25,7 @@ const idOf = (row) => row._id || row.id;
 function normalize(module, row) {
   if (module === "facilities") return { ...row, facilityType: row.facilityType || "Sports Complex", district: row.district?._id || row.district || "", managerName: row.manager?.Name || "", managerEmail: row.manager?.Email || "", managerContact: row.manager?.ContactNum || "", managerPassword: "" };
   if (module === "sports") return { ...row, name: row.SportName, category: row.Category, image: row.baseUrl || "", formats: (row.formats || []).join(", "), parameters: Array.isArray(row.parameters) ? row.parameters.join(", ") : "" };
+  if (module === "evaluationTemplates") return { ...row, sportId: row.sport?._id || row.sport || "", parameters: (row.parameters || []).map((item) => ({ ...item, benchmark: item.benchmark || {} })) };
   return { ...row, name: row.userId?.Name || "", email: row.userId?.Email || "", contact: row.userId?.ContactNum || "", password: "", facilityId: row.SportComplexId?._id || "", sportIds: (row.sports || []).map((item) => item.sport?._id || item.sport), experience: row.sports?.[0]?.experience || 0 };
 }
 
@@ -30,7 +33,7 @@ export default function AdminPanel() {
   const [params] = useSearchParams();
   const requested = params.get("section");
   const [active, setActive] = useState(MODULES.some((item) => item.id === requested) ? requested : "facilities");
-  const [data, setData] = useState({ facilities: [], sports: [], coaches: [] });
+  const [data, setData] = useState({ facilities: [], sports: [], coaches: [], evaluationTemplates: [] });
   const [districts, setDistricts] = useState([]);
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
@@ -41,11 +44,12 @@ export default function AdminPanel() {
   const load = async () => {
     setLoading(true);
     try {
-      const [facilities, sports, coaches, districtResult] = await Promise.all([
+      const [facilities, sports, coaches, districtResult, templates] = await Promise.all([
         api.get("/api/admin/facilities"), api.get("/api/admin/sports"),
         api.get("/api/admin/coaches"), api.get("/getDistrict", { auth: false }),
+        api.get("/api/admin/evaluation-templates"),
       ]);
-      setData({ facilities: facilities.data || [], sports: sports.data || [], coaches: coaches.data || [] });
+      setData({ facilities: facilities.data || [], sports: sports.data || [], coaches: coaches.data || [], evaluationTemplates: templates.data || [] });
       setDistricts(districtResult.data || []);
     } catch (error) {
       setNotice({ type: "error", text: error.message });
@@ -63,6 +67,25 @@ export default function AdminPanel() {
 
   const save = async (record) => {
     const id = idOf(record);
+    if (active === "evaluationTemplates") {
+      const total = record.parameters.reduce((sum, item) => sum + Number(item.weightage || 0), 0);
+      if (!record.sportId) throw new Error("Select a sport.");
+      if (Math.abs(total - 100) > 0.0001) throw new Error("Parameter weightages must total 100%");
+      if (id && record.status === "Draft") {
+        await api.patch(`/api/admin/evaluation-templates/${id}`, record);
+      } else {
+        await api.post("/api/admin/evaluation-templates", {
+          sportId: record.sportId,
+          parameters: record.parameters,
+          recognitionLevels: record.recognitionLevels,
+          scoringFormula: "weighted_sum",
+        });
+      }
+      setModal(null);
+      setNotice({ type: "success", text: "Evaluation template saved as Draft." });
+      await load();
+      return;
+    }
     const body = active === "facilities"
       ? {
           ...record,
@@ -101,14 +124,17 @@ export default function AdminPanel() {
       <section className="mx-auto max-w-[1500px] p-8">
         <div className="mb-7 flex items-end justify-between gap-4">
           <div><p className="text-sm text-slate-500">Database-backed master directory</p><h2 className="font-display text-3xl font-extrabold text-brand-dark">{current.label}</h2></div>
-          <button onClick={() => setModal({ ...EMPTY[active] })} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add {{ facilities: "facility", sports: "sport", coaches: "coach" }[active]}</button>
+          <button onClick={() => setModal({ ...EMPTY[active] })} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add {{ facilities: "facility", sports: "sport", coaches: "coach", evaluationTemplates: "template" }[active]}</button>
         </div>
         {notice ? <div className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.type === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{notice.text}</div> : null}
         <div className="mb-5 grid grid-cols-3 gap-4"><Metric label="Facilities" value={data.facilities.length} /><Metric label="Global sports" value={data.sports.length} /><Metric label="Coaches" value={data.coaches.length} /></div>
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${active}...`} className="w-full rounded-xl bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none" /></div><span className="text-xs font-semibold text-slate-400">{records.length} records</span>
         </div>
-        {loading ? <div className="flex justify-center rounded-2xl border bg-white py-20"><Loader2 className="h-7 w-7 animate-spin text-brand-primary" /></div> : <RecordTable module={active} records={records} onEdit={(row) => setModal(normalize(active, row))} onDelete={remove} />}
+        {loading ? <div className="flex justify-center rounded-2xl border bg-white py-20"><Loader2 className="h-7 w-7 animate-spin text-brand-primary" /></div> : <RecordTable module={active} records={records} onEdit={(row) => setModal(active === "evaluationTemplates" ? (row.status === "Draft" ? normalize(active, row) : { sportId: row.sport?._id || row.sport || "", parameters: row.parameters.map((item) => ({ ...item, benchmark: item.benchmark || {} })), recognitionLevels: row.recognitionLevels || [] }) : normalize(active, row))} onDelete={remove} onPublish={async (row) => {
+          try { await api.post(`/api/admin/evaluation-templates/${row._id}/publish`, {}); setNotice({ type: "success", text: "Evaluation template published." }); await load(); }
+          catch (error) { setNotice({ type: "error", text: error.message }); }
+        }} />}
       </section>
     </main>
     {modal ? <RecordModal module={active} record={modal} facilities={data.facilities} sports={data.sports} districts={districts} onClose={() => setModal(null)} onSave={save} /> : null}
@@ -119,7 +145,10 @@ function Metric({ label, value }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold text-slate-400">{label}</p><p className="mt-1 font-display text-2xl font-extrabold text-brand-dark">{value}</p></div>;
 }
 
-function RecordTable({ module, records, onEdit, onDelete }) {
+function RecordTable({ module, records, onEdit, onDelete, onPublish }) {
+  if (module === "evaluationTemplates") {
+    return <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-5 py-4">Sport</th><th className="px-5 py-4">Version</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Parameters</th><th className="px-5 py-4">Weight</th><th className="px-5 py-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{records.length ? records.map((record) => <tr key={record._id}><td className="px-5 py-4 font-bold">{record.sport?.SportName || "—"}</td><td className="px-5 py-4 text-sm text-slate-500">v{record.version}</td><td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold">{record.status}</span></td><td className="px-5 py-4 text-sm text-slate-500">{record.parameters?.map((item) => item.name).join(", ")}</td><td className="px-5 py-4 text-sm font-bold">{record.parameters?.reduce((sum, item) => sum + item.weightage, 0)}%</td><td className="px-5 py-4"><div className="flex justify-end gap-2">{record.status === "Draft" ? <button onClick={() => onPublish(record)} className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">Publish</button> : null}<button onClick={() => onEdit(record)} className="rounded-lg p-2 text-slate-400 hover:text-brand-primary"><Edit3 className="h-4 w-4" /></button></div></td></tr>) : <tr><td colSpan={6} className="px-5 py-16 text-center text-sm text-slate-400">No evaluation templates found.</td></tr>}</tbody></table></div></div>;
+  }
   const headers = module === "facilities" ? ["Facility", "Type", "District", "Manager", "Status"] : module === "sports" ? ["Sport", "Category", "Booking model", "Default unit", "Status"] : ["Coach", "Facility", "Sports", "Qualification", "Status"];
   const values = (row) => module === "facilities"
     ? [row.name, row.facilityType || "Sports Complex", row.district?.District || "—", row.manager?.Name || "Unassigned", row.status]
@@ -151,11 +180,12 @@ function RecordModal({ module, record: initial, facilities, sports, districts, o
   };
   const isNew = !idOf(initial);
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"><div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-    <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-primary">{isNew ? "New record" : "Edit record"}</p><h3 className="font-display text-2xl font-extrabold text-brand-dark">{module === "facilities" ? "Facility and manager" : module === "sports" ? "Global sport metadata" : "Coach assignment"}</h3></div><button onClick={onClose}><X className="h-5 w-5 text-slate-400" /></button></div>
+    <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-primary">{isNew ? "New record" : "Edit record"}</p><h3 className="font-display text-2xl font-extrabold text-brand-dark">{module === "facilities" ? "Facility and manager" : module === "sports" ? "Global sport metadata" : module === "evaluationTemplates" ? "Sport evaluation template" : "Coach assignment"}</h3></div><button onClick={onClose}><X className="h-5 w-5 text-slate-400" /></button></div>
     <form onSubmit={submit} className="space-y-6 p-6">
       {module === "facilities" ? <FacilityFields record={record} update={update} districts={districts} isNew={isNew} /> : null}
       {module === "sports" ? <SportFields record={record} update={update} /> : null}
       {module === "coaches" ? <CoachFields record={record} update={update} facilities={facilities} sports={sports} isNew={isNew} /> : null}
+      {module === "evaluationTemplates" ? <TemplateFields record={record} update={update} sports={sports} /> : null}
       {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
       <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500">Cancel</button><button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Save</button></div>
     </form>
@@ -163,6 +193,25 @@ function RecordModal({ module, record: initial, facilities, sports, districts, o
 }
 
 const Field = ({ label, children, full = false }) => <label className={full ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span>{children}</label>;
+
+function TemplateFields({ record, update, sports }) {
+  const setParameters = (parameters) => update("parameters", parameters);
+  const updateParameter = (index, key, value) => setParameters(record.parameters.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  const total = record.parameters.reduce((sum, item) => sum + Number(item.weightage || 0), 0);
+  return <div className="space-y-5">
+    <Field label="Sport"><select required className={input} value={record.sportId} onChange={(event) => update("sportId", event.target.value)}><option value="">Select sport</option>{sports.map((sport) => <option key={sport._id} value={sport._id}>{sport.SportName}</option>)}</select></Field>
+    <div className="flex items-center justify-between"><h4 className="font-display text-lg font-extrabold text-brand-dark">Evaluation parameters</h4><span className={`rounded-full px-3 py-1 text-xs font-bold ${total === 100 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>Total weight: {total}%</span></div>
+    <div className="space-y-3">{record.parameters.map((parameter, index) => <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-12">
+      <label className="md:col-span-3"><span className="mb-1 block text-xs font-bold text-slate-600">Parameter name</span><input required className={input} value={parameter.name} onChange={(event) => updateParameter(index, "name", event.target.value)} /></label>
+      <label className="md:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Weight %</span><input required type="number" min="1" max="100" className={input} value={parameter.weightage} onChange={(event) => updateParameter(index, "weightage", Number(event.target.value))} /></label>
+      <label className="md:col-span-3"><span className="mb-1 block text-xs font-bold text-slate-600">Evaluation type</span><select className={input} value={parameter.evaluationType} onChange={(event) => updateParameter(index, "evaluationType", event.target.value)}><option value="qualitative">Qualitative</option><option value="quantitative">Quantitative</option><option value="statistical">Statistical</option></select></label>
+      <label className="md:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Maximum score</span><input type="number" min="1" className={input} value={parameter.maxScore || 5} onChange={(event) => updateParameter(index, "maxScore", Number(event.target.value))} /></label>
+      <button type="button" className="md:col-span-2 self-end rounded-xl border border-red-200 px-3 py-2.5 text-sm font-bold text-red-600" onClick={() => setParameters(record.parameters.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
+      <label className="md:col-span-12"><span className="mb-1 block text-xs font-bold text-slate-600">Instructions</span><input className={input} value={parameter.instructions || ""} onChange={(event) => updateParameter(index, "instructions", event.target.value)} /></label>
+    </div>)}</div>
+    <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-brand-primary px-4 py-2.5 text-sm font-bold text-brand-primary" onClick={() => setParameters([...record.parameters, { name: "", weightage: 0, evaluationType: "qualitative", maxScore: 5, scoringMethod: "higher_is_better", instructions: "" }])}><Plus className="h-4 w-4" />Add parameter</button>
+  </div>;
+}
 function FacilityFields({ record, update, districts, isNew }) {
   return <><div className="grid gap-4 sm:grid-cols-2">
     <Field label="Facility name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field>

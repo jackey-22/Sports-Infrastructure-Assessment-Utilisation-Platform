@@ -15,6 +15,7 @@ import {
   Building2,
   Activity,
   Users,
+  Trophy,
   LogOut,
   Calendar,
   BarChart3,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/citizen/bookings", label: "My Bookings", icon: CalendarCheck },
   { to: "/citizen/complaints", label: "Complaints", icon: FileText },
   { to: "/citizen/profile", label: "Profile", icon: Users },
+  { to: "/citizen/performance", label: "Performance", icon: Trophy },
 ];
 
 const itemClass = ({ isActive }) =>

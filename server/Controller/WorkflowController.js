@@ -7,6 +7,7 @@ const SportsComplex = require("../Model/SportsComplexModel");
 const Instructor = require("../Model/instructorModel");
 const Athlete = require("../Model/athleteModel");
 const AthleteRating = require("../Model/athleteRatingModel");
+const PerformanceEvaluation = require("../Model/PerformanceEvaluationModel");
 const Guest = require("../Model/GuestModel");
 const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const { setReminder } = require("../SetReminder");
@@ -181,31 +182,84 @@ async function coachRateableAthletes(req, res) {
       .populate("sport", "SportName")
       .sort({ createdAt: -1 })
       .lean();
-    const userIds = [...new Set(bookings.map((item) => item.citizenUser?._id).filter(Boolean).map(String))];
     const [athletes, ratings] = await Promise.all([
-      Athlete.find({ userId: { $in: userIds } }).lean(),
+      Athlete.find({
+        SportComplexId: coach.SportComplexId,
+        isActive: { $ne: 0 },
+      }).populate("userId", "Name Email ContactNum").lean(),
       AthleteRating.find({ instructorId: req.user._id }).sort({ createdAt: -1 }).lean(),
     ]);
-    const athleteByUser = new Map(athletes.map((item) => [String(item.userId), item]));
+    const evaluations = await PerformanceEvaluation.find({
+      athlete: { $in: athletes.map((item) => item._id) },
+      coach: req.user._id,
+    }).sort({ evaluationDate: -1 }).lean();
+    const latestEvaluationByAthlete = new Map();
+    evaluations.forEach((evaluation) => {
+      const key = String(evaluation.athlete);
+      if (!latestEvaluationByAthlete.has(key)) latestEvaluationByAthlete.set(key, evaluation);
+    });
+    const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+    const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
+    const athleteByUser = new Map(
+      athletes
+        .filter((item) => item.userId?._id)
+        .map((item) => [String(item.userId._id), item])
+    );
+    const athleteByEmail = new Map(
+      athletes
+        .filter((item) => item.userId?.Email)
+        .map((item) => [normalizeEmail(item.userId.Email), item])
+    );
+    const athleteByPhone = new Map(
+      athletes
+        .filter((item) => item.userId?.ContactNum)
+        .map((item) => [normalizePhone(item.userId.ContactNum), item])
+    );
     const latestRatingByAthlete = new Map();
     ratings.forEach((rating) => {
       const key = String(rating.athleteId || "");
       if (key && !latestRatingByAthlete.has(key)) latestRatingByAthlete.set(key, rating);
     });
     const grouped = new Map();
+    athletes.forEach((athlete) => {
+      const user = athlete.userId;
+      const identity = `athlete:${athlete._id}`;
+      grouped.set(identity, {
+        id: identity,
+        athleteId: String(athlete._id),
+        userId: user?._id || null,
+        name: user?.Name || "Athlete",
+        email: user?.Email || "",
+        phone: user?.ContactNum || "",
+        bookings: 0,
+        confirmedBookings: 0,
+        eligibleRatingBookings: 0,
+        paidBookings: 0,
+        totalPaid: 0,
+        sports: new Map(),
+        latestBooking: null,
+        nextBooking: null,
+      });
+    });
     bookings.forEach((booking) => {
       const user = booking.citizenUser;
+      const athlete = (user?._id && athleteByUser.get(String(user._id))) ||
+        athleteByEmail.get(normalizeEmail(user?.Email || booking.Email)) ||
+        athleteByPhone.get(normalizePhone(user?.ContactNum || booking.ContactNum));
       const identity = user?._id
-        ? `user:${user._id}`
+        ? athlete ? `athlete:${athlete._id}` : `user:${user._id}`
         : `guest:${String(booking.Email || "").toLowerCase()}:${booking.ContactNum || ""}`;
       const current = grouped.get(identity) || {
-        id: identity, athleteId: null, userId: user?._id || null,
+        id: identity, athleteId: athlete ? String(athlete._id) : null, userId: user?._id || null,
         name: user?.Name || booking.Name || "Citizen", email: user?.Email || booking.Email || "",
         phone: user?.ContactNum || booking.ContactNum || "", bookings: 0, confirmedBookings: 0,
         paidBookings: 0, totalPaid: 0, sports: new Map(), latestBooking: null, nextBooking: null,
       };
       current.bookings += 1;
       if (booking.bookingStatus === "Confirmed") current.confirmedBookings += 1;
+      if (booking.bookingStatus === "Confirmed" && booking.paymentStatus === "Paid") {
+        current.eligibleRatingBookings += 1;
+      }
       if (booking.paymentStatus === "Paid") {
         current.paidBookings += 1;
         current.totalPaid += Number(booking.totalAmount) || 0;
@@ -222,16 +276,19 @@ async function coachRateableAthletes(req, res) {
       grouped.set(identity, current);
     });
     const rows = [...grouped.values()].map((item) => {
-      const athlete = item.userId ? athleteByUser.get(String(item.userId)) : null;
+      const athlete = item.athleteId
+        ? athletes.find((candidate) => String(candidate._id) === String(item.athleteId))
+        : item.userId ? athleteByUser.get(String(item.userId)) : null;
       const latestRating = athlete ? latestRatingByAthlete.get(String(athlete._id)) : null;
       return {
         ...item,
         athleteId: athlete ? String(athlete._id) : null,
         sports: [...item.sports.values()],
-        canRate: Boolean(athlete && item.confirmedBookings > 0),
+        canRate: Boolean(athlete && item.eligibleRatingBookings > 0),
         latestRating: latestRating ? {
           rating: latestRating.rating, remarks: latestRating.remarks || "", createdAt: latestRating.createdAt,
         } : null,
+        latestEvaluation: athlete ? latestEvaluationByAthlete.get(String(athlete._id)) || null : null,
       };
     }).sort((a, b) => b.confirmedBookings - a.confirmedBookings || String(b.latestBooking?.date || "").localeCompare(String(a.latestBooking?.date || "")));
     return res.json({
@@ -252,9 +309,20 @@ async function coachRateableAthletes(req, res) {
 async function saveCoachRating(req, res) {
   try {
     const coach = await Instructor.findOne({ userId: req.user._id }).lean();
-    const athlete = validId(req.body.athleteId) ? await Athlete.findById(req.body.athleteId).lean() : null;
+    const athlete = validId(req.body.athleteId)
+      ? await Athlete.findById(req.body.athleteId).populate("userId", "Email ContactNum").lean()
+      : null;
     if (!coach || !athlete) return fail(res, 404, "Coach or athlete profile not found");
-    const booked = await Guest.exists({ coach: coach._id, citizenUser: athlete.userId, bookingStatus: "Confirmed" });
+    const bookingIdentity = [];
+    if (athlete.userId?._id) bookingIdentity.push({ citizenUser: athlete.userId._id });
+    if (athlete.userId?.Email) bookingIdentity.push({ Email: athlete.userId.Email });
+    if (athlete.userId?.ContactNum) bookingIdentity.push({ ContactNum: athlete.userId.ContactNum });
+    const booked = await Guest.exists({
+      coach: coach._id,
+      bookingStatus: "Confirmed",
+      paymentStatus: "Paid",
+      $or: bookingIdentity.length ? bookingIdentity : [{ _id: null }],
+    });
     if (!booked) return fail(res, 403, "Only athletes booked under you can be rated");
     const rating = Number(req.body.rating);
     if (rating < 1 || rating > 5) return fail(res, 400, "Rating must be between 1 and 5");
