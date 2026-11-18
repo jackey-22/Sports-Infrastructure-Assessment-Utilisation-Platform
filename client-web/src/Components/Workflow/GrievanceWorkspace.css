@@ -1,0 +1,17 @@
+.grievance-workspace { background:#f3f6f9; border-radius:22px; color:#12251c; }
+.grievance-workspace .grievance-banner { position:relative; overflow:hidden; min-height:150px; padding:28px; border-radius:20px 20px 38px 12px; background:linear-gradient(125deg,#073d2d,#006239); color:white; }
+.grievance-workspace .grievance-banner::after { content:""; position:absolute; height:36px; width:70%; right:-10%; bottom:-18px; background:#90dca8; border-radius:50%; pointer-events:none; }
+.grievance-workspace .grievance-banner h1 { color:white; font-size:32px; margin-top:12px; }
+.grievance-workspace .grievance-banner p { color:#daf1e2; }
+.grievance-eyebrow { font-size:12px; font-weight:700; }
+.grievance-workspace .grievance-banner button { background:#ffffff18; border-color:#ffffff40; }
+.grievance-workspace .grievance-form { border-color:#dde4eb; border-radius:22px; box-shadow:0 5px 20px #193d2910; }
+.grievance-workspace input,.grievance-workspace select,.grievance-workspace textarea { border-color:#bac7d5; border-radius:12px; background:#fcfdfe; }
+.grievance-workspace input:focus,.grievance-workspace select:focus,.grievance-workspace textarea:focus { border-color:#007c3e; outline:2px solid #007c3e22; }
+.grievance-workspace .grievance-form button[type=submit],.grievance-workspace .grievance-form button:not([type]) { background:linear-gradient(120deg,#008c45,#007336); }
+.grievance-workspace .grievance-filters { padding:16px; background:white; border:1px solid #dde4eb; border-radius:18px; }
+.grievance-workspace button[aria-pressed=true] { background:#dff8e3; color:#075c2d; border-color:#a4cbb7; }
+.grievance-workspace .grievance-entry { border-color:#a4cbb7; border-radius:18px; background:linear-gradient(130deg,#fff,#fafcfb); }
+.grievance-workspace .grievance-entry a { display:inline-flex; padding:8px 12px; border:1px solid #91d49e; border-radius:10px; background:#f1fcf1; color:#075c2d; }
+.grievance-workspace .text-blue-600,.grievance-workspace .text-blue-700 { color:#007c3e; }
+@media(max-width:480px) { .grievance-workspace .grievance-banner { padding:20px; } .grievance-workspace .grievance-banner h1 { font-size:27px; } }

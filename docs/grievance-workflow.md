@@ -8,7 +8,7 @@ All app and web roles share `/api/grievances`. Authentication is required.
 - `POST /api/grievances/:id/respond`: response, resolve (boolean), revision from the displayed row.
 - `POST /api/grievances/:id/escalate`: reason, revision from the displayed row. Moves one level upward only.
 
-Citizens/athletes, coaches and gate operators start with Supervisor. Supervisor submissions start with Manager, Manager submissions with District Authority, and Authority/Admin submissions with Admin. Only the assigned handling role in the facility/district scope can respond or resolve; authors cannot handle their own submission. Authors and assigned handlers may escalate unresolved records. Admin is the terminal level.
+Citizens/athletes, coaches and gate operators start with Supervisor. Supervisor submissions start with Manager, Manager submissions with District Authority, and Authority/Admin submissions with Admin. Only the assigned handling role in the facility/district scope can respond or resolve; authors cannot handle their own submission. Staff authors and assigned handlers may escalate unresolved records. Athlete/Citizen accounts cannot manually escalate; their overdue grievances still escalate automatically. Admin is the terminal level.
 
 `GRIEVANCE_RESPONSE_HOURS` defaults to 48. The existing five-minute scheduler advances unresolved overdue grievances one level and starts a fresh deadline. Responses preserve deadlines. Resolved records do not escalate. Conditional revision updates prevent duplicate transitions and return 409 on stale writes. Notifications reuse reminders; notification failures are logged without falsely reporting a committed mutation as failed.
 

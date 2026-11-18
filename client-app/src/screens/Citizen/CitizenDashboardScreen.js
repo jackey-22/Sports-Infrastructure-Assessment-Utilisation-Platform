@@ -1,16 +1,25 @@
+import AppScreenScroll from "../../components/common/AppScreenScroll";
+import AppHeader from "../../components/common/AppHeader";
 import { Text } from "../../components/AppText";
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Share, Platform, Dimensions, RefreshControl, ActivityIndicator, AppState } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Share, Platform, Dimensions, RefreshControl, ActivityIndicator, AppState } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import BookingPassCard from "../../components/qr/BookingPassCard";
 import { api } from "../../api/client";
 import { colors } from "../../theme/colors";
-import CitizenHeader from "../../components/common/CitizenHeader";
+import usePerformanceResource from "../../hooks/usePerformanceResource";
+import { performanceService } from "../../services/performanceService";
+import { ResourceState } from "../../components/performance/PerformanceUI";
 import { citizenService } from "../../services/citizen/citizenService";
-
-const { width } = Dimensions.get("window");
-
-export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
+const {
+  width
+} = Dimensions.get("window");
+export const CitizenDashboardScreen = ({
+  user,
+  onLogout,
+  onNavigateTab
+}) => {
+  const performance = usePerformanceResource(performanceService.ownEvaluations);
   const [bookings, setBookings] = useState([]);
   const [bookingPasses, setBookingPasses] = useState({});
   const [expandedBookingId, setExpandedBookingId] = useState(null);
@@ -20,12 +29,30 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
   const [passRevision, setPassRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    const load = () => { setPassLoading(true); setPassError(""); api.get("/api/citizen/bookings").then(result => { if (active) setBookings(result.data || []); }).catch(error => { if (active) { setPassError(error.message); setBookings([]); } }).finally(() => { if (active) setPassLoading(false); }); };
+    const load = () => {
+      setPassLoading(true);
+      setPassError("");
+      api.get("/api/citizen/bookings").then(result => {
+        if (active) setBookings(result.data || []);
+      }).catch(error => {
+        if (active) {
+          setPassError(error.message);
+          setBookings([]);
+        }
+      }).finally(() => {
+        if (active) setPassLoading(false);
+      });
+    };
     load();
-    const listener = AppState.addEventListener("change", state => { if (state === "active") load(); });
-    return () => { active = false; listener.remove(); };
+    const listener = AppState.addEventListener("change", state => {
+      if (state === "active") load();
+    });
+    return () => {
+      active = false;
+      listener.remove();
+    };
   }, [user?._id, passRevision]);
-  const toggleBooking = async (booking) => {
+  const toggleBooking = async booking => {
     if (expandedBookingId === booking.id) {
       setExpandedBookingId(null);
       return;
@@ -36,7 +63,10 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
     setPassError("");
     try {
       const result = await api.get(`/api/citizen/bookings/${booking.id}/pass`);
-      setBookingPasses((current) => ({ ...current, [booking.id]: result.data }));
+      setBookingPasses(current => ({
+        ...current,
+        [booking.id]: result.data
+      }));
     } catch (error) {
       setPassError(error.message);
     } finally {
@@ -45,60 +75,41 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
   };
   const [identity, setIdentity] = useState(null);
   const [identityError, setIdentityError] = useState("");
-
   useEffect(() => {
     let active = true;
-    citizenService.getIdentity()
-      .then((result) => {
-        if (active) setIdentity(result);
-      })
-      .catch((error) => {
-        if (active) setIdentityError(error.message || "Could not load athlete profile.");
-      });
+    citizenService.getIdentity().then(result => {
+      if (active) setIdentity(result);
+    }).catch(error => {
+      if (active) setIdentityError(error.message || "Could not load athlete profile.");
+    });
     return () => {
       active = false;
     };
   }, []);
-
   const athleteData = {
     name: identity?.user?.Name || user?.Name || "Athlete",
     dob: identity?.user?.DOB || "Not provided",
     gender: "Not provided",
     mobile: identity?.user?.ContactNum || user?.ContactNum || "Not provided",
     primarySport: "Badminton",
-    regDate: identity?.athlete?.createdAt
-      ? new Date(identity.athlete.createdAt).toLocaleDateString()
-      : "Not provided",
+    regDate: identity?.athlete?.createdAt ? new Date(identity.athlete.createdAt).toLocaleDateString() : "Not provided",
     athleteId: identity?.athleteId || "Not linked",
     activityScore: "89%",
-    overallPerf: "4.6 / 5",
+    overallPerf: "4.6 / 5"
   };
-
   const handleShareId = async () => {
     try {
       await Share.share({
-        message: `Gujarat Athlete ID: ${athleteData.athleteId} - ${athleteData.name} (${athleteData.primarySport}). Verified by Sports Authority of Gujarat (SAG).`,
+        message: `Gujarat Athlete ID: ${athleteData.athleteId} - ${athleteData.name} (${athleteData.primarySport}). Verified by Sports Authority of Gujarat (SAG).`
       });
     } catch (error) {
       // ignore
     }
   };
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={passLoading} onRefresh={() => setPassRevision(value => value + 1)} tintColor="#007D40" />}
-      >
+  return <View style={styles.safeArea}>
+      <AppScreenScroll contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={passLoading} onRefresh={() => setPassRevision(value => value + 1)} tintColor="#007D40" />} header={<AppHeader title="Athlete Hub" subtitle="Your sports journey in Gujarat" onLogout={onLogout} />}>
         {/* 1. TOP CURVED HEADER — unified CitizenHeader */}
-        <CitizenHeader
-          title="Athlete Hub"
-          subtitle="Your sports journey in Gujarat"
-          onLogout={onLogout}
-          showLogout
-          watermarkIcon="run-fast"
-        />
+
         {identityError ? <Text style={styles.identityError}>{identityError}</Text> : null}
 
         {/* 2. WELCOME CARD */}
@@ -153,18 +164,53 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
 
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionHeaderTitle}>MY FACILITY BOOKINGS</Text>
-          {passLoading ? <ActivityIndicator color="#007D40" style={{ padding: 25 }} /> : passError && !bookings.length ? <View style={styles.digitalIdCard}><Text style={styles.identityError}>{passError}</Text><TouchableOpacity onPress={() => setPassRevision(value => value + 1)} style={{ padding: 18 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Retry bookings</Text></TouchableOpacity></View> : bookings.length ? <View style={{ gap: 12 }}>{bookings.map((booking) => {
+          {passLoading ? <ActivityIndicator color="#007D40" style={{
+          padding: 25
+        }} /> : passError && !bookings.length ? <View style={styles.digitalIdCard}><Text style={styles.identityError}>{passError}</Text><TouchableOpacity onPress={() => setPassRevision(value => value + 1)} style={{
+            padding: 18
+          }}><Text style={{
+              color: "#007D40",
+              fontWeight: "700"
+            }}>Retry bookings</Text></TouchableOpacity></View> : bookings.length ? <View style={{
+          gap: 12
+        }}>{bookings.map(booking => {
             const expanded = expandedBookingId === booking.id;
             return <View key={booking.id} style={styles.bookingCard}>
               <TouchableOpacity onPress={() => toggleBooking(booking)} activeOpacity={0.75} style={styles.bookingSummary}>
-                <View style={{ flex: 1, gap: 4 }}><Text style={styles.bookingFacility}>{booking.facility}</Text><Text style={styles.bookingMeta}>{booking.sport} · {booking.date} · {booking.time?.from || ""}-{booking.time?.to || ""}</Text><Text style={styles.bookingReference}>{booking.reference || String(booking.id).slice(-8).toUpperCase()}</Text></View>
-                <View style={{ alignItems: "flex-end", gap: 6 }}><Text style={[styles.bookingStatus, booking.attendanceStatus === "Completed" && styles.bookingCompleted]}>{booking.attendanceStatus === "Completed" ? "Visit completed" : booking.bookingStatus}</Text><Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color="#007D40" /></View>
+                <View style={{
+                  flex: 1,
+                  gap: 4
+                }}><Text style={styles.bookingFacility}>{booking.facility}</Text><Text style={styles.bookingMeta}>{booking.sport} · {booking.date} · {booking.time?.from || ""}-{booking.time?.to || ""}</Text><Text style={styles.bookingReference}>{booking.reference || String(booking.id).slice(-8).toUpperCase()}</Text></View>
+                <View style={{
+                  alignItems: "flex-end",
+                  gap: 6
+                }}><Text style={[styles.bookingStatus, booking.attendanceStatus === "Completed" && styles.bookingCompleted]}>{booking.attendanceStatus === "Completed" ? "Visit completed" : booking.bookingStatus}</Text><Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color="#007D40" /></View>
               </TouchableOpacity>
               {expanded ? <View style={styles.bookingExpanded}>
-                {loadingPassId === booking.id ? <ActivityIndicator color="#007D40" style={{ padding: 20 }} /> : booking.attendanceStatus === "Completed" ? <Text style={styles.completedMessage}>Check-in and check-out are complete. This booking QR pass is no longer available.</Text> : !booking.qrAvailable ? <Text style={styles.completedMessage}>{booking.paymentStatus !== "Paid" ? "The QR pass becomes available after successful payment." : "A QR pass is not available for this booking."}</Text> : bookingPasses[booking.id] ? <BookingPassCard pass={bookingPasses[booking.id]} /> : passError ? <Text style={styles.identityError}>{passError}</Text> : null}
+                {loadingPassId === booking.id ? <ActivityIndicator color="#007D40" style={{
+                  padding: 20
+                }} /> : booking.attendanceStatus === "Completed" ? <Text style={styles.completedMessage}>Check-in and check-out are complete. This booking QR pass is no longer available.</Text> : !booking.qrAvailable ? <Text style={styles.completedMessage}>{booking.paymentStatus !== "Paid" ? "The QR pass becomes available after successful payment." : "A QR pass is not available for this booking."}</Text> : bookingPasses[booking.id] ? <BookingPassCard pass={bookingPasses[booking.id]} /> : passError ? <Text style={styles.identityError}>{passError}</Text> : null}
               </View> : null}
             </View>;
-          })}</View> : <View style={[styles.digitalIdCard, { padding: 22, gap: 14 }]}><Text style={{ fontSize: 16, fontWeight: "700", color: "#193D28" }}>Your bookings will appear here</Text><Text style={{ fontSize: 12, lineHeight: 20, color: "#708377" }}>Book a facility and complete payment to receive a QR pass.</Text><TouchableOpacity onPress={() => onNavigateTab?.("explore")} style={{ padding: 14, backgroundColor: "#E8F5EE", borderRadius: 12 }}><Text style={{ color: "#007D40", fontWeight: "700" }}>Explore & book a facility</Text></TouchableOpacity></View>}
+          })}</View> : <View style={[styles.digitalIdCard, {
+          padding: 22,
+          gap: 14
+        }]}><Text style={{
+            fontSize: 16,
+            fontWeight: "700",
+            color: "#193D28"
+          }}>Your bookings will appear here</Text><Text style={{
+            fontSize: 12,
+            lineHeight: 20,
+            color: "#708377"
+          }}>Book a facility and complete payment to receive a QR pass.</Text><TouchableOpacity onPress={() => onNavigateTab?.("explore")} style={{
+            padding: 14,
+            backgroundColor: "#E8F5EE",
+            borderRadius: 12
+          }}><Text style={{
+              color: "#007D40",
+              fontWeight: "700"
+            }}>Explore & book a facility</Text></TouchableOpacity></View>}
         </View>
 
         {/* 5. QUICK ACTIONS SECTION (2x2 Grid) */}
@@ -173,12 +219,10 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
 
           <View style={styles.quickActionsGrid}>
             {/* Action 1: Book a Facility */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => onNavigateTab && onNavigateTab("explore")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIconBox, { backgroundColor: "#e0f2fe" }]}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("explore")} activeOpacity={0.7}>
+              <View style={[styles.actionIconBox, {
+              backgroundColor: "#e0f2fe"
+            }]}>
                 <Ionicons name="calendar" size={18} color="#0284c7" />
               </View>
               <View style={styles.actionTextBox}>
@@ -189,12 +233,10 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
             </TouchableOpacity>
 
             {/* Action 2: Register for Event */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => onNavigateTab && onNavigateTab("events")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIconBox, { backgroundColor: "#ffedd5" }]}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("events")} activeOpacity={0.7}>
+              <View style={[styles.actionIconBox, {
+              backgroundColor: "#ffedd5"
+            }]}>
                 <Ionicons name="trophy" size={18} color="#ea580c" />
               </View>
               <View style={styles.actionTextBox}>
@@ -205,12 +247,10 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
             </TouchableOpacity>
 
             {/* Action 3: Find a Coach */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => onNavigateTab && onNavigateTab("performance")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIconBox, { backgroundColor: "#f3e8ff" }]}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("performance")} activeOpacity={0.7}>
+              <View style={[styles.actionIconBox, {
+              backgroundColor: "#f3e8ff"
+            }]}>
                 <Ionicons name="person" size={18} color="#9333ea" />
               </View>
               <View style={styles.actionTextBox}>
@@ -221,12 +261,10 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
             </TouchableOpacity>
 
             {/* Action 4: Report an Issue */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => onNavigateTab && onNavigateTab("complaints")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIconBox, { backgroundColor: "#dcfce7" }]}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("complaints")} activeOpacity={0.7}>
+              <View style={[styles.actionIconBox, {
+              backgroundColor: "#dcfce7"
+            }]}>
                 <Ionicons name="shield-outline" size={18} color="#15803d" />
               </View>
               <View style={styles.actionTextBox}>
@@ -247,134 +285,30 @@ export const CitizenDashboardScreen = ({ user, onLogout, onNavigateTab }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Activity Event Item */}
-          <View style={styles.activityCard}>
-            <View style={styles.activityCardLeft}>
-              <View style={styles.sportIconSquare}>
-                <MaterialCommunityIcons name="shoe-sneaker" size={20} color="#007D40" />
-              </View>
-              <View style={{ flex: 1, marginRight: 6 }}>
-                <Text style={styles.activityTitle} numberOfLines={1}>
-                  District Badminton Championship
-                </Text>
-                <Text style={styles.activitySub} numberOfLines={1}>
-                  Participated • Ahmedabad
-                </Text>
-              </View>
-            </View>
+          <ResourceState loading={performance.loading} error={performance.error} onRetry={performance.reload} empty={!performance.data?.length} emptyText="No performance evaluations yet." />
+          {(performance.data || []).slice(0, 2).map(evaluation => <TouchableOpacity key={evaluation._id} style={styles.activityCard} onPress={() => onNavigateTab?.("performance")}><View style={{
+            flex: 1,
+            gap: 5
+          }}><Text style={styles.activityTitle}>{evaluation.sport?.SportName || "Sport"}: {evaluation.totalScore} / 100</Text><Text style={styles.activitySub}>{evaluation.recognition?.label || "Evaluated"} | {new Date(evaluation.evaluationDate).toLocaleDateString()}</Text></View><Ionicons name="chevron-forward" size={18} color="#047857" /></TouchableOpacity>)}
 
-            <View style={styles.completedBadge}>
-              <Text style={styles.completedBadgeText}>Completed</Text>
-            </View>
-          </View>
-
-          {/* Milestone Stepper Bar */}
-          <View style={styles.stepperCard}>
-            <View style={styles.stepperDotsRow}>
-              {/* Step 1 */}
-              <View style={styles.stepNode}>
-                <View style={[styles.stepCircle, styles.stepDone]}>
-                  <Ionicons name="checkmark" size={12} color="#ffffff" />
-                </View>
-              </View>
-              <View style={[styles.stepConnectingLine, styles.stepLineDone]} />
-
-              {/* Step 2 */}
-              <View style={styles.stepNode}>
-                <View style={[styles.stepCircle, styles.stepDone]}>
-                  <Ionicons name="checkmark" size={12} color="#ffffff" />
-                </View>
-              </View>
-              <View style={[styles.stepConnectingLine, styles.stepLineDone]} />
-
-              {/* Step 3 */}
-              <View style={styles.stepNode}>
-                <View style={[styles.stepCircle, styles.stepDone]}>
-                  <Ionicons name="checkmark" size={12} color="#ffffff" />
-                </View>
-              </View>
-              <View style={styles.stepConnectingLine} />
-
-              {/* Step 4 */}
-              <View style={styles.stepNode}>
-                <View style={[styles.stepCircle, styles.stepPending]} />
-              </View>
-            </View>
-
-            {/* Stepper Labels */}
-            <View style={styles.stepperLabelsRow}>
-              <Text style={styles.stepLabel} numberOfLines={1}>Profile Setup</Text>
-              <Text style={styles.stepLabel} numberOfLines={1}>ID Verified</Text>
-              <Text style={styles.stepLabel} numberOfLines={1}>1+ Booking</Text>
-              <Text style={styles.stepLabel} numberOfLines={1}>Event Participation</Text>
-            </View>
-          </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      </AppScreenScroll>
+    </View>;
 };
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#f8fafc"
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 40
   },
-  // 1. Header — now handled by CitizenHeader component (no local header styles needed)
-
-  notificationDot: {
-    position: "absolute",
-    top: 7,
-    right: 7,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: "#ef4444",
-  },
-  hubTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    marginBottom: 8,
-    gap: 10,
-  },
-  hubIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  hubTitle: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-  },
-  hubSubtitle: {
-    color: "#d1fae5",
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 1,
-  },
-  decorativeCurve: {
-    position: "absolute",
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 12,
-  },
-
   // 2. Welcome Card
   welcomeCard: {
     backgroundColor: "#ffffff",
     borderRadius: 20,
     marginHorizontal: 16,
-    marginTop: -16,
+    marginTop: 0,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -384,53 +318,50 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: {
+          width: 0,
+          height: 3
+        },
         shadowOpacity: 0.08,
-        shadowRadius: 10,
+        shadowRadius: 10
       },
       android: {
-        elevation: 3,
-      },
-    }),
+        elevation: 3
+      }
+    })
   },
   welcomeLeft: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 10
   },
   welcomeGreet: {
     fontSize: 13,
     fontWeight: "500",
     color: "#64748b",
-    marginBottom: 1,
+    marginBottom: 1
   },
   identityError: {
     marginHorizontal: 16,
     marginTop: 10,
     color: colors.status.danger,
-    fontSize: 12,
+    fontSize: 12
   },
   welcomeName: {
     fontSize: 18,
     fontWeight: "800",
     color: "#0f172a",
     letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  welcomeTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0f172a",
-    letterSpacing: -0.3,
+    marginBottom: 4
   },
   welcomeDesc: {
     fontSize: 11,
     color: "#64748b",
     lineHeight: 16,
-    marginTop: 3,
+    marginTop: 3
   },
   welcomeRight: {
     alignItems: "center",
-    flexShrink: 0,
+    flexShrink: 0
   },
   runnerGraphicBox: {
     width: 56,
@@ -438,15 +369,14 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: "#f0fdf4",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center"
   },
-
   // 3. Two Metric Cards Row
   metricCardsRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
     marginTop: 14,
-    gap: 12,
+    gap: 12
   },
   metricCard: {
     flex: 1,
@@ -455,24 +385,28 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    minWidth: 0, // prevents overflow
+    minWidth: 0,
+    // prevents overflow
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: {
+          width: 0,
+          height: 2
+        },
         shadowOpacity: 0.04,
-        shadowRadius: 6,
+        shadowRadius: 6
       },
       android: {
-        elevation: 2,
-      },
-    }),
+        elevation: 2
+      }
+    })
   },
   metricCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 6,
+    marginBottom: 6
   },
   metricIconBox: {
     width: 26,
@@ -481,38 +415,37 @@ const styles = StyleSheet.create({
     backgroundColor: "#dcfce7",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 2,
+    marginRight: 2
   },
   metricCardTitle: {
     fontSize: 11,
     fontWeight: "700",
     color: "#475569",
-    flex: 1,
+    flex: 1
   },
   metricValue: {
     fontSize: 22,
     fontWeight: "800",
     color: "#0f172a",
     letterSpacing: -0.5,
-    marginBottom: 6,
+    marginBottom: 6
   },
   trendPill: {
     backgroundColor: "#dcfce7",
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
-    alignSelf: "flex-start",
+    alignSelf: "flex-start"
   },
   trendPillText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#15803d",
+    color: "#15803d"
   },
-
   // 4. Section Container
   sectionContainer: {
     marginTop: 18,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   sectionHeaderTitle: {
     fontSize: 11,
@@ -520,34 +453,34 @@ const styles = StyleSheet.create({
     color: "#475569",
     letterSpacing: 0.6,
     textTransform: "uppercase",
-    marginBottom: 10,
+    marginBottom: 10
   },
   bookingCard: {
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#DCE9E0",
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF"
   },
   bookingSummary: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 15,
+    padding: 15
   },
   bookingFacility: {
     color: "#193D28",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "800"
   },
   bookingMeta: {
     color: "#5E7566",
-    fontSize: 11,
+    fontSize: 11
   },
   bookingReference: {
     color: "#007D40",
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "700"
   },
   bookingStatus: {
     overflow: "hidden",
@@ -557,16 +490,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     fontSize: 9,
-    fontWeight: "800",
+    fontWeight: "800"
   },
   bookingCompleted: {
     backgroundColor: "#EEF2F0",
-    color: "#64748B",
+    color: "#64748B"
   },
   bookingExpanded: {
     borderTopWidth: 1,
     borderTopColor: "#E7EEE9",
-    padding: 12,
+    padding: 12
   },
   completedMessage: {
     borderRadius: 12,
@@ -574,9 +507,8 @@ const styles = StyleSheet.create({
     color: "#5E7566",
     padding: 15,
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 18
   },
-
   // Digital ID Card
   digitalIdCard: {
     backgroundColor: "#ffffff",
@@ -587,135 +519,27 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: {
+          width: 0,
+          height: 4
+        },
         shadowOpacity: 0.07,
-        shadowRadius: 10,
+        shadowRadius: 10
       },
       android: {
-        elevation: 3,
-      },
-    }),
+        elevation: 3
+      }
+    })
   },
-  idCardHeaderBanner: {
-    backgroundColor: "#007D40",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  idHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 8,
-  },
-  idRunnerIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  idHeaderTitle: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  idHeaderSub: {
-    color: "#d1fae5",
-    fontSize: 10,
-    fontWeight: "500",
-    marginTop: 1,
-  },
-  shareBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  shareBtnText: {
-    color: "#007D40",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  idCardBody: {
-    padding: 16,
-    alignItems: "center",
-  },
-  qrCodeSection: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  qrBox: {
-    padding: 10,
-    borderRadius: 14,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  idNumberPill: {
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  idNumberText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#1e293b",
-    letterSpacing: 0.5,
-  },
-
-  // 2-Column ID Details Grid
-  idDetailsGrid: {
-    width: "100%",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    gap: 12,
-  },
-  detailGridRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  detailItemCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  detailLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 2,
-  },
-  detailLabelText: {
-    fontSize: 10,
-    color: "#64748b",
-    fontWeight: "600",
-  },
-  detailValText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#0f172a",
-  },
-
   // Quick Actions Grid (2x2)
   quickActionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 10
   },
   quickActionCard: {
-    width: (width - 42) / 2, // perfectly balanced 2 columns without clipping
+    width: (width - 42) / 2,
+    // perfectly balanced 2 columns without clipping
     backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 12,
@@ -724,7 +548,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 64,
+    minHeight: 64
   },
   actionIconBox: {
     width: 36,
@@ -732,41 +556,40 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
+    flexShrink: 0
   },
   actionTextBox: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   actionTitle: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0f172a"
   },
   actionDesc: {
     fontSize: 10,
     color: "#64748b",
     lineHeight: 13,
-    marginTop: 2,
+    marginTop: 2
   },
-
   // Recent Performance & Activity
   activityHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 10
   },
   activityHeaderTitle: {
     fontSize: 14,
     fontWeight: "800",
     color: "#0f172a",
-    letterSpacing: -0.2,
+    letterSpacing: -0.2
   },
   viewAllLink: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#007D40",
+    color: "#007D40"
   },
   activityCard: {
     backgroundColor: "#ffffff",
@@ -777,98 +600,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  activityCardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 8,
-  },
-  sportIconSquare: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#dcfce7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
+    marginBottom: 12
   },
   activityTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0f172a"
   },
   activitySub: {
     fontSize: 11,
     color: "#64748b",
-    marginTop: 2,
-  },
-  completedBadge: {
-    backgroundColor: "#dcfce7",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  completedBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#15803d",
-  },
-
-  // Milestone Stepper Card
-  stepperCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  stepperDotsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    marginBottom: 6,
-  },
-  stepNode: {
-    alignItems: "center",
-  },
-  stepCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepDone: {
-    backgroundColor: "#007D40",
-  },
-  stepPending: {
-    backgroundColor: "#ffffff",
-    borderWidth: 2,
-    borderColor: "#cbd5e1",
-  },
-  stepConnectingLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: "#e2e8f0",
-    marginHorizontal: 4,
-  },
-  stepLineDone: {
-    backgroundColor: "#007D40",
-  },
-  stepperLabelsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  stepLabel: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: "#475569",
-    width: (width - 70) / 4,
-    textAlign: "center",
-  },
+    marginTop: 2
+  }
 });
-
 export default CitizenDashboardScreen;

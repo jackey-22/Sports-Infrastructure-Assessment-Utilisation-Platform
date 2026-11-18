@@ -23,7 +23,7 @@ function permissions(item, user, inScope) {
   return {
     canRespond: handler && isOpen(item),
     canResolve: handler && isOpen(item),
-    canEscalate: (own || handler) && isOpen(item) && item.level < 3
+    canEscalate: Number(user.Role) !== ROLE.ATHLETE && (own || handler) && isOpen(item) && item.level < 3
   };
 }
 function nextDeadline(now = Date.now()) {

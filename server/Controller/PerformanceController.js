@@ -4,6 +4,7 @@ const Athlete = require("../Model/athleteModel");
 const Instructor = require("../Model/instructorModel");
 const Template = require("../Model/EvaluationTemplateModel");
 const Evaluation = require("../Model/PerformanceEvaluationModel");
+const Guest = require("../Model/GuestModel");
 const Achievement = require("../Model/AthleteAchievementModel");
 const { ROLE } = require("../Utils/roles");
 const { canAccessAthlete } = require("../Utils/scope");
@@ -61,9 +62,24 @@ function normalizedValue(parameter, raw) {
 }
 
 async function ensureCoachCanEvaluate(req, athlete, sportId) {
-  if (!await canAccessAthlete(req.user, athlete)) return false;
-  const coach = await Instructor.findOne({ userId: req.user._id }).select("sports").lean();
-  return Boolean(coach && coach.sports.some((item) => String(item.sport) === String(sportId)));
+  const coach = await Instructor.findOne({ userId: req.user._id }).select("sports SportComplexId").lean();
+  const sports = (coach?.sports || []).map(item => String(item.sport));
+  if (!coach || (sportId && !sports.includes(String(sportId)))) return false;
+  if (await canAccessAthlete(req.user, athlete)) return true;
+  // A missing profile facility is not a reason to reject a paid coaching enrolment.
+  // Never use this fallback for an athlete explicitly assigned to another facility.
+  if (athlete.SportComplexId || !coach.SportComplexId) return false;
+  return Boolean(await Guest.exists({
+    coach: coach._id, SportComplexId: coach.SportComplexId,
+    citizenUser: athlete.userId?._id || athlete.userId,
+    sport: sportId || { $in: sports },
+    bookingStatus: "Confirmed", paymentStatus: "Paid",
+  }));
+}
+async function canAccessPerformanceAthlete(req, athlete) {
+  return req.user.Role === ROLE.COACH
+    ? ensureCoachCanEvaluate(req, athlete, validId(req.query?.sportId) ? req.query.sportId : undefined)
+    : canAccessAthlete(req.user, athlete);
 }
 
 async function adminTemplates(req, res) {
@@ -207,7 +223,7 @@ async function listEvaluations(req, res) {
   try {
     if (!validId(req.query.athleteId)) return fail(res, 400, "athleteId is required");
     const athlete = await Athlete.findById(req.query.athleteId).lean();
-    if (!athlete || !await canAccessAthlete(req.user, athlete)) return fail(res, 403, "Athlete is outside your scope");
+    if (!athlete || !await canAccessPerformanceAthlete(req, athlete)) return fail(res, 403, "Athlete is outside your scope");
     const query = { athlete: athlete._id };
     if (validId(req.query.sportId)) query.sport = req.query.sportId;
     if (req.user.Role === ROLE.COACH) query.coach = req.user._id;
@@ -250,7 +266,7 @@ async function listAchievements(req, res) {
     }
     if (!validId(athleteId)) return fail(res, 400, "athleteId is required");
     const athlete = await Athlete.findById(athleteId).lean();
-    if (!athlete || !await canAccessAthlete(req.user, athlete)) return fail(res, 403, "Athlete is outside your scope");
+    if (!athlete || !await canAccessPerformanceAthlete(req, athlete)) return fail(res, 403, "Athlete is outside your scope");
     const query = { athlete: athleteId };
     if (validId(req.query.sportId)) query.sport = req.query.sportId;
     const data = await Achievement.find(query).populate("sport", "SportName").populate("verifiedBy", "Name").sort({ achievementDate: -1 }).lean();

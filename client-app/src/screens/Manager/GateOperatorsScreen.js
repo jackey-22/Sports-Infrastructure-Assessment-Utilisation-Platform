@@ -1,14 +1,76 @@
+import AppScreenScroll from "../../components/common/AppScreenScroll";
+import AppHeader from "../../components/common/AppHeader";
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, SafeAreaView } from "react-native";
+import { View } from "react-native";
 import { Text, TextInput } from "../../components/AppText";
-import { FacilityHeader, Button, ui } from "../../components/FacilityUI";
+import { Button, ui } from "../../components/FacilityUI";
 import { api } from "../../api/client";
-const initial={Name:"",Email:"",ContactNum:"",Password:""};
-export default function GateOperatorsScreen({onBack}) {
-  const [rows,setRows]=useState([]),[form,setForm]=useState(initial),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
-  const load=async()=>{try{const result=await api.get("/api/manager/gate-operators");setRows(result.data||[]);}catch(err){setError(err.message);}};
-  useEffect(()=>{load();},[]);
-  const save=async()=>{if(busy)return;setBusy(true);setError("");setMessage("");try{await api.post("/api/manager/gate-operators",form);setForm(initial);setMessage("Gate operator created. Share their sign-in email and initial password with them.");await load();}catch(err){setError(err.message);}finally{setBusy(false);}};
-  const toggle=async row=>{setBusy(true);setError("");try{await api.patch(`/api/manager/gate-operators/${row._id}`,{IsActive:row.IsActive===0?1:0});await load();}catch(err){setError(err.message);}finally{setBusy(false);}};
-  return <SafeAreaView style={ui.safe}><View style={ui.screen}><FacilityHeader title="Gate operators" subtitle="QR scanning & attendance staff" onBack={onBack}/><ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">{!!error&&<Text accessibilityRole="alert" style={ui.error}>{error}</Text>}{!!message&&<Text style={ui.muted}>{message}</Text>}<View style={[ui.card,{gap:14}]}><Text style={ui.sectionTitle}>Create gate operator</Text>{[["Name","Full name"],["Email","Sign-in email"],["ContactNum","Mobile (optional)"],["Password","Initial password (8+ characters)"]].map(([key,label])=><View key={key}><Text style={ui.label}>{label}</Text><TextInput accessibilityLabel={label} style={ui.input} value={form[key]} onChangeText={text=>setForm(v=>({...v,[key]:text}))} secureTextEntry={key==="Password"} autoCapitalize={key==="Name"?"words":"none"} keyboardType={key==="Email"?"email-address":key==="ContactNum"?"phone-pad":"default"} editable={!busy}/></View>)}<Button disabled={busy} onPress={save}>{busy?"Saving...":"Create gate operator"}</Button></View><View style={[ui.card,{gap:14}]}><Text style={ui.sectionTitle}>Your facility's gate staff</Text>{!rows.length&&<Text style={ui.muted}>No gate operators yet.</Text>}{rows.map(row=><View key={row._id} style={{gap:8,borderTopWidth:1,borderTopColor:"#E0EAE4",paddingTop:12}}><Text style={ui.sectionTitle}>{row.Name}</Text><Text style={ui.muted}>{row.Email} | {row.IsActive===0?"Inactive":"Active"}</Text><Button secondary disabled={busy} onPress={()=>toggle(row)}>{row.IsActive===0?"Reactivate":"Deactivate"}</Button></View>)}</View></ScrollView></View></SafeAreaView>;
+const initial = {
+  Name: "",
+  Email: "",
+  ContactNum: "",
+  Password: ""
+};
+export default function GateOperatorsScreen({
+  onBack
+}) {
+  const [rows, setRows] = useState([]),
+    [form, setForm] = useState(initial),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
+  const load = async () => {
+    try {
+      const result = await api.get("/api/manager/gate-operators");
+      setRows(result.data || []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  const save = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await api.post("/api/manager/gate-operators", form);
+      setForm(initial);
+      setMessage("Gate operator created. Share their sign-in email and initial password with them.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggle = async row => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.patch(`/api/manager/gate-operators/${row._id}`, {
+        IsActive: row.IsActive === 0 ? 1 : 0
+      });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <View style={ui.safe}><View style={ui.screen}><AppScreenScroll contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled" header={<AppHeader title="Gate operators" subtitle="QR scanning & attendance staff" onBack={onBack} />}>{!!error && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}{!!message && <Text style={ui.muted}>{message}</Text>}<View style={[ui.card, {
+          gap: 14
+        }]}><Text style={ui.sectionTitle}>Create gate operator</Text>{[["Name", "Full name"], ["Email", "Sign-in email"], ["ContactNum", "Mobile (optional)"], ["Password", "Initial password (8+ characters)"]].map(([key, label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput accessibilityLabel={label} style={ui.input} value={form[key]} onChangeText={text => setForm(v => ({
+              ...v,
+              [key]: text
+            }))} secureTextEntry={key === "Password"} autoCapitalize={key === "Name" ? "words" : "none"} keyboardType={key === "Email" ? "email-address" : key === "ContactNum" ? "phone-pad" : "default"} editable={!busy} /></View>)}<Button disabled={busy} onPress={save}>{busy ? "Saving..." : "Create gate operator"}</Button></View><View style={[ui.card, {
+          gap: 14
+        }]}><Text style={ui.sectionTitle}>Your facility's gate staff</Text>{!rows.length && <Text style={ui.muted}>No gate operators yet.</Text>}{rows.map(row => <View key={row._id} style={{
+            gap: 8,
+            borderTopWidth: 1,
+            borderTopColor: "#E0EAE4",
+            paddingTop: 12
+          }}><Text style={ui.sectionTitle}>{row.Name}</Text><Text style={ui.muted}>{row.Email} | {row.IsActive === 0 ? "Inactive" : "Active"}</Text><Button secondary disabled={busy} onPress={() => toggle(row)}>{row.IsActive === 0 ? "Reactivate" : "Deactivate"}</Button></View>)}</View></AppScreenScroll></View></View>;
 }

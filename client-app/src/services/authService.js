@@ -30,6 +30,10 @@ export async function restoreSession() {
     AsyncStorage.getItem("userData"),
   ]);
   if (!token || !userData) return null;
+  if (token.startsWith("demo_") || token.startsWith("demo:")) {
+    await logout();
+    return null;
+  }
   try {
     return JSON.parse(userData);
   } catch (error) {

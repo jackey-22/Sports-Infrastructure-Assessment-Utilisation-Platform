@@ -1,6 +1,6 @@
 import { Text } from "../components/AppText";
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from "react-native";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 
@@ -8,6 +8,7 @@ import { colors } from "../theme/colors";
 import CitizenDashboardScreen from "../screens/Citizen/CitizenDashboardScreen";
 import AttendanceHistoryScreen from "../screens/Citizen/AttendanceHistoryScreen";
 import ComplaintsScreen from "../screens/Citizen/ComplaintsScreen";
+import AthletePerformanceScreen from "../screens/Citizen/AthletePerformanceScreen";
 import CitizenProfileScreen from "../screens/Citizen/CitizenProfileScreen";
 
 // Supervisor Screens
@@ -71,7 +72,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       case 2: // Coach
         return [
           { key: "home", label: "Squad", icon: "people" },
-          { key: "rate", label: "Rate", icon: "star-outline" },
+          { key: "rate", label: "Evaluate", icon: "star-outline" },
           { key: "explore", label: "Facilities", icon: "compass-outline" },
           { key: "complaints", label: "Issues", icon: "warning-outline" },
         ];
@@ -129,10 +130,6 @@ export const RoleNavigator = ({ user, onLogout }) => {
         <RateAthleteScreen
           athlete={targetAthlete}
           onBack={() => setTargetAthlete(null)}
-          onSaved={() => {
-            setTargetAthlete(null);
-            setActiveTab("home");
-          }}
         />
       );
     }
@@ -147,7 +144,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return <GrantAllocationScreen onBack={() => setActiveTab("home")} onAllocated={() => setActiveTab("home")} />;
       }
       if (activeTab === "explore") {
-        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} />;
+        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "complaints") {
         return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
@@ -158,7 +155,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
     // Role 4: DSO / Authority
     if (role === 4) {
       if (activeTab === "explore") {
-        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} />;
+        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "complaints") {
         return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
@@ -184,10 +181,10 @@ export const RoleNavigator = ({ user, onLogout }) => {
     // Role 2: Coach / Instructor
     if (role === 2) {
       if (activeTab === "rate") {
-        return <RateAthleteScreen athlete={null} onBack={() => setActiveTab("home")} onSaved={() => setActiveTab("home")} />;
+        return <RateAthleteScreen athlete={null} onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "explore") {
-        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} />;
+        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "complaints") {
         return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
@@ -219,11 +216,14 @@ export const RoleNavigator = ({ user, onLogout }) => {
     if (activeTab === "grievance" || activeTab === "complaints") {
       return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
     }
-    if (activeTab === "skills" || activeTab === "performance" || activeTab === "profile") {
-      return <CitizenProfileScreen user={user} onBack={() => setActiveTab("home")} onLogout={onLogout} />;
+    if (activeTab === "profile") {
+      return <CitizenProfileScreen user={user} onBack={() => setActiveTab("skills")} onLogout={onLogout} />;
+    }
+    if (activeTab === "skills" || activeTab === "performance") {
+      return <AthletePerformanceScreen onBack={() => setActiveTab("home")} onProfile={() => setActiveTab("profile")} />;
     }
     if (activeTab === "explore" || activeTab === "events") {
-      return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} />;
+      return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
     }
 
     return (
@@ -233,7 +233,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         onNavigateTab={(tab) => {
           if (tab === "attendance") setActiveTab("checkins");
           else if (tab === "complaints") setActiveTab("grievance");
-          else if (tab === "profile") setActiveTab("skills");
+          else if (tab === "profile") setActiveTab("profile");
           else setActiveTab(tab);
         }}
       />
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e2e8f0",
     paddingTop: 8,
-    paddingBottom: Platform.OS === "ios" ? 22 : 8,
+    paddingBottom: 8,
     paddingHorizontal: 4,
     justifyContent: "space-between",
     alignItems: "center",

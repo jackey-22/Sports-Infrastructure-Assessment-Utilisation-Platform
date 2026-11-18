@@ -91,14 +91,18 @@ async function coachRateableAthletes(req, res) {
   try {
     const coach = await Instructor.findOne({ userId: req.user._id }).lean();
     if (!coach) return fail(res, 404, "Coach profile not found");
-    const bookings = await Guest.find({ coach: coach._id })
+    const bookings = await Guest.find({ coach: coach._id, SportComplexId: coach.SportComplexId })
       .populate("citizenUser", "Name Email ContactNum")
       .populate("sport", "SportName")
       .sort({ createdAt: -1 })
       .lean();
     const [athletes, ratings] = await Promise.all([
       Athlete.find({
-        SportComplexId: coach.SportComplexId,
+        $or: [
+          { SportComplexId: coach.SportComplexId },
+          // Registered citizens may have no facility until their first booking.
+          { SportComplexId: null, userId: { $in: bookings.map(item => item.citizenUser?._id).filter(Boolean) } },
+        ],
         isActive: { $ne: 0 },
       }).populate("userId", "Name Email ContactNum").lean(),
       AthleteRating.find({ instructorId: req.user._id }).sort({ createdAt: -1 }).lean(),
@@ -160,13 +164,13 @@ async function coachRateableAthletes(req, res) {
       const athlete = (user?._id && athleteByUser.get(String(user._id))) ||
         athleteByEmail.get(normalizeEmail(user?.Email || booking.Email)) ||
         athleteByPhone.get(normalizePhone(user?.ContactNum || booking.ContactNum));
-      const identity = user?._id
-        ? athlete ? `athlete:${athlete._id}` : `user:${user._id}`
+      const identity = athlete ? `athlete:${athlete._id}` : user?._id
+        ? `user:${user._id}`
         : `guest:${String(booking.Email || "").toLowerCase()}:${booking.ContactNum || ""}`;
       const current = grouped.get(identity) || {
         id: identity, athleteId: athlete ? String(athlete._id) : null, userId: user?._id || null,
         name: user?.Name || booking.Name || "Citizen", email: user?.Email || booking.Email || "",
-        phone: user?.ContactNum || booking.ContactNum || "", bookings: 0, confirmedBookings: 0,
+        phone: user?.ContactNum || booking.ContactNum || "", bookings: 0, confirmedBookings: 0, eligibleRatingBookings: 0,
         paidBookings: 0, totalPaid: 0, sports: new Map(), latestBooking: null, nextBooking: null,
       };
       current.bookings += 1;
@@ -199,6 +203,7 @@ async function coachRateableAthletes(req, res) {
         athleteId: athlete ? String(athlete._id) : null,
         sports: [...item.sports.values()],
         canRate: Boolean(athlete && item.eligibleRatingBookings > 0),
+        evaluationUnavailableReason: !athlete ? "An athlete profile must be linked to this booking." : item.eligibleRatingBookings > 0 ? "" : "A confirmed, paid coaching booking is required.",
         latestRating: latestRating ? {
           rating: latestRating.rating, remarks: latestRating.remarks || "", createdAt: latestRating.createdAt,
         } : null,
