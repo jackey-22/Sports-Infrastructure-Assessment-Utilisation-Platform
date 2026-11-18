@@ -54,6 +54,7 @@ const BookingReportController = require("./Controller/BookingReportController");
 const WorkflowController = require("./Controller/WorkflowController");
 const FileUploadController = require("./Controller/FileUploadController");
 const DashboardController = require("./Controller/DashboardController");
+const PerformanceController = require("./Controller/PerformanceController");
 
 const {
   filtersportsforcomplex,
@@ -899,6 +900,21 @@ app.get(
 app.get("/api/dashboard/admin", requireRole(ROLE.ADMIN), DashboardController.admin);
 app.get("/api/dashboard/manager", requireRole(ROLE.MANAGER), DashboardController.manager);
 app.get("/api/dashboard/coach", requireRole(ROLE.COACH), DashboardController.coach);
+
+// Sport-specific athlete performance, templates and achievements.
+app.get("/api/admin/evaluation-templates", requireRole(ROLE.ADMIN), PerformanceController.adminTemplates);
+app.post("/api/admin/evaluation-templates", requireRole(ROLE.ADMIN), PerformanceController.createTemplate);
+app.patch("/api/admin/evaluation-templates/:id", requireRole(ROLE.ADMIN), PerformanceController.updateTemplate);
+app.post("/api/admin/evaluation-templates/:id/publish", requireRole(ROLE.ADMIN), PerformanceController.publishTemplate);
+app.get("/api/evaluation-templates/:sportId", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.ATHLETE), PerformanceController.publishedTemplate);
+app.get("/api/coach/performance-athletes", requireRole(ROLE.COACH), PerformanceController.coachAthletes);
+app.post("/api/coach/evaluations", requireRole(ROLE.COACH), PerformanceController.createEvaluation);
+app.get("/api/coach/evaluations", requireRole(ROLE.COACH), PerformanceController.listEvaluations);
+app.get("/api/athlete/evaluations", requireRole(ROLE.ATHLETE), PerformanceController.ownEvaluations);
+app.post("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.createAchievement);
+app.get("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.listAchievements);
+app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.listAchievements);
+app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.verifyAchievement);
 
 app.get("/api/grievances", requireRole(...Object.values(ROLE)), WorkflowController.grievanceList);
 app.get("/api/grievances/facilities", requireRole(...Object.values(ROLE)), require("./Controller/GrievanceController").facilities);
