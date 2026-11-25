@@ -1,7 +1,6 @@
 import AppShell from "./src/components/common/AppShell";
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { StripeProvider } from "@stripe/stripe-react-native";
 import { colors } from "./src/theme/colors";
 import { logout, restoreSession as restoreStoredSession } from "./src/services/authService";
 import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from "@expo-google-fonts/plus-jakarta-sans";
@@ -14,7 +13,6 @@ import BookingCheckoutScreen from "./src/screens/Public/BookingCheckoutScreen";
 
 // Unified Role Navigator
 import RoleNavigator from "./src/navigation/RoleNavigator";
-const STRIPE_KEY = "pk_test_51OHNVKSIijB4dZ7nuHBY1SWlQ8Jk0s0vVK5MMqy2fA81z0SfazlNSqilcLW4Do6bBpiKaM1PTDZ8sTdyGDUURdG400nSDgpU2Q";
 function AppContent() {
   const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
@@ -64,37 +62,37 @@ function AppContent() {
 
   // If user is authenticated, route to the unified role navigator
   if (currentUser) {
-    return <StripeProvider publishableKey={STRIPE_KEY}>
+    return <>
         <RoleNavigator user={currentUser} onLogout={handleLogout} />
-      </StripeProvider>;
+      </>;
   }
 
   // If in Public Visitor Exploration mode
   if (isPublicMode) {
     if (publicBookingFacility) {
-      return <StripeProvider publishableKey={STRIPE_KEY}>
+      return <>
           <BookingCheckoutScreen facility={publicBookingFacility} onBack={() => setPublicBookingFacility(null)} onDone={() => {
           setPublicBookingFacility(null);
           setPublicFacility(null);
         }} />
-        </StripeProvider>;
+        </>;
     }
     if (publicFacility) {
-      return <StripeProvider publishableKey={STRIPE_KEY}>
+      return <>
           <ComplexDetailScreen facility={publicFacility} onBack={() => setPublicFacility(null)} onBookSlot={fac => {
           setPublicBookingFacility(fac);
         }} />
-        </StripeProvider>;
+        </>;
     }
-    return <StripeProvider publishableKey={STRIPE_KEY}>
+    return <>
         <GujaratExploreMapScreen onSelectFacility={fac => setPublicFacility(fac)} onBack={() => setIsPublicMode(false)} />
-      </StripeProvider>;
+      </>;
   }
 
   // Default: Login screen with live credentials + 1-Tap Quick Demo Switcher + Public Explore
-  return <StripeProvider publishableKey={STRIPE_KEY}>
+  return <>
       <LoginScreen onLoginSuccess={handleLoginSuccess} onExplorePublic={() => setIsPublicMode(true)} />
-    </StripeProvider>;
+    </>;
 }
 export default function App() {
   return <AppShell><AppContent /></AppShell>;

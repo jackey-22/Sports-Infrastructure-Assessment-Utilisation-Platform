@@ -5,7 +5,7 @@ import { APP_BACKGROUND, HEADER_GREEN } from "./AppHeader";
 export default function AppShell({
   children
 }) {
-  return <SafeAreaProvider initialMetrics={initialWindowMetrics}><SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safe}><StatusBar barStyle="light-content" backgroundColor={HEADER_GREEN} /><View style={styles.content}>{children}</View></SafeAreaView></SafeAreaProvider>;
+  return <SafeAreaProvider initialMetrics={initialWindowMetrics}><SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safe}><StatusBar barStyle="light-content" /><View style={styles.content}>{children}</View></SafeAreaView></SafeAreaProvider>;
 }
 const styles = StyleSheet.create({
   safe: {

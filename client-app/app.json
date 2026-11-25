@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/Logo.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/sports.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#007D40"
-    },
     "plugins": [
       [
         "expo-camera",
@@ -29,9 +24,23 @@
         {
           "locationWhenInUsePermission": "Allow KhelGujarat to show nearby sports complexes and calculate travel distance."
         }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-sharing",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/sports.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#007D40"
+        }
       ]
     ],
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "gov.gujarat.khelgujarat"

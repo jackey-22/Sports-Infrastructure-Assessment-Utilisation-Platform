@@ -66,7 +66,7 @@ export default function ComplaintsScreen({
       const permission = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permission.status !== "granted") return setError("Photo permission is required.");
       const result = await (camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync)({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
         quality: 0.7
       });
       if (!result.canceled) setPhoto(result.assets[0]);
