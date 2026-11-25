@@ -8,6 +8,7 @@ const inputClass = "w-full rounded-xl border border-slate-300 px-3 py-2.5 text-s
 const fileUrl = (value) => /^https?:\/\//i.test(value || "") ? value : `${API_BASE_URL}${value || ""}`;
 
 export default function GrievanceWorkspace({ role }) {
+  const admin = role === "admin";
   const citizen = ["citizen", "athlete"].includes(role);
   const [rows, setRows] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -16,7 +17,7 @@ export default function GrievanceWorkspace({ role }) {
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ sportsComplex: "", subject: "", description: "", proof: null });
   const [responses, setResponses] = useState({});
-  const [view, setView] = useState("mine");
+  const [view, setView] = useState(admin ? "assigned" : "mine");
   const [status, setStatus] = useState("all");
   const requestId = useRef(0);
 
@@ -32,9 +33,10 @@ export default function GrievanceWorkspace({ role }) {
 
   useEffect(() => { load(); }, [load]);
   const loadFacilities = useCallback(async () => {
+    if (admin) return;
     try { const result = await api.get("/api/grievances/facilities"); setFacilities(result.data || []); }
     catch (error) { setMessage(error.message); }
-  }, []);
+  }, [admin]);
   useEffect(() => { loadFacilities(); }, [loadFacilities]);
   useEffect(() => { window.addEventListener("focus", load); return () => window.removeEventListener("focus", load); }, [load]);
 
@@ -70,19 +72,19 @@ export default function GrievanceWorkspace({ role }) {
   };
 
   return <div className="grievance-workspace space-y-6 p-4 sm:p-6">
-    <div className="grievance-banner flex items-center justify-between"><div><p className="grievance-eyebrow">Government of Gujarat / Sports Authority of Gujarat (SAG)</p><h1 className="text-2xl font-extrabold text-slate-900">Grievances</h1><p className="text-sm text-slate-500">Report facility issues and track their progress.</p></div><button onClick={() => { load(); loadFacilities(); }} aria-label="Refresh grievances and facilities" className="rounded-xl border border-slate-200 p-2"><RefreshCw className="h-4 w-4" /></button></div>
+    <div className="grievance-banner flex items-center justify-between"><div><p className="grievance-eyebrow">Government of Gujarat / Sports Authority of Gujarat (SAG)</p><h1 className="text-2xl font-extrabold text-slate-900">Grievances</h1><p className="text-sm text-slate-500">{admin ? "View grievances and track their resolution." : "Report facility issues and track their progress."}</p></div><button onClick={() => { load(); loadFacilities(); }} aria-label={admin ? "Refresh grievances" : "Refresh grievances and facilities"} className="rounded-xl border border-slate-200 p-2"><RefreshCw className="h-4 w-4" /></button></div>
     {role === "supervisor" && <button onClick={() => { localStorage.removeItem("token"); window.location.assign("/login"); }}>Sign out</button>}
     {role === "gate" && <a href="/gate" className="text-blue-700">Back to gate scanner</a>}
     {message ? <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{message}</div> : null}
-    <form onSubmit={submit} className="grievance-form grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+    {!admin && <form onSubmit={submit} className="grievance-form grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
       <div className="md:col-span-2 flex items-center gap-2 font-extrabold"><MessageSquarePlus className="h-5 w-5 text-blue-600" />Raise a grievance</div>
       <label className="text-xs font-bold text-slate-600">Facility<select required className={`${inputClass} mt-1`} value={form.sportsComplex} onChange={(e) => setForm({ ...form, sportsComplex: e.target.value })}><option value="">Select facility</option>{facilities.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label>
       <label className="text-xs font-bold text-slate-600">Title<input required className={`${inputClass} mt-1`} maxLength={240} placeholder="Short title for your complaint" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></label>
       <label className="md:col-span-2 text-xs font-bold text-slate-600">Complaint<textarea required rows="4" maxLength={5000} className={`${inputClass} mt-1`} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
       <label className="text-xs font-bold text-slate-600">Photo/PDF (optional)<input type="file" accept="image/png,image/jpeg,application/pdf" className="mt-1 block text-sm" onChange={(e) => setForm({ ...form, proof: e.target.files?.[0] || null })} /></label>
       <div className="flex items-end justify-end"><button disabled={saving} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Uploading & submitting…" : "Submit grievance"}</button></div>
-    </form>
-    <div className="grievance-filters flex flex-wrap gap-3"><button onClick={() => setView("mine")} aria-pressed={view === "mine"} className="rounded-xl border p-3">My grievances</button>{["admin","authority","manager","supervisor"].includes(role) && <button onClick={() => setView("assigned")} aria-pressed={view === "assigned"} className="rounded-xl border p-3">Assigned grievances</button>}<select aria-label="Filter grievance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}><option value="all">All statuses</option>{["Open","Responded","Escalated","Resolved"].map(value => <option key={value}>{value}</option>)}</select></div>
+    </form>}
+    <div className="grievance-filters flex flex-wrap gap-3">{!admin && <button onClick={() => setView("mine")} aria-pressed={view === "mine"} className="rounded-xl border p-3">My grievances</button>}{["admin","authority","manager","supervisor"].includes(role) && <button onClick={() => setView("assigned")} aria-pressed={view === "assigned"} className="rounded-xl border p-3">Assigned grievances</button>}<select aria-label="Filter grievance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}><option value="all">All statuses</option>{["Open","Responded","Escalated","Resolved"].map(value => <option key={value}>{value}</option>)}</select></div>
     {loading ? <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin" /></div> : <div className="space-y-4">{rows.filter(item => status === "all" || item.workflowStatus === status).map((item) => {
       const escalated = item.workflowStatus === "Escalated";
       return <article key={item._id} className={`grievance-entry rounded-2xl border bg-white p-5 shadow-sm ${escalated ? "border-red-300" : "border-slate-200"}`}>
