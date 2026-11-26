@@ -14,6 +14,7 @@ const { analyseImages, VisionError } = require("../Services/facilityVision");
 const MAX_PHOTOS = 6;
 // Leave room for base64 and the prompt within Gemini's inline request limit.
 const MAX_TOTAL_PHOTO_BYTES = 14 * 1024 * 1024;
+const DEFAULT_GEOFENCE_METERS = 1000;
 const savedRecords = { $or: [{ status: "Submitted" }, { sportId: null }] };
 
 const analysisRateLimiter = createRateLimiter({
@@ -123,6 +124,25 @@ function facilityFields(facility) {
   };
 }
 
+function publicPhoto(photo) {
+  if (typeof photo === "string") return { filename: photo, url: "" };
+  return {
+    filename: photo?.filename || "photo",
+    url: photo?.url || "",
+    key: photo?.key || "",
+    mime: photo?.mime || "",
+    bytes: photo?.bytes || 0,
+    source: photo?.source || "",
+    latitude: photo?.latitude != null && Number.isFinite(Number(photo.latitude)) ? Number(photo.latitude) : null,
+    longitude: photo?.longitude != null && Number.isFinite(Number(photo.longitude)) ? Number(photo.longitude) : null,
+    accuracy: photo?.accuracy != null && Number.isFinite(Number(photo.accuracy)) ? Number(photo.accuracy) : null,
+    capturedAt: photo?.capturedAt || "",
+    distanceFromFacilityMeters: photo?.distanceFromFacilityMeters != null && Number.isFinite(Number(photo.distanceFromFacilityMeters))
+      ? Math.round(Number(photo.distanceFromFacilityMeters))
+      : null,
+  };
+}
+
 function present(doc) {
   const ai = doc.ai || { status: "not_requested" };
   const questionnaire = doc.questionnaire || {};
@@ -141,10 +161,108 @@ function present(doc) {
     grade: questionnaire.grade || null,
     scores: questionnaire.scores || null,
     summary: doc.managerObservations || "",
-    photos: (doc.photos || []).map((photo) => photo.filename).filter(Boolean),
+    photos: (doc.photos || []).map(publicPhoto).filter((photo) => photo.filename || photo.url),
     ai,
     source: "database",
   };
+}
+
+function parsePhotoMetadata(value, expectedCount) {
+  let rows;
+  try {
+    rows = JSON.parse(value || "[]");
+  } catch (error) {
+    return { error: "Photo location details are invalid. Choose the photos again." };
+  }
+  if (!Array.isArray(rows) || rows.length !== expectedCount) {
+    return { error: "Every assessment photo must include its location." };
+  }
+  const metadata = [];
+  for (const row of rows) {
+    const latitude = Number(row?.latitude);
+    const longitude = Number(row?.longitude);
+    const accuracy = row?.accuracy == null ? null : Number(row.accuracy);
+    const source = row?.source === "camera" ? "camera" : row?.source === "gallery" ? "gallery" : "";
+    const capturedAt = new Date(row?.capturedAt || "");
+    if (!source || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+        !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+        (accuracy != null && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 5000)) ||
+        Number.isNaN(capturedAt.getTime())) {
+      return { error: "Every photo must have valid latitude, longitude and capture details." };
+    }
+    metadata.push({
+      source,
+      latitude,
+      longitude,
+      accuracy,
+      capturedAt: capturedAt.toISOString(),
+    });
+  }
+  return { metadata };
+}
+
+function distanceMeters(a, b) {
+  const radians = (value) => value * Math.PI / 180;
+  const earthRadius = 6371000;
+  const latitudeDelta = radians(b.latitude - a.latitude);
+  const longitudeDelta = radians(b.longitude - a.longitude);
+  const value = Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude)) *
+    Math.sin(longitudeDelta / 2) ** 2;
+  return 2 * earthRadius * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+function validatePhotoLocations(metadata, facility) {
+  const latitude = Number(facility.latitude);
+  const longitude = Number(facility.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return { error: "The facility map location must be configured before an assessment can be submitted." };
+  }
+  const maximum = Math.max(100, Number(process.env.ASSESSMENT_GEOFENCE_METERS) || DEFAULT_GEOFENCE_METERS);
+  const located = metadata.map((row) => ({
+    ...row,
+    distanceFromFacilityMeters: Math.round(distanceMeters(
+      { latitude, longitude },
+      { latitude: row.latitude, longitude: row.longitude }
+    )),
+  }));
+  const outside = located.find((row) => row.distanceFromFacilityMeters > maximum + Math.min(row.accuracy || 0, 250));
+  if (outside) {
+    return { error: `All assessment photos must be taken within ${maximum} metres of the facility.` };
+  }
+  return { metadata: located };
+}
+
+async function uploadAssessmentPhotos(images, user) {
+  if (!process.env.UPLOADTHING_TOKEN) throw new Error("FILE_STORAGE_NOT_CONFIGURED");
+  const { UTApi, UTFile } = await import("uploadthing/server");
+  const uploadApi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+  const files = images.map((image, index) => new UTFile(
+    [image.buffer],
+    `${Date.now()}-${index + 1}-${image.filename}`,
+    { type: image.mime }
+  ));
+  const results = await uploadApi.uploadFiles(files, {
+    metadata: { uploadedBy: String(user._id), role: user.Role, kind: "condition-assessment" },
+    contentDisposition: "inline",
+  });
+  const rows = Array.isArray(results) ? results : [results];
+  if (rows.length !== images.length || rows.some((row) => row.error || !row.data)) {
+    const uploadedKeys = rows.map((row) => row.data?.key).filter(Boolean);
+    if (uploadedKeys.length) await uploadApi.deleteFiles(uploadedKeys).catch(() => {});
+    throw new Error("ASSESSMENT_PHOTO_UPLOAD_FAILED");
+  }
+  return rows.map((row) => ({
+    url: row.data.ufsUrl || row.data.url,
+    key: row.data.key,
+  }));
+}
+
+async function deleteAssessmentPhotos(photos) {
+  const keys = (photos || []).map((photo) => photo?.key).filter(Boolean);
+  if (!keys.length || !process.env.UPLOADTHING_TOKEN) return;
+  const { UTApi } = await import("uploadthing/server");
+  await new UTApi({ token: process.env.UPLOADTHING_TOKEN }).deleteFiles(keys);
 }
 
 function readImages(files) {
@@ -198,6 +316,8 @@ async function assignedFacility(req, res) {
         contactEmail: facility.contactEmail || "",
         status: facility.status || "Active",
         picture: facility.picture || "",
+        latitude: facility.latitude || "",
+        longitude: facility.longitude || "",
         images: facility.images || [],
         timings: facility.timings || {},
         amenities: facility.amenities || {},
@@ -251,30 +371,51 @@ async function analyse(req, res) {
     if (!sport) return fail(res, 400, "Select a sport available at your facility.");
     const parsed = readImages(req.files);
     if (parsed.error) return fail(res, 400, parsed.error);
+    const photoMetadata = parsePhotoMetadata(req.body?.photoMetadata, parsed.images.length);
+    if (photoMetadata.error) return fail(res, 400, photoMetadata.error);
+    const located = validatePhotoLocations(photoMetadata.metadata, facility);
+    if (located.error) return fail(res, 400, located.error);
     const ai = await analyseImages(parsed.images, {
       provider: "gemini",
       sportName: sport.name,
     });
-    const doc = await FacilityAssessment.create({
-      ...facilityFields(facility),
-      submittedBy: req.user._id,
-      sportId: sport.id,
-      sportName: sport.name,
-      inspectorName: req.user.Name || "",
-      assessmentDate: todayInIndia(),
-      status: "Analysed",
-      photos: parsed.images.map((image) => ({
-        filename: image.filename,
-        mime: image.mime,
-        bytes: image.bytes,
-        sha256: image.sha256,
-        retained: false,
-      })),
-      ai,
-    });
+    const uploaded = await uploadAssessmentPhotos(parsed.images, req.user);
+    const storedPhotos = parsed.images.map((image, index) => ({
+      filename: image.filename,
+      mime: image.mime,
+      bytes: image.bytes,
+      sha256: image.sha256,
+      retained: true,
+      ...uploaded[index],
+      ...located.metadata[index],
+    }));
+    let doc;
+    try {
+      doc = await FacilityAssessment.create({
+        ...facilityFields(facility),
+        submittedBy: req.user._id,
+        sportId: sport.id,
+        sportName: sport.name,
+        inspectorName: req.user.Name || "",
+        assessmentDate: todayInIndia(),
+        status: "Analysed",
+        photos: storedPhotos,
+        ai,
+      });
+    } catch (error) {
+      await deleteAssessmentPhotos(storedPhotos).catch(() => {});
+      throw error;
+    }
     return res.json({ rcode: 200, assessment: present(doc) });
   } catch (error) {
     if (error instanceof VisionError) return fail(res, error.status, error.message);
+    if (error.message === "FILE_STORAGE_NOT_CONFIGURED") {
+      return fail(res, 503, "Assessment photo storage is not configured.");
+    }
+    if (error.message === "ASSESSMENT_PHOTO_UPLOAD_FAILED") {
+      return fail(res, 502, "Assessment photos could not be stored. Please try again.");
+    }
+    console.error("Assessment analysis failed:", error.message);
     return fail(res, 500, "The assessment could not be analysed.");
   }
 }
@@ -319,7 +460,13 @@ async function discardAssessment(req, res) {
       submittedBy: req.user._id,
       sportId: { $ne: null },
     };
+    const draft = await FacilityAssessment.findOne({ ...ownedReview, status: "Analysed" }).select("photos").lean();
     const result = await FacilityAssessment.deleteOne({ ...ownedReview, status: "Analysed" });
+    if (result.deletedCount && draft) {
+      await deleteAssessmentPhotos(draft.photos).catch((error) => {
+        console.error("Could not remove discarded assessment photos:", error.message);
+      });
+    }
     if (!result.deletedCount && await FacilityAssessment.exists({ ...ownedReview, status: "Submitted" })) {
       return fail(res, 409, "This assessment has already been saved.");
     }

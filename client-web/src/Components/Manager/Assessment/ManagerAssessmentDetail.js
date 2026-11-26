@@ -5,6 +5,7 @@ import { managerService } from "../../../services/manager/managerService";
 import { useAdminQuery } from "../../../hooks/manager/useManagerQuery";
 import { formatDate } from "../../../utils/manager/managerUtils";
 import VisionFindings from "../../Assessment/VisionFindings";
+import AssessmentEvidence from "../../Assessment/AssessmentEvidence";
 import {
   Button,
   Card,
@@ -72,11 +73,9 @@ export default function ManagerAssessmentDetail() {
                 <DetailRow label="Maintenance urgency">{assessment.maintenanceUrgency}</DetailRow>
               )}
               {assessment.summary && <DetailRow label="Manager observations">{assessment.summary}</DetailRow>}
-              {!!assessment.photos?.length && (
-                <DetailRow label="Photo filenames">{assessment.photos.join(", ")}</DetailRow>
-              )}
             </dl>
           </Card>
+          <div className="mb-4"><AssessmentEvidence photos={assessment.photos} /></div>
           {assessment.ai?.status === "completed" && <VisionFindings analysis={assessment.ai} />}
         </>
       )}

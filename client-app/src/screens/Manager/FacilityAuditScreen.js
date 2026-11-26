@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Image, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import AppHeader from "../../components/common/AppHeader";
 import AppScreenScroll from "../../components/common/AppScreenScroll";
 import { Text } from "../../components/AppText";
@@ -10,6 +11,46 @@ import { colors } from "../../theme/colors";
 import { formatDate } from "../../utils/manager/managerUtils";
 
 const MAX_PHOTOS = 6;
+const ASSESSMENT_RADIUS_METERS = 1000;
+
+function decimalCoordinate(value, reference) {
+  let coordinate;
+  if (Array.isArray(value) && value.length >= 3) {
+    coordinate = Number(value[0]) + Number(value[1]) / 60 + Number(value[2]) / 3600;
+  } else {
+    coordinate = Number(value);
+  }
+  if (!Number.isFinite(coordinate)) return null;
+  if (["S", "W"].includes(String(reference || "").toUpperCase())) coordinate = -Math.abs(coordinate);
+  return coordinate;
+}
+
+function galleryCoordinates(asset) {
+  const exif = asset?.exif || {};
+  const gps = exif["{GPS}"] || exif.GPS || exif.gps || {};
+  const latitude = decimalCoordinate(
+    exif.GPSLatitude ?? gps.Latitude ?? gps.latitude,
+    exif.GPSLatitudeRef ?? gps.LatitudeRef ?? gps.latitudeRef
+  );
+  const longitude = decimalCoordinate(
+    exif.GPSLongitude ?? gps.Longitude ?? gps.longitude,
+    exif.GPSLongitudeRef ?? gps.LongitudeRef ?? gps.longitudeRef
+  );
+  if (latitude == null || longitude == null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return null;
+  }
+  return { latitude, longitude };
+}
+
+function distanceMeters(first, second) {
+  const radians = (value) => value * Math.PI / 180;
+  const latitudeDelta = radians(second.latitude - first.latitude);
+  const longitudeDelta = radians(second.longitude - first.longitude);
+  const value = Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(radians(first.latitude)) * Math.cos(radians(second.latitude)) *
+    Math.sin(longitudeDelta / 2) ** 2;
+  return 2 * 6371000 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
 
 function Action({ label, onPress, disabled, primary, destructive }) {
   return (
@@ -51,6 +92,45 @@ function AssessmentReport({ assessment, saved = false }) {
       </View>
       <Text accessibilityRole="header" style={styles.heading}>Summary</Text>
       <Text style={styles.body}>{summary || "No summary recorded."}</Text>
+      {analysed && <Text style={styles.scoreLabel}>Maintenance priority: {assessment.ai.priority || "unknown"}</Text>}
+      {!!assessment.ai?.categories?.length && (
+        <>
+          <Text accessibilityRole="header" style={styles.heading}>Category findings</Text>
+          {assessment.ai.categories.map((category) => (
+            <View key={category.id} style={styles.finding}>
+              <View style={styles.recordDetails}>
+                <Text style={styles.scoreLabel}>{category.label}</Text>
+                <Text style={styles.findingSeverity}>{category.observable ? category.severity : "not visible"}</Text>
+              </View>
+              <Text style={styles.body}>{category.condition}</Text>
+              {category.defects?.map((defect, index) => <Text key={`${defect.description}-${index}`} style={styles.defect}>• {defect.description}</Text>)}
+              {!!category.maintenance && <Text style={styles.success}>Action: {category.maintenance}</Text>}
+            </View>
+          ))}
+        </>
+      )}
+      {!!assessment.photos?.length && (
+        <>
+          <Text accessibilityRole="header" style={styles.heading}>Geotagged evidence</Text>
+          <View style={styles.row}>
+            {assessment.photos.map((photo, index) => {
+              const item = typeof photo === "string" ? { filename: photo } : photo;
+              return (
+                <View key={item.key || item.url || `${item.filename}-${index}`} style={styles.evidence}>
+                  {!!item.url && <Image source={{ uri: item.url }} style={styles.evidencePhoto} accessibilityLabel={`Assessment evidence ${index + 1}`} />}
+                  <Text style={styles.photoMeta}>{item.source === "gallery" ? "Gallery" : "Camera"}</Text>
+                  {item.latitude != null && item.longitude != null && (
+                    <Text style={styles.photoMeta}>{Number(item.latitude).toFixed(5)}, {Number(item.longitude).toFixed(5)}</Text>
+                  )}
+                  {item.distanceFromFacilityMeters != null && (
+                    <Text style={styles.photoMeta}>{item.distanceFromFacilityMeters} m from facility</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -142,8 +222,13 @@ export function FacilityAuditScreen({ onBack }) {
           setError("Allow camera access to take an assessment photo.");
           return;
         }
+        const locationPermission = await Location.requestForegroundPermissionsAsync();
+        if (!locationPermission.granted) {
+          setError("Allow precise location access to geotag an assessment photo.");
+          return;
+        }
       }
-      const options = { mediaTypes: ["images"], quality: 0.7 };
+      const options = { mediaTypes: ["images"], quality: 0.7, exif: true };
       const result = camera
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync({
@@ -152,16 +237,50 @@ export function FacilityAuditScreen({ onBack }) {
             selectionLimit: remaining,
           });
       if (result.canceled || !result.assets?.length) return;
-      const selected = result.assets.filter((photo) => {
+      const supported = result.assets.filter((photo) => {
         const mime = photo.file?.type || photo.mimeType;
         return !mime || ["image/jpeg", "image/png", "image/webp"].includes(mime);
       });
-      if (selected.length < result.assets.length) {
+      if (supported.length < result.assets.length) {
         setError("Only JPEG, PNG and WebP photos were added.");
-      } else if (selected.length > remaining) {
+      } else if (supported.length > remaining) {
         setError(`Only ${MAX_PHOTOS} photos can be added per assessment.`);
       }
-      setPhotos((current) => [...current, ...selected].slice(0, MAX_PHOTOS));
+      let selected = [];
+      if (camera && supported.length) {
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        selected = supported.map((photo) => ({
+          ...photo,
+          geo: {
+            source: "camera",
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+            accuracy: current.coords.accuracy,
+            capturedAt: new Date(current.timestamp || Date.now()).toISOString(),
+          },
+        }));
+      } else {
+        selected = supported.map((photo) => {
+          const coordinates = galleryCoordinates(photo);
+          return coordinates ? {
+            ...photo,
+            geo: { source: "gallery", ...coordinates, accuracy: null, capturedAt: new Date().toISOString() },
+          } : null;
+        }).filter(Boolean);
+        if (selected.length < supported.length) {
+          setError("Some gallery photos were not added because they do not contain GPS location metadata.");
+        }
+      }
+      const facilityPoint = { latitude: Number(facility?.latitude), longitude: Number(facility?.longitude) };
+      if (!Number.isFinite(facilityPoint.latitude) || !Number.isFinite(facilityPoint.longitude)) {
+        setError("This facility does not have a valid map location. Update it before submitting an assessment.");
+        return;
+      }
+      const nearby = selected.filter((photo) => distanceMeters(facilityPoint, photo.geo) <= ASSESSMENT_RADIUS_METERS + Math.min(photo.geo.accuracy || 0, 250));
+      if (nearby.length < selected.length) {
+        setError(`Photos outside ${ASSESSMENT_RADIUS_METERS} metres of the facility were not added.`);
+      }
+      setPhotos((current) => [...current, ...nearby].slice(0, MAX_PHOTOS));
     } catch (failure) {
       setError(failure.message);
     }
@@ -371,6 +490,8 @@ export function FacilityAuditScreen({ onBack }) {
                   {photos.map((photo, index) => (
                     <View key={`${photo.uri}-${index}`}>
                       <Image source={{ uri: photo.uri }} style={styles.photo} accessibilityLabel={`Sport photo ${index + 1}`} />
+                      <Text style={styles.photoMeta}>{photo.geo.source === "gallery" ? "Gallery GPS" : "Live GPS"}</Text>
+                      <Text style={styles.photoMeta}>{photo.geo.latitude.toFixed(5)}, {photo.geo.longitude.toFixed(5)}</Text>
                       <Action label={`Remove ${index + 1}`} disabled={!!busy} onPress={() => setPhotos(photos.filter((_, i) => i !== index))} />
                     </View>
                   ))}
@@ -406,6 +527,12 @@ const styles = StyleSheet.create({
   error: { color: colors.status.danger, fontWeight: "700" },
   success: { color: colors.brand.dark, fontWeight: "700" },
   photo: { width: 94, height: 72, borderRadius: 8, marginBottom: 4 },
+  photoMeta: { maxWidth: 150, fontSize: 10, lineHeight: 14, color: colors.slate[600] },
+  evidence: { width: 150, gap: 3 },
+  evidencePhoto: { width: 150, height: 105, borderRadius: 10, backgroundColor: colors.slate[100] },
+  finding: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.slate[200], gap: 5 },
+  findingSeverity: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", color: colors.slate[600] },
+  defect: { fontSize: 12, lineHeight: 18, color: colors.status.danger },
 });
 
 export default FacilityAuditScreen;

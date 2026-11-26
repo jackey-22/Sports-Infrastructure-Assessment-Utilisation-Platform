@@ -30,6 +30,7 @@ import DsoDashboardScreen from "../screens/Authority/DsoDashboardScreen";
 // State Admin Screens
 import AdminCommandDeskScreen from "../screens/Admin/AdminCommandDeskScreen";
 import GrantAllocationScreen from "../screens/Admin/GrantAllocationScreen";
+import AssessmentRecordsScreen from "../screens/Admin/AssessmentRecordsScreen";
 
 // Public Exploration (available across roles)
 import GujaratExploreMapScreen from "../screens/Public/GujaratExploreMapScreen";
@@ -52,6 +53,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return [
           { key: "home", label: "State Desk", icon: "shield-checkmark" },
           { key: "allocate", label: "Grants", icon: "cash-outline" },
+          { key: "assessments", label: "Assessments", icon: "camera-outline" },
           { key: "explore", label: "Districts", icon: "map-outline" },
           { key: "complaints", label: "Grievances", icon: "warning-outline" },
         ];
@@ -142,6 +144,9 @@ export const RoleNavigator = ({ user, onLogout }) => {
     if (role === 5) {
       if (activeTab === "allocate") {
         return <GrantAllocationScreen onBack={() => setActiveTab("home")} onAllocated={() => setActiveTab("home")} />;
+      }
+      if (activeTab === "assessments") {
+        return <AssessmentRecordsScreen onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "explore") {
         return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;

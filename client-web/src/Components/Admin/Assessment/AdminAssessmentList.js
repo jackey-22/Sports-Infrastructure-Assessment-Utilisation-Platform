@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { api } from "../../../API/client";
 import { useAdminQuery } from "../../../hooks/admin/useAdminQuery";
 import VisionFindings from "../../Assessment/VisionFindings";
+import AssessmentEvidence from "../../Assessment/AssessmentEvidence";
 import {
   Card,
   EmptyState,
@@ -77,7 +78,7 @@ export function AssessmentRecords({ endpoint }) {
                           {row.inspector && <p>Inspector · {row.inspector}</p>}
                           {row.score != null && <p>Recorded score · {row.score} / 100 · {row.grade}</p>}
                           {row.summary && <p>{row.summary}</p>}
-                          {!!row.photos?.length && <p>Photo filenames · {row.photos.join(", ")}</p>}
+                          <AssessmentEvidence photos={row.photos} />
                           {ai ? <VisionFindings analysis={ai} /> : <p>No photo analysis recorded.</p>}
                         </td>
                       </tr>
