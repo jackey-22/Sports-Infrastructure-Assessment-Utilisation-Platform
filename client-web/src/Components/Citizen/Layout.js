@@ -16,7 +16,7 @@ const SECTIONS = [
       { to: "/citizen/bookings", label: "My Bookings", icon: CalendarCheck },
       { to: "/citizen/portfolio", label: "Athlete Portfolio", icon: Award },
       { to: "/citizen/performance", label: "Performance & Awards", icon: Trophy },
-      { to: "/citizen/leaderboard", label: "Leaderboard", icon: Medal },
+      { to: "/citizen/leaderboard", label: "Top Athletes", icon: Medal },
       { to: "/citizen/complaints", label: "Grievances", icon: FileText },
       { to: "/citizen/profile", label: "My Profile", icon: Users },
     ],

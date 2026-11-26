@@ -235,7 +235,7 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
           <EmptyState
             icon={UserRound}
             title="Athlete portfolio not activated yet"
-            description="Your citizen account is active. Book a coaching session to receive coach evaluations, parameter scores, and leaderboard rankings."
+            description="Your citizen account is active. Book a coaching session to receive coach evaluations, parameter scores, and talent rankings."
             action={
               isSelf ? (
                 <Button as={Link} to="/citizen/explore">

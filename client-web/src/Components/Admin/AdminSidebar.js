@@ -33,7 +33,7 @@ const PLATFORM = [
     icon: Gauge,
     match: (path) => path === "/admin/insights",
   },
-  { to: "/admin/insights/leaderboard", label: "Sports leaderboard", icon: Medal },
+  { to: "/admin/insights/leaderboard", label: "Top athletes", icon: Medal },
   { to: "/admin/insights/achievements", label: "Athlete achievements", icon: Trophy },
   { to: "/admin/insights/grievances", label: "Grievances", icon: MessageSquareWarning },
   { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },

@@ -28,18 +28,6 @@ const ACCOUNTS = [
     IsActive: 1,
   },
   {
-    _id: "demo-authority-0001",
-    Name: "Shri Bhavik Solanki (DSO Ahmedabad)",
-    Email: "dso.ahmedabad@sag.gujarat.gov.in",
-    Password: "dso",
-    ContactNum: "+91 79 2216 4800",
-    DOB: "1982-08-20",
-    Role: 4,
-    DistrictId: "Ahmedabad",
-    SportComplexId: "",
-    IsActive: 1,
-  },
-  {
     _id: "demo-manager-0001",
     Name: "Rajesh Vaghela (Complex Manager)",
     Email: "manager.khokhra@sag.gujarat.gov.in",
@@ -59,18 +47,6 @@ const ACCOUNTS = [
     ContactNum: "+91 79 2216 4810",
     DOB: "1990-04-18",
     Role: 2,
-    DistrictId: "Ahmedabad",
-    SportComplexId: COACH_FACILITY_ID,
-    IsActive: 1,
-  },
-  {
-    _id: "demo-athlete-0001",
-    Name: "Aarav Trivedi (Badminton Athlete)",
-    Email: "athlete.aarav@gmail.com",
-    Password: "athlete",
-    ContactNum: "+91 98980 12345",
-    DOB: "2002-09-14",
-    Role: 0,
     DistrictId: "Ahmedabad",
     SportComplexId: COACH_FACILITY_ID,
     IsActive: 1,
@@ -111,8 +87,6 @@ export function homeForRole(role) {
       return "/gate";
     case 5:
       return "/admin";
-    case 4:
-      return "/authority";
     case 3:
       return "/manager";
     case 2:

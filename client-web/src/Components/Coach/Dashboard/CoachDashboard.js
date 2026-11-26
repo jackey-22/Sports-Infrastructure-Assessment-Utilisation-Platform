@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarCheck, Clock3, IndianRupee, RefreshCw, Star, Trophy, Users } from "lucide-react";
+import { CalendarCheck, ClipboardCheck, Clock3, RefreshCw, Users } from "lucide-react";
 import { api } from "../../../API/client";
-import { BarChart } from "../../Admin/Common/AdminCharts";
+import { BarChart, DonutChart } from "../../Admin/Common/AdminCharts";
 import { Card, EmptyState, ErrorState, KpiCard, PageHeader, PageShell, TableSkeleton } from "../Common/CoachUI";
 
 const number = new Intl.NumberFormat("en-IN");
-const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const date = (value) =>
   value
     ? new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
@@ -15,20 +14,6 @@ const date = (value) =>
         year: "numeric",
       })
     : "—";
-
-function Status({ children }) {
-  const success = children === "Paid" || children === "Confirmed";
-  const failed = children === "Failed" || children === "Cancelled" || children === "Refunded";
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-        success ? "bg-emerald-50 text-emerald-700" : failed ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
-      }`}
-    >
-      {children || "Pending"}
-    </span>
-  );
-}
 
 function Section({ title, description, action, children, className = "" }) {
   return (
@@ -71,13 +56,13 @@ export default function CoachDashboard() {
     return (
       <PageShell>
         <div className="mb-5 h-24 animate-pulse rounded-2xl bg-slate-200" />
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-2xl bg-white" />
           ))}
         </div>
         <Card>
-          <TableSkeleton rows={6} columns={5} />
+          <TableSkeleton rows={6} columns={4} />
         </Card>
       </PageShell>
     );
@@ -95,7 +80,13 @@ export default function CoachDashboard() {
 
   const { coach, facility, kpis } = data;
   const trendCategories = (data.trend || []).map((row) => row.label);
-  const trendValues = (data.trend || []).map((row) => row.bookings || 0);
+  const trendBookings = (data.trend || []).map((row) => row.bookings || 0);
+  const trendEvaluations = (data.trend || []).map((row) => row.evaluations || 0);
+  const breakdown = data.evaluationBreakdown || { evaluated: 0, readyToEvaluate: 0, upcoming: 0 };
+  const breakdownSeries = [breakdown.evaluated || 0, breakdown.readyToEvaluate || 0, breakdown.upcoming || 0];
+  const hasBreakdownData = breakdownSeries.some((v) => v > 0);
+  const sportStats = Array.isArray(data.sportStats) ? data.sportStats : [];
+  const maxSportBookings = Math.max(1, ...sportStats.map((s) => s.bookings || 0));
 
   return (
     <PageShell>
@@ -116,37 +107,131 @@ export default function CoachDashboard() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="My Bookings" value={number.format(kpis.bookings)} caption={`${kpis.confirmedBookings} confirmed`} icon={CalendarCheck} tone="green" />
-        <KpiCard label="Upcoming" value={number.format(kpis.upcomingBookings)} caption={`${kpis.todayBookings} scheduled today`} icon={Clock3} tone="amber" />
-        <KpiCard label="Booked Athletes" value={number.format(kpis.uniqueAthletes)} caption="Unique confirmed bookers" icon={Users} tone="violet" to="/coach/athletes" />
-        <KpiCard label="Collected" value={money.format(kpis.revenue)} caption={`${kpis.paidBookings} paid · ${kpis.pendingPayments} pending`} icon={IndianRupee} tone="green" to="/coach/bookings" />
-        <KpiCard label="Assigned Slots" value={number.format(kpis.coachingSlots)} caption="Active facility coaching slots" icon={Clock3} tone="blue" />
-        <KpiCard label="Evaluations & Ratings" value={number.format(kpis.ratingsGiven)} caption={kpis.ratingsGiven ? `${kpis.averageRatingGiven} avg given` : "No ratings yet"} icon={Star} tone="amber" to="/coach/athletes" />
-        <KpiCard label="Citizen Feedback" value={number.format(kpis.ratingsReceived)} caption={kpis.ratingsReceived ? `${kpis.averageRatingReceived} / 5 avg` : "No coach ratings yet"} icon={Star} tone="amber" />
-        <KpiCard label="Coach Status" value={coach.status} caption={coach.qualification || "Qualification not added"} icon={Trophy} tone="slate" to="/coach/achievements" />
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <KpiCard
+          label="Coaching Bookings"
+          value={number.format(kpis.bookings || 0)}
+          caption="Confirmed sessions under you"
+          icon={CalendarCheck}
+          tone="green"
+          to="/coach/bookings"
+        />
+        <KpiCard
+          label="Upcoming Sessions"
+          value={number.format(kpis.upcomingBookings || 0)}
+          caption={`${kpis.todayBookings || 0} scheduled today`}
+          icon={Clock3}
+          tone="amber"
+          to="/coach/bookings"
+        />
+        <KpiCard
+          label="Coaching Athletes"
+          value={number.format(kpis.uniqueAthletes || 0)}
+          caption="Confirmed athletes under you"
+          icon={Users}
+          tone="violet"
+          to="/coach/athletes"
+        />
+        <KpiCard
+          label="Evaluations"
+          value={number.format(kpis.evaluationsCount || 0)}
+          caption="Performance evaluations submitted"
+          icon={ClipboardCheck}
+          tone="amber"
+          to="/coach/athletes"
+        />
+        <KpiCard
+          label="Assigned Slots"
+          value={number.format(kpis.coachingSlots || 0)}
+          caption="Active facility coaching slots"
+          icon={Clock3}
+          tone="blue"
+          to="/coach/bookings"
+        />
       </div>
 
       <div className="mb-6 grid gap-5 xl:grid-cols-3">
         <Section
-          title="Coaching Booking Activity"
-          description="Confirmed bookings assigned to your coaching slots over the last 6 months."
+          title="Coaching Bookings & Evaluations"
+          description="Monthly confirmed bookings under your slots vs submitted athlete evaluations."
           className="xl:col-span-2"
         >
           <div className="px-2 pb-2 pt-3">
             <BarChart
-              series={[{ name: "Bookings", data: trendValues }]}
+              series={[
+                { name: "Confirmed Bookings", data: trendBookings },
+                { name: "Evaluations", data: trendEvaluations },
+              ]}
               categories={trendCategories}
-              colors={["#007D40"]}
-              height={260}
+              colors={["#007D40", "#F59E0B"]}
+              height={265}
               formatValue={(val) => `${Math.round(val)}`}
             />
           </div>
         </Section>
 
         <Section
+          title="Session Evaluation Status"
+          description="Share of confirmed sessions evaluated, ready for scoring, or upcoming."
+        >
+          <div className="px-3 pb-3 pt-2">
+            {hasBreakdownData ? (
+              <DonutChart
+                series={breakdownSeries}
+                labels={["Evaluated", "Ready to Evaluate", "Upcoming"]}
+                colors={["#007D40", "#F59E0B", "#0EA5E9"]}
+                height={265}
+                formatValue={(val) => `${Math.round(val)}`}
+              />
+            ) : (
+              <EmptyState
+                title="No confirmed sessions yet"
+                description="Session evaluation breakdown appears once coaching bookings are confirmed."
+              />
+            )}
+          </div>
+        </Section>
+      </div>
+
+      <div className="mb-6 grid gap-5 xl:grid-cols-3">
+        <Section
+          title="Bookings by Sport"
+          description="Confirmed coaching bookings distributed across your assigned sports."
+        >
+          {sportStats.length ? (
+            <div className="space-y-4 p-5">
+              {sportStats.map((item) => {
+                const width = Math.round(((item.bookings || 0) / maxSportBookings) * 100);
+                return (
+                  <div key={item.sport}>
+                    <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span>{item.sport}</span>
+                      <span className="tabular-nums text-emerald-700">
+                        {item.bookings} total · {item.upcoming} upcoming
+                      </span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-600 transition-all"
+                        style={{ width: `${Math.max(8, width)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              title="No sport activity yet"
+              description="Confirmed coaching bookings by sport will show up here."
+            />
+          )}
+        </Section>
+
+        <Section
           title="Assigned Coaching Slots"
           description="Slots mapped to you by the Facility Manager."
+          className="xl:col-span-2"
           action={
             <Link to="/coach/bookings" className="text-xs font-bold text-brand-primary hover:underline">
               View bookings
@@ -154,9 +239,9 @@ export default function CoachDashboard() {
           }
         >
           {data.assignedSlots.length ? (
-            <div className="divide-y divide-slate-100">
+            <div className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
               {data.assignedSlots.map((slot) => (
-                <div key={slot.id} className="px-5 py-4">
+                <div key={slot.id} className="p-5">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-bold text-slate-900">{slot.sport}</p>
                     <span className="rounded-lg bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-brand-primary tabular-nums">
@@ -183,30 +268,28 @@ export default function CoachDashboard() {
 
       <Section
         title="Recent Coaching Bookings"
-        description="Latest athletes and citizens who booked a coaching slot under you."
+        description="Confirmed athletes and sessions scheduled under your coaching slots."
         action={
           <div className="flex items-center gap-4">
             <Link to="/coach/athletes" className="text-xs font-bold text-amber-700 hover:underline">
               Athletes &amp; evaluations
             </Link>
             <Link to="/coach/bookings" className="text-xs font-bold text-brand-primary hover:underline">
-              Full report
+              Full schedule
             </Link>
           </div>
         }
       >
         {data.recentBookings.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Reference</th>
                   <th className="px-5 py-3">Athlete</th>
-                  <th className="px-5 py-3">Sport / Slot</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3 text-right">Amount</th>
-                  <th className="px-5 py-3">Booking</th>
-                  <th className="px-5 py-3">Payment</th>
+                  <th className="px-5 py-3">Sport &amp; Slot</th>
+                  <th className="px-5 py-3">Session Date</th>
+                  <th className="px-5 py-3 text-right">Members</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -226,14 +309,8 @@ export default function CoachDashboard() {
                       </p>
                     </td>
                     <td className="px-5 py-3 text-slate-600 tabular-nums">{date(row.date)}</td>
-                    <td className="px-5 py-3 text-right font-bold text-slate-900 tabular-nums">
-                      {money.format(row.amount)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Status>{row.bookingStatus}</Status>
-                    </td>
-                    <td className="px-5 py-3">
-                      <Status>{row.paymentStatus}</Status>
+                    <td className="px-5 py-3 text-right font-bold text-slate-700 tabular-nums">
+                      {row.members || 1}
                     </td>
                   </tr>
                 ))}
@@ -242,8 +319,8 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <EmptyState
-            title="No bookings yet"
-            description="Bookings assigned to your coaching slots will appear here."
+            title="No confirmed coaching bookings yet"
+            description="Confirmed coaching bookings assigned to your slots will appear here."
           />
         )}
       </Section>

@@ -1,4 +1,5 @@
 const BookingPayment = require("../Model/BookingPaymentModel");
+const Guest = require("../Model/GuestModel");
 const Instructor = require("../Model/instructorModel");
 const { ROLE } = require("../Utils/roles");
 
@@ -7,16 +8,83 @@ const fail = (res, status, message) =>
 
 async function report(req, res) {
   try {
+    if (req.user.Role === ROLE.COACH) {
+      const coach = await Instructor.findOne({ userId: req.user._id }).lean();
+      if (!coach) {
+        return res.json({ data: emptyReport("Coach"), rcode: 200 });
+      }
+      const coachSportIds = (coach.sports || []).map((s) => s.sport).filter(Boolean);
+      if (coach.SportComplexId && coachSportIds.length) {
+        await Guest.updateMany(
+          {
+            coach: null,
+            SportComplexId: coach.SportComplexId,
+            bookingStatus: "Confirmed",
+            paymentStatus: "Paid",
+            sport: { $in: coachSportIds },
+          },
+          { $set: { coach: coach._id } }
+        );
+      }
+
+      const guestQuery = {
+        coach: coach._id,
+        bookingStatus: "Confirmed",
+        paymentStatus: "Paid",
+      };
+      if (req.query.from || req.query.to) {
+        guestQuery.Startdate = {};
+        if (req.query.from) guestQuery.Startdate.$gte = String(req.query.from);
+        if (req.query.to) guestQuery.Startdate.$lte = String(req.query.to);
+      }
+
+      const bookings = await Guest.find(guestQuery)
+        .populate("SportComplexId", "name district")
+        .populate("sport", "SportName")
+        .sort({ Startdate: -1, createdAt: -1 })
+        .lean();
+
+      const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const uniqueAthletes = new Set(
+        bookings.map((b) => String(b.citizenUser || b.Email || b.ContactNum || "")).filter(Boolean)
+      );
+      const uniqueSports = new Set(
+        bookings.map((b) => String(b.sport?._id || b.sport || "")).filter(Boolean)
+      );
+
+      return res.json({
+        data: {
+          scope: "Coach",
+          summary: {
+            bookings: bookings.length,
+            upcomingBookings: bookings.filter((b) => String(b.Startdate) >= today).length,
+            todayBookings: bookings.filter((b) => String(b.Startdate) === today).length,
+            athletes: uniqueAthletes.size,
+            sports: uniqueSports.size,
+          },
+          rows: bookings.map((row) => ({
+            id: row._id,
+            bookingId: row._id,
+            bookingReference: row.bookingReference,
+            facility: row.SportComplexId?.name || "Facility",
+            sport: row.sport?.SportName || "Sport",
+            athlete: row.Name || "Athlete",
+            email: row.Email || "",
+            phone: row.ContactNum || "",
+            date: row.Startdate || "",
+            time: row.timeslot || {},
+            members: row.memberCount || 1,
+            createdAt: row.createdAt,
+          })),
+        },
+        rcode: 200,
+      });
+    }
+
     const query = {};
     if (req.user.Role === ROLE.MANAGER) {
       if (!req.user.SportComplexId) return fail(res, 403, "No facility is assigned to this manager");
       query.facility = req.user.SportComplexId;
-    } else if (req.user.Role === ROLE.COACH) {
-      const coach = await Instructor.findOne({ userId: req.user._id }).select("_id");
-      if (!coach) {
-        return res.json({ data: emptyReport("Coach bookings"), rcode: 200 });
-      }
-      query.coach = coach._id;
     } else if (req.user.Role === ROLE.ADMIN) {
       if (req.query.facilityId) query.facility = req.query.facilityId;
     } else {

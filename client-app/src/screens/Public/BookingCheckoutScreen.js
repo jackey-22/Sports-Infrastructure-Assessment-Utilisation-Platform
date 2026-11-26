@@ -195,12 +195,12 @@ export default function BookingCheckoutScreen({
             }]}><Text style={ui.sectionTitle}>Payment pending</Text><Text style={ui.muted}>{pending.reference} | {pending.sport} | {pending.slot.label}</Text><Text style={ui.muted}>Your court or capacity is held for 15 minutes. Complete payment to receive your QR pass.</Text></View> : <>
           <View style={[ui.card, {
                 gap: 14
-              }]}><Text style={ui.sectionTitle}>1. Sport & booker details</Text><View style={ui.wrap}>{configs.map(c => <Chip key={c.id} active={c.id === configId} onPress={() => {
+              }]}><Text style={ui.sectionTitle}>1. Sport &amp; contact details</Text><View style={ui.wrap}>{configs.map(c => <Chip key={c.id} active={c.id === configId} onPress={() => {
                     setError("");
                     setConfigId(c.id);
                   }}>{c.sport?.SportName || "Sport"}</Chip>)}</View>{citizen && <Text style={[ui.muted, {
                   color: GREEN
-                }]}>Booking as {citizen.Name}. Contact details come from your account.</Text>}{field("Booker name", name, setName, "default", !!citizen?.Name)}{field("Mobile number", phone, setPhone, "phone-pad", !!citizen?.ContactNum)}{field("Email (optional)", email, setEmail, "email-address", !!citizen?.Email)}</View>
+                }]}>Booking as {citizen.Name}. Contact details come from your account.</Text>}{field("Athlete name", name, setName, "default", !!citizen?.Name)}{field("Mobile number", phone, setPhone, "phone-pad", !!citizen?.ContactNum)}{field("Email (optional)", email, setEmail, "email-address", !!citizen?.Email)}</View>
           <Text style={ui.sectionTitle}>2. Choose a date</Text>{availabilityLoading ? <ActivityIndicator color={GREEN} /> : availability ? <BookingCalendar availability={availability} selectedDate={date} onSelect={chooseDate} /> : <Button secondary onPress={() => setAvailabilityRevision(v => v + 1)}>Reload availability</Button>}
           <View style={[ui.card, {
                 gap: 12

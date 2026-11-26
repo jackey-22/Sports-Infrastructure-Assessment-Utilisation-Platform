@@ -15,7 +15,7 @@ const { signAccessToken } = require("../Utils/tokens");
 const { ROLE } = require("../Utils/roles");
 const { sanitizeFilters } = require("../Utils/scope");
 
-const SIGNUP_ROLES = Object.values(ROLE);
+const SIGNUP_ROLES = Object.values(ROLE).filter((role) => role !== ROLE.AUTHORITY);
 const MIN_PASSWORD_LENGTH = 8;
 
 function sanitizeUser(user) {
@@ -26,10 +26,10 @@ function sanitizeUser(user) {
 }
 
 function isSignupAllowed(actor, requestedRole) {
+  if (requestedRole === ROLE.AUTHORITY) return false;
   if (requestedRole === ROLE.ATHLETE || requestedRole === ROLE.INSTITUTE) return true;
   if (!actor) return false;
   if (actor.Role === ROLE.ADMIN) return true;
-  if (actor.Role === ROLE.AUTHORITY) return requestedRole === ROLE.MANAGER;
   if (actor.Role === ROLE.MANAGER) {
     return requestedRole === ROLE.SUPERVISOR || requestedRole === ROLE.COACH;
   }
@@ -250,6 +250,11 @@ module.exports.login = async function (req, res) {
       return res
         .status(401)
         .json({ data: "", msg: "Invalid credentials", rcode: -9 });
+    }
+    if (Number(user.Role) === ROLE.AUTHORITY) {
+      return res
+        .status(403)
+        .json({ data: "", msg: "This role is disabled", rcode: -10 });
     }
 
     if (notificationtoken) {

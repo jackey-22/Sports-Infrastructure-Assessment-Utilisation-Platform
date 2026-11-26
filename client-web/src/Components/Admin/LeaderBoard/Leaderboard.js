@@ -36,7 +36,7 @@ function rankBadge(rank) {
 
 export default function Leaderboard() {
   const user = useSelector((state) => state.user?.user) || {};
-  const canToggleScope = [2, 3, 4].includes(Number(user.Role));
+  const canToggleScope = [2, 3].includes(Number(user.Role));
 
   const [sports, setSports] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -116,16 +116,16 @@ export default function Leaderboard() {
     }));
     const worksheet = XLSX.utils.json_to_sheet(sheetRows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Standings");
-    XLSX.writeFile(workbook, "khelgujarat-standings.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Top Athletes");
+    XLSX.writeFile(workbook, "khelgujarat-top-athletes.xlsx");
   };
 
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Sports Authority of Gujarat · Leaderboard"
-        title="Sports Leaderboard"
-        description="Rankings calculated from coach evaluation scores and verified athlete achievements."
+        eyebrow="Sports Authority of Gujarat · Talent Selection"
+        title="Top Athletes &amp; Talent Selection"
+        description="Identify top-performing athletes by sport and district for coaching support, scholarships, and higher-level team selection — ranked by coach evaluations and verified achievements."
         actions={
           <>
             <Button variant="secondary" size="sm" onClick={loadLeaderboard} disabled={loading}>
@@ -142,13 +142,13 @@ export default function Leaderboard() {
 
       {error ? (
         <div className="mb-5">
-          <ErrorState message={error.message || "Could not load leaderboard."} onRetry={loadLeaderboard} />
+          <ErrorState message={error.message || "Could not load top athletes list."} onRetry={loadLeaderboard} />
         </div>
       ) : null}
 
       <Card className="mb-5 overflow-hidden">
         <div className="grid grid-cols-2 divide-y divide-slate-200/80 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-          <StatCell label="Ranked Athletes" value={summary?.totalAthletes ?? filteredRows.length} />
+          <StatCell label="Shortlisted Athletes" value={summary?.totalAthletes ?? filteredRows.length} />
           <StatCell label="Evaluated Athletes" value={summary?.evaluatedAthletes ?? 0} />
           <StatCell label="Average Points" value={`${summary?.avgPoints ?? 0} pts`} />
           <StatCell label="Verified Awards" value={summary?.totalVerifiedAwards ?? 0} />
@@ -189,7 +189,7 @@ export default function Leaderboard() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                aria-label="Search standings"
+                aria-label="Search top athletes"
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -217,7 +217,7 @@ export default function Leaderboard() {
                   scope === "my" ? "bg-brand-primary text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                {Number(user.Role) === 4 ? "My District" : "My Complex"}
+                My Complex
               </button>
             </div>
           ) : null}
@@ -341,15 +341,15 @@ export default function Leaderboard() {
               </table>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-[11px] text-slate-500">
-              <span>Showing {filteredRows.length} ranked athletes with evaluations or verified awards.</span>
+              <span>Showing {filteredRows.length} shortlisted athletes with evaluations or verified awards.</span>
               <span>Points = Average Score (0–100) + Verified Achievement Points.</span>
             </div>
           </>
         ) : (
           <EmptyState
             icon={Trophy}
-            title="No ranked athletes for this selection"
-            description="Athletes appear on the official standings once a coach submits a session evaluation or an achievement is verified."
+            title="No top athletes match this filter"
+            description="Athletes appear here for selection and support once a coach submits a session evaluation or an achievement is verified."
           />
         )}
       </Card>

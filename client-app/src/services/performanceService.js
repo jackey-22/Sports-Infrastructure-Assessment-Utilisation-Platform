@@ -5,6 +5,18 @@ export const performanceService = {
     const result = await api.get("/api/coach/rateable-athletes");
     return result.data || { athletes: [], summary: {} };
   },
+  async coachOverview() {
+    const [dashboardRes, reportRes, rosterRes] = await Promise.all([
+      api.get("/api/dashboard/coach"),
+      api.get("/api/booking-payments/report"),
+      api.get("/api/coach/rateable-athletes"),
+    ]);
+    return {
+      dashboard: dashboardRes.data || null,
+      report: reportRes.data || { summary: {}, rows: [] },
+      roster: rosterRes.data || { athletes: [], summary: {} },
+    };
+  },
   async template(sportId) {
     const result = await api.get(`/api/evaluation-templates/${encodeURIComponent(sportId)}`);
     return result.data;

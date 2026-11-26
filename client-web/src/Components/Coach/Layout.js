@@ -14,7 +14,7 @@ const SECTIONS = [
       { to: "/coach/dashboard", label: "Dashboard", icon: Activity, end: true },
       { to: "/coach/athletes", label: "Athletes & Evaluations", icon: Users },
       { to: "/coach/achievements", label: "Achievements", icon: Trophy },
-      { to: "/coach/leaderboard", label: "Leaderboard", icon: Medal },
+      { to: "/coach/leaderboard", label: "Top Athletes", icon: Medal },
       { to: "/coach/bookings", label: "Coaching Bookings", icon: CalendarCheck },
       { to: "/coach/grievances", label: "Grievances", icon: Receipt },
     ],

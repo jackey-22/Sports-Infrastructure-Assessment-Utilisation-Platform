@@ -24,9 +24,6 @@ import ManagerDashboardScreen from "../screens/Manager/ManagerDashboardScreen";
 import FacilityAuditScreen from "../screens/Manager/FacilityAuditScreen";
 import GrantProofUploadScreen from "../screens/Manager/GrantProofUploadScreen";
 
-// Authority / DSO Screens
-import DsoDashboardScreen from "../screens/Authority/DsoDashboardScreen";
-
 // State Admin Screens
 import AdminCommandDeskScreen from "../screens/Admin/AdminCommandDeskScreen";
 import GrantAllocationScreen from "../screens/Admin/GrantAllocationScreen";
@@ -58,12 +55,6 @@ export const RoleNavigator = ({ user, onLogout }) => {
           { key: "allocate", label: "Grants", icon: "cash-outline" },
           { key: "assessments", label: "Assessments", icon: "camera-outline" },
           { key: "explore", label: "Districts", icon: "map-outline" },
-          { key: "complaints", label: "Grievances", icon: "warning-outline" },
-        ];
-      case 4: // DSO Authority
-        return [
-          { key: "home", label: "DSO Desk", icon: "business" },
-          { key: "explore", label: "Complexes", icon: "map-outline" },
           { key: "complaints", label: "Grievances", icon: "warning-outline" },
         ];
       case 3: // Complex Manager
@@ -177,17 +168,6 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
       }
       return <AdminCommandDeskScreen user={user} onLogout={onLogout} onNavigateTab={setActiveTab} />;
-    }
-
-    // Role 4: DSO / Authority
-    if (role === 4) {
-      if (activeTab === "explore") {
-        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
-      }
-      if (activeTab === "complaints") {
-        return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
-      }
-      return <DsoDashboardScreen user={user} onLogout={onLogout} onNavigateTab={setActiveTab} />;
     }
 
     // Role 3: Complex Manager

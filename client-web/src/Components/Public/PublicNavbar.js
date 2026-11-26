@@ -46,8 +46,6 @@ export default function PublicNavbar() {
   const roleHome =
     userData?.Role === 5
       ? "/admin"
-      : userData?.Role === 4
-      ? "/authority"
       : userData?.Role === 3
       ? "/manager"
       : userData?.Role === 2

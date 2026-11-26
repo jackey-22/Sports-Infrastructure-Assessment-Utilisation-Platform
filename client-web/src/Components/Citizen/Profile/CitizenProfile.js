@@ -67,7 +67,7 @@ export default function CitizenProfile() {
               <Trophy className="h-4 w-4 text-amber-500" /> Performance &amp; Achievements
             </Button>
             <Button as={Link} to="/citizen/leaderboard" variant="secondary" className="w-full justify-start">
-              <Medal className="h-4 w-4 text-emerald-700" /> Statewide Sports Leaderboard
+              <Medal className="h-4 w-4 text-emerald-700" /> Statewide Top Athletes
             </Button>
             <Button as={Link} to="/citizen/complaints" variant="secondary" className="w-full justify-start">
               <FileText className="h-4 w-4 text-slate-500" /> Raise or Track Grievances

@@ -10,6 +10,7 @@ const Grant = require("../Model/GrantModel");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const Review = require("../Model/ReviewModel");
 const AthleteRating = require("../Model/athleteRatingModel");
+const PerformanceEvaluation = require("../Model/PerformanceEvaluationModel");
 const InstitutionEventBooking = require("../Model/InstitutionEventBookingModel");
 const { ROLE } = require("../Utils/roles");
 const { verifiedGrantTotals } = require("../Utils/grantProgress");
@@ -196,38 +197,80 @@ async function coach(req, res) {
       .lean();
     if (!profile) return fail(res, 404, "Coach profile not found");
 
-    const months = recentMonths();
+    const months = recentMonths().map((m) => ({ ...m, evaluations: 0 }));
     const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
     const today = indiaDate();
-    const [bookings, payments, givenRatings, receivedRatings, configurations] = await Promise.all([
-      Guest.find({ coach: profile._id })
+
+    const coachSportIds = (profile.sports || []).map((s) => s.sport?._id || s.sport).filter(Boolean);
+    if (profile.SportComplexId && coachSportIds.length) {
+      await Guest.updateMany(
+        {
+          coach: null,
+          SportComplexId: profile.SportComplexId._id || profile.SportComplexId,
+          bookingStatus: "Confirmed",
+          paymentStatus: "Paid",
+          sport: { $in: coachSportIds },
+        },
+        { $set: { coach: profile._id } }
+      );
+    }
+
+    const [bookings, evaluations, configurations] = await Promise.all([
+      Guest.find({ coach: profile._id, bookingStatus: "Confirmed", paymentStatus: "Paid" })
         .populate("sport", "SportName")
-        .sort({ createdAt: -1 })
+        .sort({ Startdate: -1, createdAt: -1 })
         .lean(),
-      BookingPayment.find({ coach: profile._id }).sort({ createdAt: -1 }).lean(),
-      AthleteRating.find({ instructorId: req.user._id }).sort({ createdAt: -1 }).lean(),
-      Review.find({ targetType: "coach", coach: profile._id }).sort({ createdAt: -1 }).lean(),
+      PerformanceEvaluation.find({ coach: req.user._id })
+        .populate("sport", "SportName")
+        .sort({ evaluationDate: -1, createdAt: -1 })
+        .lean(),
       FacilitySportConfig.find({ facility: profile.SportComplexId?._id || profile.SportComplexId, status: "Active", "slots.coach": profile._id })
         .populate("sport", "SportName")
         .lean(),
     ]);
 
-    const paymentByBooking = new Map(payments.map((payment) => [String(payment.booking), payment]));
     const trend = new Map(months.map((month) => [month.key, month]));
     bookings.filter((booking) => new Date(booking.createdAt) >= trendStart).forEach((booking) => {
       const month = trend.get(monthKey(new Date(booking.createdAt)));
       if (month) month.bookings += 1;
     });
-    payments.filter((payment) => payment.status === "Paid" && new Date(payment.paidAt || payment.createdAt) >= trendStart).forEach((payment) => {
-      const month = trend.get(monthKey(new Date(payment.paidAt || payment.createdAt)));
-      if (month) month.revenue += Number(payment.amount) || 0;
+    evaluations.forEach((evaluation) => {
+      const evDate = new Date(evaluation.evaluationDate || evaluation.createdAt);
+      if (!Number.isNaN(evDate.getTime()) && evDate >= trendStart) {
+        const month = trend.get(monthKey(evDate));
+        if (month) month.evaluations += 1;
+      }
     });
 
-    const paid = payments.filter((payment) => payment.status === "Paid");
-    const confirmed = bookings.filter((booking) => booking.bookingStatus === "Confirmed");
-    const uniqueAthletes = new Set(confirmed.map((booking) => {
+    const evaluatedBookingIds = new Set(
+      evaluations.map((ev) => (ev.booking ? String(ev.booking) : "")).filter(Boolean)
+    );
+
+    const sportMap = new Map();
+    const evaluationBreakdown = { evaluated: 0, readyToEvaluate: 0, upcoming: 0 };
+
+    bookings.forEach((booking) => {
+      const sportName = booking.sport?.SportName || "Sport";
+      const existingSport = sportMap.get(sportName) || { sport: sportName, bookings: 0, upcoming: 0 };
+      existingSport.bookings += 1;
+      if (String(booking.Startdate) >= today) existingSport.upcoming += 1;
+      sportMap.set(sportName, existingSport);
+
+      const isEval = Boolean(booking.isEvaluated || evaluatedBookingIds.has(String(booking._id)));
+      if (isEval) {
+        evaluationBreakdown.evaluated += 1;
+      } else if (String(booking.Startdate) <= today) {
+        evaluationBreakdown.readyToEvaluate += 1;
+      } else {
+        evaluationBreakdown.upcoming += 1;
+      }
+    });
+
+    const sportStats = [...sportMap.values()].sort((a, b) => b.bookings - a.bookings);
+
+    const uniqueAthletes = new Set(bookings.map((booking) => {
       const identity = booking.citizenUser || booking.Email || booking.ContactNum;
-      return identity ? String(identity) : "";
+      return identity ? String(identity).trim().toLowerCase() : "";
     }).filter(Boolean));
     const coachingSlots = configurations.flatMap((config) => (config.slots || [])
       .filter((slot) => String(slot.coach) === String(profile._id))
@@ -236,16 +279,13 @@ async function coach(req, res) {
         startTime: slot.startTime, endTime: slot.endTime, days: slot.days || [],
         audience: slot.audience, capacity: slot.capacity, bookable: slot.bookable,
       })));
-    const average = (rows) => rows.length
-      ? Math.round((rows.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) / rows.length) * 10) / 10
-      : 0;
 
     return res.json({
       data: {
         generatedAt: new Date(),
         coach: {
           id: String(profile._id), name: profile.userId?.Name || req.user.Name || "Coach",
-          email: profile.userId?.Email || req.user.Email || "", qualification: profile.qualification || "",
+          email: profile.userId?.Email || req.user.Email || "",
           status: profile.status, sports: (profile.sports || []).map((item) => item.sport?.SportName).filter(Boolean),
         },
         facility: profile.SportComplexId ? {
@@ -254,32 +294,22 @@ async function coach(req, res) {
         } : null,
         kpis: {
           bookings: bookings.length,
-          confirmedBookings: confirmed.length,
-          todayBookings: bookings.filter((item) => item.Startdate === today && item.bookingStatus !== "Cancelled").length,
-          upcomingBookings: bookings.filter((item) => item.Startdate >= today && item.bookingStatus !== "Cancelled").length,
+          todayBookings: bookings.filter((item) => item.Startdate === today).length,
+          upcomingBookings: bookings.filter((item) => String(item.Startdate) >= today).length,
           uniqueAthletes: uniqueAthletes.size,
-          paidBookings: paid.length,
-          revenue: paid.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
-          pendingPayments: payments.filter((item) => item.status === "Created").length,
-          ratingsGiven: givenRatings.length,
-          averageRatingGiven: average(givenRatings),
-          ratingsReceived: receivedRatings.length,
-          averageRatingReceived: average(receivedRatings),
+          evaluationsCount: evaluations.length,
           coachingSlots: coachingSlots.length,
         },
-        trend: months,
+        trend: months.map(({ key, label, bookings: count, evaluations: evalCount }) => ({ key, label, bookings: count, evaluations: evalCount })),
+        sportStats,
+        evaluationBreakdown,
         assignedSlots: coachingSlots,
-        recentBookings: bookings.slice(0, 8).map((booking) => {
-          const payment = paymentByBooking.get(String(booking._id));
-          return {
-            id: String(booking._id), reference: booking.bookingReference,
-            athlete: booking.Name || "Athlete", email: booking.Email || "", phone: booking.ContactNum || "",
-            sport: booking.sport?.SportName || "Sport", date: booking.Startdate,
-            time: booking.timeslot || {}, members: booking.memberCount || 1,
-            bookingStatus: booking.bookingStatus, paymentStatus: payment?.status || booking.paymentStatus,
-            amount: payment?.amount ?? booking.totalAmount ?? 0,
-          };
-        }),
+        recentBookings: bookings.slice(0, 8).map((booking) => ({
+          id: String(booking._id), reference: booking.bookingReference,
+          athlete: booking.Name || "Athlete", email: booking.Email || "", phone: booking.ContactNum || "",
+          sport: booking.sport?.SportName || "Sport", date: booking.Startdate,
+          time: booking.timeslot || {}, members: booking.memberCount || 1,
+        })),
       },
       rcode: 200,
     });

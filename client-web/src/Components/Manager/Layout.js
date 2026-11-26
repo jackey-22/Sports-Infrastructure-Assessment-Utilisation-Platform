@@ -34,7 +34,7 @@ const SECTIONS = [
     items: [
       { to: "/manager/institution-events", label: "Institution Events", icon: School },
       { to: "/manager/achievements", label: "Athlete Achievements", icon: Trophy },
-      { to: "/manager/leaderboard", label: "Leaderboard", icon: Medal },
+      { to: "/manager/leaderboard", label: "Top Athletes", icon: Medal },
       { to: "/manager/gate-operators", label: "Gate Operators", icon: Users },
       { to: "/manager/gate-desk", label: "Gate Desk & Scanner", icon: ShieldCheck },
       { to: "/manager/grants", label: "Grants & Utilisation", icon: Wallet },

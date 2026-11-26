@@ -94,7 +94,7 @@ async function coachRateableAthletes(req, res) {
     const coach = await Instructor.findOne({ userId: req.user._id }).lean();
     if (!coach) return fail(res, 404, "Coach profile not found");
 
-    // Automatically bind unassigned confirmed bookings for this coach's sports and complex
+    // Automatically bind unassigned confirmed+paid bookings for this coach's sports and complex
     const coachSportIds = (coach.sports || []).map((s) => s.sport);
     if (mongoose.connection.readyState === 1 || Object.hasOwn(Guest, "updateMany")) {
       await Guest.updateMany(
@@ -102,17 +102,27 @@ async function coachRateableAthletes(req, res) {
           coach: null,
           SportComplexId: coach.SportComplexId,
           bookingStatus: "Confirmed",
+          paymentStatus: "Paid",
           sport: { $in: coachSportIds },
         },
         { $set: { coach: coach._id } }
       );
     }
 
-    const bookings = await Guest.find({ coach: coach._id, SportComplexId: coach.SportComplexId })
+    const rawBookings = await Guest.find({
+      coach: coach._id,
+      SportComplexId: coach.SportComplexId,
+      bookingStatus: "Confirmed",
+      paymentStatus: "Paid",
+    })
       .populate("citizenUser", "Name Email ContactNum")
       .populate("sport", "SportName")
       .sort({ Startdate: -1, createdAt: -1 })
       .lean();
+
+    const bookings = rawBookings.filter(
+      (item) => item.bookingStatus === "Confirmed" && item.paymentStatus === "Paid"
+    );
 
     const [athletes, ratings, attendances] = await Promise.all([
       Athlete.find({
@@ -174,29 +184,6 @@ async function coachRateableAthletes(req, res) {
     const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const grouped = new Map();
-    athletes.forEach((athlete) => {
-      const user = athlete.userId;
-      const identity = `athlete:${athlete._id}`;
-      grouped.set(identity, {
-        id: identity,
-        athleteId: String(athlete._id),
-        userId: user?._id || null,
-        name: user?.Name || "Athlete",
-        email: user?.Email || "",
-        phone: user?.ContactNum || "",
-        bookings: 0,
-        confirmedBookings: 0,
-        eligibleRatingBookings: 0,
-        completedPlayedBookings: 0,
-        evaluatedBookings: 0,
-        paidBookings: 0,
-        totalPaid: 0,
-        sports: new Map(),
-        sessions: [],
-        latestBooking: null,
-        nextBooking: null,
-      });
-    });
 
     bookings.forEach((booking) => {
       const user = booking.citizenUser;
@@ -208,10 +195,10 @@ async function coachRateableAthletes(req, res) {
         : `guest:${String(booking.Email || "").toLowerCase()}:${booking.ContactNum || ""}`;
       const current = grouped.get(identity) || {
         id: identity, athleteId: athlete ? String(athlete._id) : null, userId: user?._id || null,
-        name: user?.Name || booking.Name || "Citizen", email: user?.Email || booking.Email || "",
+        name: user?.Name || booking.Name || "Athlete", email: user?.Email || booking.Email || "",
         phone: user?.ContactNum || booking.ContactNum || "", bookings: 0, confirmedBookings: 0, eligibleRatingBookings: 0,
         completedPlayedBookings: 0, evaluatedBookings: 0,
-        paidBookings: 0, totalPaid: 0, sports: new Map(), sessions: [], latestBooking: null, nextBooking: null,
+        sports: new Map(), sessions: [], latestBooking: null, nextBooking: null,
       };
 
       current.bookings += 1;
@@ -224,10 +211,6 @@ async function coachRateableAthletes(req, res) {
 
       if (isConfirmed) current.confirmedBookings += 1;
       if (isConfirmed && isPaid) current.eligibleRatingBookings += 1;
-      if (isPaid) {
-        current.paidBookings += 1;
-        current.totalPaid += Number(booking.totalAmount) || 0;
-      }
       if (isPlayed) current.completedPlayedBookings += 1;
       if (isEvaluated) current.evaluatedBookings += 1;
 
@@ -241,8 +224,6 @@ async function coachRateableAthletes(req, res) {
         sportId: booking.sport?._id ? String(booking.sport._id) : null,
         date: booking.Startdate,
         time: booking.timeslot || {},
-        bookingStatus: booking.bookingStatus,
-        paymentStatus: booking.paymentStatus,
         hasAttendance,
         isPlayed,
         isEvaluated,
@@ -251,8 +232,6 @@ async function coachRateableAthletes(req, res) {
         canRate: Boolean(athlete && isConfirmed && isPaid && isPlayed),
         statusText: isEvaluated
           ? `Evaluated (${Number(bookingEval?.totalScore || booking.evaluationScore || 0).toFixed(1)}/100)`
-          : !isConfirmed || !isPaid
-          ? "Payment Pending"
           : isPlayed
           ? "Played - Ready to Evaluate"
           : "Upcoming Session",
@@ -262,7 +241,7 @@ async function coachRateableAthletes(req, res) {
       const bookingSummary = {
         id: String(booking._id), reference: booking.bookingReference, sport: booking.sport?.SportName || "Sport",
         sportId: booking.sport?._id ? String(booking.sport._id) : null, date: booking.Startdate,
-        time: booking.timeslot || {}, bookingStatus: booking.bookingStatus, paymentStatus: booking.paymentStatus,
+        time: booking.timeslot || {},
         isPlayed, isEvaluated,
       };
       if (!current.latestBooking || String(booking.Startdate) > String(current.latestBooking.date)) current.latestBooking = bookingSummary;
@@ -301,10 +280,7 @@ async function coachRateableAthletes(req, res) {
     return res.json({
       data: {
         summary: {
-          people: rows.length,
-          confirmedAthletes: rows.filter((item) => item.confirmedBookings > 0).length,
-          eligibleToRate: rows.filter((item) => item.canRate).length,
-          pendingOnly: rows.filter((item) => item.confirmedBookings === 0).length,
+          confirmedAthletes: rows.length,
           totalCompletedSessions: rows.reduce((acc, r) => acc + r.completedPlayedBookings, 0),
           totalEvaluatedSessions: rows.reduce((acc, r) => acc + r.evaluatedBookings, 0),
         },

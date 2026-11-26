@@ -104,7 +104,7 @@ async function seed() {
     console.log(`   Seeded ${COMPLAINT_TYPES.length} complaint types.`);
 
     // 4. Seed Official Roles / Demo Users
-    console.log("4. Seeding Official Users (Admin, DSO Authorities, Managers, Athletes)...");
+    console.log("4. Seeding Official Users (Admin, Managers, Coach)...");
     
     // State Admin
     let adminUser = await UserModel.findOne({ Email: "admin@sag.gujarat.gov.in" });
@@ -119,45 +119,6 @@ async function seed() {
         DistrictId: districtDocs["Gandhinagar"]?._id,
         IsActive: 1
       });
-    }
-
-    // DSO Ahmedabad (Role 4)
-    let dsoAhmedabad = await UserModel.findOne({ Email: "dso.ahmedabad@sag.gujarat.gov.in" });
-    if (!dsoAhmedabad) {
-      dsoAhmedabad = await UserModel.create({
-        Name: "Shri Bhavik Solanki (DSO Ahmedabad)",
-        Email: "dso.ahmedabad@sag.gujarat.gov.in",
-        Password: hashPassword("dso"),
-        ContactNum: "+91 79 2216 4800",
-        DOB: "1982-08-20",
-        Role: 4, // District Authority
-        DistrictId: districtDocs["Ahmedabad"]?._id,
-        IsActive: 1
-      });
-      // Link district authorityID
-      if (districtDocs["Ahmedabad"]) {
-        districtDocs["Ahmedabad"].authorityID = dsoAhmedabad._id;
-        await districtDocs["Ahmedabad"].save();
-      }
-    }
-
-    // DSO Vadodara (Role 4)
-    let dsoVadodara = await UserModel.findOne({ Email: "dso.vadodara@sag.gujarat.gov.in" });
-    if (!dsoVadodara) {
-      dsoVadodara = await UserModel.create({
-        Name: "Shri K. L. Parmar (DSO Vadodara)",
-        Email: "dso.vadodara@sag.gujarat.gov.in",
-        Password: hashPassword("dso"),
-        ContactNum: "+91 265 278 9120",
-        DOB: "1980-03-15",
-        Role: 4,
-        DistrictId: districtDocs["Vadodara"]?._id,
-        IsActive: 1
-      });
-      if (districtDocs["Vadodara"]) {
-        districtDocs["Vadodara"].authorityID = dsoVadodara._id;
-        await districtDocs["Vadodara"].save();
-      }
     }
 
     // Complex Manager Khokhra (Role 3)
@@ -190,20 +151,6 @@ async function seed() {
       });
     }
 
-    // Citizen Athlete (Role 0)
-    let athleteAarav = await UserModel.findOne({ Email: "athlete.aarav@gmail.com" });
-    if (!athleteAarav) {
-      athleteAarav = await UserModel.create({
-        Name: "Aarav Trivedi (Badminton Athlete)",
-        Email: "athlete.aarav@gmail.com",
-        Password: hashPassword("athlete"),
-        ContactNum: "+91 98980 12345",
-        DOB: "2002-09-14",
-        Role: 0,
-        DistrictId: districtDocs["Ahmedabad"]?._id,
-        IsActive: 1
-      });
-    }
     let coachKhokhra = await UserModel.findOne({ Email: "coach.khokhra@sag.gujarat.gov.in" });
     if (!coachKhokhra) {
       coachKhokhra = await UserModel.create({
@@ -217,7 +164,7 @@ async function seed() {
         IsActive: 1
       });
     }
-    console.log("   Seeded 7 primary official and demo users.");
+    console.log("   Seeded 4 primary official and coaching users.");
 
     // 5. Seed Sports Complexes across Gujarat with GIS Coords & Condition Assessments
     console.log("5. Seeding Gujarat Sports Complexes with GIS and FCI Ratings...");
@@ -450,10 +397,7 @@ async function seed() {
     console.log("=================================================");
     console.log("Demo Credentials:");
     console.log("  • State Admin (SAG):   admin@sag.gujarat.gov.in    / admin");
-    console.log("  • DSO Ahmedabad:       dso.ahmedabad@sag.gujarat.gov.in / dso");
-    console.log("  • DSO Vadodara:        dso.vadodara@sag.gujarat.gov.in  / dso");
     console.log("  • Complex Manager:     manager.khokhra@sag.gujarat.gov.in / manager");
-    console.log("  • Citizen Athlete:     athlete.aarav@gmail.com     / athlete");
     console.log("  • Facility Coach:      coach.khokhra@sag.gujarat.gov.in / coach");
     console.log("=================================================\n");
 

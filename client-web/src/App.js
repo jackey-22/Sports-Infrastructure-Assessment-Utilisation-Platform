@@ -140,57 +140,11 @@ const routes = createBrowserRouter([
   },
   {
     path: "/authority",
-    element: <AuthorityLayout />,
-    loader: () => {
-      return Verify(4);
-    },
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        element: <AuthorityDashboard />,
-      },
-      {
-        path: "profile",
-        element: <Profile />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "analysis",
-        element: <AuthorityAnalysis />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addmanager",
-        element: <AddManager />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allmanager",
-        element: <AllManager />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allsportscomplex",
-        element: <AllAuthoritySportsComplex />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "allcomplaint",
-        element: <GrievanceWorkspace role="authority" />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "addcomplaint",
-        element: <GrievanceWorkspace role="authority" />,
-        errorElement: <ErrorPage />,
-      },
-      {
-        path: "leaderboard",
-        element: <Leaderboard />,
-        errorElement: <ErrorPage />,
-      },
-    ],
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: "/authority/*",
+    element: <Navigate to="/login" replace />,
   },
   {
     path: "/manager",

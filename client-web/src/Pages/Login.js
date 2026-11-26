@@ -103,7 +103,7 @@ export default function Login() {
             <div className="mt-8 space-y-3 border-t border-white/10 pt-6 text-xs text-emerald-100/90">
               <div className="flex items-start gap-2.5">
                 <Shield className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-                <span>Role-based workspaces for Administrators, District Officers, Facility Managers, Coaches, and Gate Desk.</span>
+                <span>Role-based workspaces for Administrators, Facility Managers, Coaches, Athletes, and Gate Desk.</span>
               </div>
               <div className="flex items-start gap-2.5">
                 <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
