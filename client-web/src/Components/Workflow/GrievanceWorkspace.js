@@ -291,7 +291,7 @@ export default function GrievanceWorkspace({ role }) {
               </label>
               <input
                 type="file"
-                accept="image/png,image/jpeg,application/pdf"
+                accept="image/png,image/jpeg,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
                 className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-brand-primary hover:file:bg-emerald-100"
                 onChange={(e) => setForm({ ...form, proof: e.target.files?.[0] || null })}
               />

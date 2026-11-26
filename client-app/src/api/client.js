@@ -13,48 +13,31 @@ export class ApiError extends Error {
   }
 }
 
-async function request(method, path, { body, headers = {}, auth = true } = {}) {
+async function resolveHeaders(headers = {}, auth = true, isFormData = false, hasBody = false) {
   const finalHeaders = { Accept: "application/json", ...headers };
-  let payload = body;
-
-  if (body instanceof FormData) {
-    payload = body;
-  } else if (body !== undefined) {
+  if (!isFormData && hasBody && !finalHeaders["Content-Type"]) {
     finalHeaders["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
   }
-
   if (auth) {
     const token = await AsyncStorage.getItem("token");
     if (token && !token.startsWith("demo_")) {
       finalHeaders.Authorization = `Bearer ${token}`;
     }
   }
+  return finalHeaders;
+}
 
-  let response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers: finalHeaders,
-      body: payload,
-    });
-  } catch (error) {
-    throw new ApiError("Network error: could not reach the server.", { status: 0 });
-  }
-
-  const text = await response.text();
+async function parseJsonResponse(status, text) {
   let data = null;
   if (text) {
     try {
       data = JSON.parse(text);
     } catch (error) {
-      throw new ApiError("The server returned an invalid response.", {
-        status: response.status,
-      });
+      throw new ApiError("The server returned an invalid response.", { status });
     }
   }
 
-  if (response.status === 401) {
+  if (status === 401) {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("userData");
     throw new ApiError(data?.msg || "Your session has expired. Please sign in again.", {
@@ -64,14 +47,66 @@ async function request(method, path, { body, headers = {}, auth = true } = {}) {
     });
   }
 
-  if (!response.ok || (typeof data?.rcode === "number" && data.rcode < 0)) {
+  if (status < 200 || status >= 300 || (typeof data?.rcode === "number" && data.rcode < 0)) {
     throw new ApiError(
-      data?.msg || `Request failed (${response.status}).`,
-      { status: response.status, rcode: data?.rcode, body: data }
+      data?.msg || `Request failed (${status}).`,
+      { status, rcode: data?.rcode, body: data }
     );
   }
 
   return data || {};
+}
+
+function uploadWithXhr(url, headers, formData) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    Object.entries(headers).forEach(([key, value]) => {
+      if (key.toLowerCase() !== "content-type" && value !== undefined) {
+        xhr.setRequestHeader(key, value);
+      }
+    });
+    xhr.timeout = 45000;
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText || "" });
+    xhr.onerror = () => reject(new Error("Network error: could not reach the server."));
+    xhr.ontimeout = () => reject(new Error("Upload timed out. Check your connection and try again."));
+    xhr.send(formData);
+  });
+}
+
+async function request(method, path, { body, headers = {}, auth = true } = {}) {
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const finalHeaders = await resolveHeaders(headers, auth, isFormData, body !== undefined);
+  const payload = isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined;
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: finalHeaders,
+      body: payload,
+    });
+  } catch (error) {
+    if (isFormData && typeof XMLHttpRequest !== "undefined") {
+      try {
+        const xhrRes = await uploadWithXhr(`${API_BASE_URL}${path}`, finalHeaders, payload);
+        return await parseJsonResponse(xhrRes.status, xhrRes.text);
+      } catch (xhrError) {
+        throw new ApiError(xhrError?.message || "Network error: could not reach the server.", {
+          status: 0,
+        });
+      }
+    }
+    throw new ApiError(
+      error?.message && error.message !== "Network request failed"
+        ? `Network error: ${error.message}`
+        : "Network error: could not reach the server.",
+      { status: 0 }
+    );
+  }
+
+  const text = await response.text();
+  return parseJsonResponse(response.status, text);
 }
 
 export const api = {

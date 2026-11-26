@@ -183,7 +183,11 @@ test("staff creation rejects a foreign facility and validates fields and evidenc
     sportsComplex: facility,
     description: "Issue",
     proofUrl: "file:///bad"
-  }, 400]]) {
+  }, 400], [{
+    sportsComplex: facility,
+    description: "Issue",
+    proofUrl: "https://j7f2ijk8i7.ufs.sh/f/evidence.jpg"
+  }, 201]]) {
     const response = res();
     await controller.createGrievance(req(3, body), response);
     assert.equal(response.code, code);

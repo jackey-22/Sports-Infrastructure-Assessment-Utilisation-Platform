@@ -7,6 +7,7 @@ import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
 import { api, API_BASE_URL } from "../../api/client";
 const labels = ["Supervisor", "Manager", "District Authority", "Admin"];
 export default function ComplaintsScreen({
@@ -82,18 +83,47 @@ export default function ComplaintsScreen({
     try {
       let proof = {};
       if (photo) {
-        const mime = photo.mimeType || "image/jpeg";
-        if (!["image/jpeg", "image/png"].includes(mime)) throw new Error("Choose a JPEG or PNG attachment.");
+        let mime = String(photo.mimeType || "").toLowerCase().trim();
+        if (mime === "image/jpg" || mime === "image/pjpeg") mime = "image/jpeg";
+        if (!mime || mime === "image") {
+          mime = /\.png(\?|$)/i.test(photo.fileName || photo.uri || "")
+            ? "image/png"
+            : /\.webp(\?|$)/i.test(photo.fileName || photo.uri || "")
+              ? "image/webp"
+              : "image/jpeg";
+        }
+        if (!["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(mime)) {
+          throw new Error("Choose a JPEG, PNG, or WebP photo attachment.");
+        }
         const form = new FormData();
-        const name = photo.fileName || `evidence.${mime === "image/png" ? "png" : "jpg"}`;
-        if (Platform.OS === "web") {
+        const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+        const name = photo.fileName || `evidence.${ext}`;
+        if (photo.file) {
+          form.append("file", photo.file, name);
+        } else if (Platform.OS === "web") {
           const blob = await (await fetch(photo.uri)).blob();
           form.append("file", blob, name);
-        } else form.append("file", {
-          uri: photo.uri,
-          name,
-          type: mime
-        });
+        } else {
+          let appended = false;
+          if (typeof File === "function" && photo.uri) {
+            try {
+              const nativeFile = new File(photo.uri);
+              if (nativeFile.exists) {
+                form.append("file", nativeFile);
+                appended = true;
+              }
+            } catch {
+              appended = false;
+            }
+          }
+          if (!appended) {
+            form.append("file", {
+              uri: photo.uri,
+              name,
+              type: mime,
+            });
+          }
+        }
         const uploaded = await api.upload("/api/uploads/attachment", form);
         proof = {
           proofUrl: uploaded.data.url,

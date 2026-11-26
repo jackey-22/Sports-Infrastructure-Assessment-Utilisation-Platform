@@ -18,6 +18,7 @@
 //
 // Facility, sport and coach feedback uses the authenticated platform review
 // endpoints, including a per-user rating history.
+import { File } from "expo-file-system";
 import { api } from "../../api/client";
 import { grievanceService, mapGrievance } from "../grievanceService";
 import {
@@ -531,7 +532,19 @@ export const citizenService = {
     const { complexId } = await loadIdentity();
     let proof = {};
     if (photoFile) {
-      const form = new FormData(); form.append("file", photoFile);
+      const form = new FormData();
+      if (photoFile.file) {
+        form.append("file", photoFile.file);
+      } else if (typeof File === "function" && photoFile.uri && !photoFile.arrayBuffer) {
+        try {
+          const nativeFile = new File(photoFile.uri);
+          form.append("file", nativeFile.exists ? nativeFile : photoFile);
+        } catch {
+          form.append("file", photoFile);
+        }
+      } else {
+        form.append("file", photoFile);
+      }
       const uploaded = await api.upload("/api/uploads/attachment", form);
       proof = { proofUrl:uploaded.data.url, proofName:uploaded.data.name, proofKey:uploaded.data.key };
     }
