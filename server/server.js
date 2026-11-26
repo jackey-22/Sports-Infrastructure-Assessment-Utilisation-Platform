@@ -992,10 +992,20 @@ app.post(
   requireRole(ROLE.MANAGER),
   FacilityAssessmentController.createAssessment
 );
+app.delete(
+  "/api/manager/assessments/:id",
+  requireRole(ROLE.MANAGER),
+  FacilityAssessmentController.discardAssessment
+);
 app.get(
   "/api/admin/assessments",
   requireRole(ROLE.ADMIN),
-  FacilityAssessmentController.adminList
+  FacilityAssessmentController.scopedList
+);
+app.get(
+  "/api/authority/assessments",
+  requireRole(ROLE.AUTHORITY),
+  FacilityAssessmentController.scopedList
 );
 
 // Database-backed Admin master data. These replace the browser-only management

@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@material-tailwind/react";
 import { PrimeReactProvider } from "primereact/api";
 import AdminPanel from "./Components/Admin/AdminPanel";
@@ -47,7 +47,6 @@ import ManagerGrantList from "./Components/Manager/Grant/ManagerGrantList";
 import ManagerGrantDetail from "./Components/Manager/Grant/ManagerGrantDetail";
 import ManagerProofSubmission from "./Components/Manager/Grant/ManagerProofSubmission";
 import ManagerAssessmentList from "./Components/Manager/Assessment/ManagerAssessmentList";
-import ManagerAssessmentForm from "./Components/Manager/Assessment/ManagerAssessmentForm";
 import ManagerAssessmentDetail from "./Components/Manager/Assessment/ManagerAssessmentDetail";
 
 // Phase 2C.3 Coach modules
@@ -250,7 +249,7 @@ const routes = createBrowserRouter([
       },
       {
         path: "assessment/new",
-        element: <ManagerAssessmentForm />,
+        element: <Navigate to="/manager/assessment" replace />,
         errorElement: <ErrorPage />,
       },
       {

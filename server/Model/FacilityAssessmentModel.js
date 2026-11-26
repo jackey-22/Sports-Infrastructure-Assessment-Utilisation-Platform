@@ -9,6 +9,8 @@ const FacilityAssessmentSchema = new mongoose.Schema(
       index: true,
     },
     facilityName: { type: String, default: "" },
+    sportId: { type: mongoose.SchemaTypes.ObjectId, ref: "sports" },
+    sportName: { type: String, default: "" },
     districtName: { type: String, default: "" },
     submittedBy: {
       type: mongoose.SchemaTypes.ObjectId,
