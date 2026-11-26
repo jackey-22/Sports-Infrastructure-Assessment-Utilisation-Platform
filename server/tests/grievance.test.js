@@ -155,7 +155,7 @@ function req(Role, body = {}, extra = {}) {
   };
 }
 test("all roles start at their confirmed higher handling level", async () => {
-  const expected = [0, 1, 0, 2, 3, 3, 0];
+  const expected = [0, 1, 0, 3, 3, 3, 0];
   for (let role = 0; role <= 6; role++) {
     const state = fixture();
     const response = res();
@@ -266,23 +266,25 @@ test("list views enforce complainant, facility, role and district boundaries", a
 test("staff complainants manually escalate each step, with a reason, and stop at Admin", async () => {
   const state = fixture();
   let response = res();
-  await controller.escalateGrievance(req(2, {
+  await controller.escalateGrievance(req(6, {
     reason: ""
   }), response);
   assert.equal(response.code, 400);
-  for (let level = 1; level <= 3; level++) {
+  const expectedLevels = [1, 3];
+  for (let index = 0; index < expectedLevels.length; index++) {
+    const level = expectedLevels[index];
     response = res();
-    await controller.escalateGrievance(req(2, {
+    await controller.escalateGrievance(req(6, {
       reason: "Still unresolved",
-      revision: level - 1
+      revision: index
     }), response);
     assert.equal(response.code, 200);
     assert.equal(state.rows[0].level, level);
-    assert.equal(state.rows[0].history.length, level);
+    assert.equal(state.rows[0].history.length, index + 1);
     assert.ok(state.rows[0].dueAt > new Date());
   }
   response = res();
-  await controller.escalateGrievance(req(2, {
+  await controller.escalateGrievance(req(6, {
     reason: "Again"
   }), response);
   assert.equal(response.code, 403);
@@ -327,7 +329,7 @@ test("only current handlers respond or resolve and responses preserve the deadli
   assert.equal(state.rows[0].workflowStatus, "Resolved");
   assert.ok(state.rows[0].resolvedAt);
   response = res();
-  await controller.escalateGrievance(req(2, {
+  await controller.escalateGrievance(req(6, {
     reason: "Again"
   }), response);
   assert.equal(response.code, 403);
@@ -369,7 +371,7 @@ test("foreign facilities, malformed IDs, stale revisions and nonboolean resoluti
 test("concurrent manual requests advance once and notify once", async () => {
   const state = fixture();
   const responses = [res(), res()];
-  await Promise.all(responses.map(response => controller.escalateGrievance(req(2, {
+  await Promise.all(responses.map(response => controller.escalateGrievance(req(6, {
     reason: "Unresolved",
     revision: 0
   }), response)));
@@ -378,7 +380,9 @@ test("concurrent manual requests advance once and notify once", async () => {
   assert.equal(state.notifications.length, 1);
   assert.deepEqual(responses.map(r => r.code).sort(), [200, 409]);
 });
-test("overdue jobs escalate responded grievances one step without repeating", async () => {
+test("overdue jobs escalate unresolved grievances from Supervisor to Manager to Admin on 3-day SLA without repeating", async () => {
+  const defaultDue = policy.nextDeadline(0);
+  assert.equal(defaultDue.getTime(), 72 * 3600000);
   const state = fixture({
     workflowStatus: "Responded",
     dueAt: new Date(0)
@@ -388,10 +392,12 @@ test("overdue jobs escalate responded grievances one step without repeating", as
   assert.equal(state.rows[0].history.length, 1);
   assert.equal(state.notifications.length, 1);
   assert.equal(await controller.escalateOverdueComplaints(), 0);
-  state.rows[0].level = 3;
+  state.rows[0].dueAt = new Date(0);
+  assert.equal(await controller.escalateOverdueComplaints(), 1);
+  assert.equal(state.rows[0].level, 3);
   state.rows[0].dueAt = new Date(0);
   assert.equal(await controller.escalateOverdueComplaints(), 0);
-  state.rows[0].level = 2;
+  state.rows[0].level = 1;
   state.rows[0].status = 1;
   assert.equal(await controller.escalateOverdueComplaints(), 0);
 });
@@ -400,7 +406,7 @@ test("manual escalation racing the scheduler advances once", async () => {
       dueAt: new Date(0)
     }),
     response = res();
-  await Promise.all([controller.escalateOverdueComplaints(), controller.escalateGrievance(req(2, {
+  await Promise.all([controller.escalateOverdueComplaints(), controller.escalateGrievance(req(6, {
     reason: "Overdue",
     revision: 0
   }), response)]);
@@ -455,7 +461,7 @@ test("legacy filters narrow scope and reject query injection", async () => {
 test("legacy clients cannot request a skipped escalation level", async () => {
   fixture();
   const response = res();
-  await controller.escalateGrievance(req(2, {
+  await controller.escalateGrievance(req(6, {
     reason: "Skip",
     level: 3
   }), response);
@@ -475,12 +481,14 @@ test("notification storage failure does not report a committed grievance as fail
   assert.equal(response.code, 201);
 });
 
-test("Athlete/Citizen cannot manually escalate even their own grievance", async () => {
-  const state = fixture();
-  assert.equal(policy.permissions(state.rows[0], user(0), true).canEscalate, false);
-  const response = res();
-  await controller.escalateGrievance(req(0, {reason:"Please escalate", revision:0}), response);
-  assert.equal(response.code,403);
-  assert.equal(state.rows[0].level,0);
-  assert.equal(state.notifications.length,0);
+test("Athlete/Citizen and Coach cannot manually escalate even their own grievance", async () => {
+  for (const role of [0, 2]) {
+    const state = fixture();
+    assert.equal(policy.permissions(state.rows[0], user(role), true).canEscalate, false);
+    const response = res();
+    await controller.escalateGrievance(req(role, {reason:"Please escalate", revision:0}), response);
+    assert.equal(response.code,403);
+    assert.equal(state.rows[0].level,0);
+    assert.equal(state.notifications.length,0);
+  }
 });

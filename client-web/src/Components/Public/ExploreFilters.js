@@ -15,6 +15,16 @@ const SPORT_ICONS = {
   Swimming: "🏊",
 };
 
+const AMENITY_FILTER_OPTIONS = [
+  { key: "floodlights", label: "Floodlights" },
+  { key: "divyangjanFriendly", label: "Divyangjan Friendly" },
+  { key: "changingRooms", label: "Changing Rooms" },
+  { key: "drinkingWater", label: "Drinking Water" },
+  { key: "parking", label: "Parking" },
+  { key: "firstAid", label: "First Aid" },
+  { key: "gym", label: "Gym" },
+];
+
 export default function ExploreFilters({
   selectedDistrict,
   onDistrictChange,
@@ -23,6 +33,20 @@ export default function ExploreFilters({
   onClearSports,
   selectedTypes,
   onToggleType,
+  selectedPurpose = "",
+  onPurposeChange = () => {},
+  selectedAudience = "",
+  onAudienceChange = () => {},
+  maxPrice = "",
+  onMaxPriceChange = () => {},
+  selectedAmenities = [],
+  onToggleAmenity = () => {},
+  subscriptionOnly = false,
+  onToggleSubscriptionOnly = () => {},
+  minRatingOnly = false,
+  onToggleMinRatingOnly = () => {},
+  gradeAOnly = false,
+  onToggleGradeAOnly = () => {},
   onClearAll,
   typeCountFacilities = [],
   variant = "sidebar",
@@ -30,7 +54,7 @@ export default function ExploreFilters({
   districtOptions = [],
   sportOptions = [],
 }) {
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(true);
   const typeCounts = countByFacilityType(typeCountFacilities);
   const availableFacilityTypes = FACILITY_TYPE_OPTIONS.filter((type) => typeCounts[type] > 0);
   const visibleSports = [...new Set(sportOptions)].sort((a, b) => {
@@ -122,18 +146,102 @@ export default function ExploreFilters({
         </div>
       </div>
 
-      {/* More filters */}
+      {/* Advance filters */}
       <button
         type="button"
         onClick={() => setMoreOpen((o) => !o)}
         className="w-full flex items-center justify-between text-xs font-bold text-slate-600 py-2 border-t border-slate-100"
       >
-        More filters
+        Advance filters
         <ChevronDown className={`w-4 h-4 transition ${moreOpen ? "rotate-180" : ""}`} />
       </button>
 
       {moreOpen && (
         <div className="pt-3 space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">Session purpose</label>
+            <select
+              value={selectedPurpose}
+              onChange={(e) => onPurposeChange(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="">All purposes</option>
+              <option value="coaching">Coaching</option>
+              <option value="open-play">Open play</option>
+              <option value="competition">Competition</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">Batch / audience</label>
+            <select
+              value={selectedAudience}
+              onChange={(e) => onAudienceChange(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="">Any batch</option>
+              <option value="mixed">Mixed</option>
+              <option value="women">Women only</option>
+              <option value="children">Children / Junior</option>
+              <option value="members">Members</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">Slot budget</label>
+            <select
+              value={maxPrice}
+              onChange={(e) => onMaxPriceChange(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="">Any price</option>
+              <option value="150">Up to ₹150</option>
+              <option value="300">Up to ₹300</option>
+              <option value="500">Up to ₹500</option>
+            </select>
+          </div>
+
+          <div>
+            <div className="text-xs font-bold text-slate-600 mb-2">Plans &amp; quality</div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={subscriptionOnly} onChange={onToggleSubscriptionOnly} className="rounded border-slate-300 text-brand-primary" />
+                Monthly / Yearly plans available
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={minRatingOnly} onChange={onToggleMinRatingOnly} className="rounded border-slate-300 text-brand-primary" />
+                Top rated (4.0★ &amp; above)
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={gradeAOnly} onChange={onToggleGradeAOnly} className="rounded border-slate-300 text-brand-primary" />
+                Excellent condition (Grade A)
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-bold text-slate-600 mb-2">Amenities</div>
+            <div className="flex flex-wrap gap-1.5">
+              {AMENITY_FILTER_OPTIONS.map((item) => {
+                const active = selectedAmenities.includes(item.key);
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onToggleAmenity(item.key)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                      active
+                        ? "bg-brand-soft text-brand-primary border-brand-primary/40"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-brand-primary/40"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="text-xs font-bold text-slate-600 mb-2">Facility type</div>
             <div className="space-y-2">

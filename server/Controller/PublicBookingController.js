@@ -52,6 +52,7 @@ function publicConfig(config) {
     id: String(value._id),
     facility: value.facility,
     sport: value.sport,
+    images: value.images || [],
     bookingMode: value.bookingMode,
     unitLabel: value.unitLabel,
     unitCount: value.unitCount,
@@ -64,6 +65,9 @@ function publicConfig(config) {
         ...(slot.toObject ? slot.toObject() : slot),
         bookingPolicy: effectivePolicy(value, slot),
       })),
+    subscriptionPlans: (value.subscriptionPlans || [])
+      .filter((plan) => plan.active !== false)
+      .map((plan) => (plan.toObject ? plan.toObject() : plan)),
     notes: value.notes,
   };
 }
@@ -157,8 +161,25 @@ async function listFacilities(req, res) {
         assessedAt: assessment.assessmentDate || assessment.ai?.analysedAt || assessment.createdAt,
         summary: assessment.ai?.overallSummary || "",
         priority: assessment.ai?.priority || "unknown",
+        photos: (assessment.photos || []).map((p) => p?.url).filter(Boolean),
       };
     };
+    const conditionPhotosByFacility = new Map();
+    assessments.forEach((assessment) => {
+      const key = String(assessment.facilityId);
+      const list = conditionPhotosByFacility.get(key) || [];
+      (assessment.photos || []).forEach((photo) => {
+        if (photo?.url && list.length < 12) {
+          list.push({
+            url: photo.url,
+            sportName: assessment.sportName || "Facility",
+            date: assessment.assessmentDate || "",
+            score: assessment.ai?.visualConditionIndex ?? null,
+          });
+        }
+      });
+      conditionPhotosByFacility.set(key, list);
+    });
     const ratingStats = new Map();
     reviews.forEach((review) => {
       const key = review.targetType === "facility"
@@ -176,34 +197,52 @@ async function listFacilities(req, res) {
 
     const data = facilities.map((facility) => {
       const configured = configsByFacility.get(String(facility._id)) || [];
+      const facilitySportImages = new Map(
+        (facility.sports || []).map((entry) => [
+          String(entry.sport?._id || entry.sport),
+          Array.isArray(entry.images) ? entry.images.filter(Boolean) : [],
+        ])
+      );
       const sports = configured.length
         ? configured
             .filter((config) => config.sport && config.sport.status !== "Inactive")
-            .map((config) => ({
-            id: config.sport?._id,
-            bookable: config.slots?.some((slot) => slot.bookable) || false,
-            name: config.sport?.SportName || "Sport",
-            category: config.sport?.Category || "Sport",
-            image: config.sport?.baseUrl || "",
-            description: config.sport?.description || "",
-            type: config.bookingMode,
-            unitLabel: config.unitLabel,
-            units: config.unitCount,
-            capacity: config.unitCount * config.capacityPerUnit,
-            availability: config.status,
-            feePerHour: `₹${config.price?.amount || 0}/${config.price?.unit || "slot"}`,
-            price: config.price,
-            surface: config.notes || "Details available at facility",
-            rating: ratingFor(`sport:${facility._id}:${config.sport?._id}`)?.average,
-            condition: sportCondition(facility._id, config.sport?._id),
-            }))
+            .map((config) => {
+              const sportGallery = (config.images && config.images.length)
+                ? config.images
+                : (facilitySportImages.get(String(config.sport?._id)) || []);
+              const bookableSlots = (config.slots || []).filter((slot) => slot.bookable !== false);
+              const activePlans = (config.subscriptionPlans || []).filter((p) => p.active !== false);
+              return {
+                id: config.sport?._id,
+                bookable: bookableSlots.length > 0 || activePlans.length > 0,
+                name: config.sport?.SportName || "Sport",
+                category: config.sport?.Category || "Sport",
+                image: sportGallery[0] || config.sport?.baseUrl || "",
+                images: sportGallery,
+                description: config.sport?.description || "",
+                type: config.bookingMode,
+                unitLabel: config.unitLabel,
+                units: config.unitCount,
+                capacity: config.unitCount * config.capacityPerUnit,
+                availability: config.status,
+                feePerHour: `₹${config.price?.amount || 0}/${config.price?.unit || "slot"}`,
+                price: config.price,
+                purposes: [...new Set(bookableSlots.map((s) => s.purpose).filter(Boolean))],
+                audiences: [...new Set(bookableSlots.map((s) => s.audience).filter(Boolean))],
+                subscriptionPlans: activePlans,
+                surface: config.notes || "Details available at facility",
+                rating: ratingFor(`sport:${facility._id}:${config.sport?._id}`)?.average,
+                condition: sportCondition(facility._id, config.sport?._id),
+              };
+            })
         : (facility.sports || [])
             .filter((entry) => entry.sport && entry.sport.status !== "Inactive")
             .map((entry) => ({
               id: entry.sport._id,
               name: entry.sport.SportName,
               category: entry.sport.Category,
-              image: entry.sport.baseUrl || entry.images?.[0] || "",
+              image: entry.images?.[0] || entry.sport.baseUrl || "",
+              images: entry.images || [],
               description: entry.sport.description || "",
               type: "unconfigured",
               unitLabel: "",
@@ -211,6 +250,9 @@ async function listFacilities(req, res) {
               capacity: Number(entry.capacity) || 0,
               availability: "Active",
               feePerHour: entry.fees ? `₹${entry.fees}` : "Contact facility",
+              purposes: [],
+              audiences: [],
+              subscriptionPlans: [],
               surface: "Details available at facility",
               rating: ratingFor(`sport:${facility._id}:${entry.sport._id}`)?.average,
               condition: sportCondition(facility._id, entry.sport._id),
@@ -223,6 +265,7 @@ async function listFacilities(req, res) {
       return {
         id: facility._id,
         bookingAvailable: configured.length > 0,
+        hasSubscriptions: sports.some((s) => (s.subscriptionPlans || []).length > 0),
         ratingSummary: ratingFor(`facility:${facility._id}`),
         name: facility.name,
         district: facility.district?.District || "Not specified",
@@ -239,6 +282,7 @@ async function listFacilities(req, res) {
         contactEmail: facility.contactEmail || facility.manager?.Email || "Not specified",
         picture: facility.picture,
         gallery: facility.images || [],
+        conditionPhotos: conditionPhotosByFacility.get(String(facility._id)) || [],
         timings: facility.timings,
         amenities: facility.amenities,
         status: facility.status || "Active",
@@ -405,14 +449,35 @@ async function availability(req, res) {
   }
 }
 
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + Number(days || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+async function resolveAssignedCoach(config, slot) {
+  let assignedCoach = slot?.coach || null;
+  if (!assignedCoach) {
+    const availableCoach = await Instructor.findOne({
+      SportComplexId: config.facility,
+      "sports.sport": config.sport._id,
+      status: "Active",
+    }).select("_id");
+    if (availableCoach) return availableCoach._id;
+    const fallbackCoach = await Instructor.findOne({
+      SportComplexId: config.facility,
+      status: "Active",
+    }).select("_id");
+    if (fallbackCoach) return fallbackCoach._id;
+  }
+  return assignedCoach;
+}
+
 async function createBooking(req, res) {
   try {
     const body = req.body || {};
     if (!mongoose.Types.ObjectId.isValid(body.configId)) {
       return fail(res, 400, "Select a valid sport");
-    }
-    if (!mongoose.Types.ObjectId.isValid(body.slotId)) {
-      return fail(res, 400, "Select a valid time slot");
     }
     const config = await FacilitySportConfig.findOne({
       _id: body.configId,
@@ -423,193 +488,322 @@ async function createBooking(req, res) {
     if (!facility || (facility.status && facility.status !== "Active")) {
       return fail(res, 409, "This facility is not accepting bookings");
     }
-    const slot = config.slots.id(body.slotId);
-    if (!slot || !slot.bookable) return fail(res, 400, "Selected slot is not bookable");
 
-    const memberCount = Math.floor(Number(body.memberCount) || 1);
-    const policy = effectivePolicy(config, slot);
-    const minMembers = Number(policy.minMembers) || 1;
-    const maxMembers = Number(policy.maxMembers) || 1;
-    if (memberCount < minMembers || memberCount > maxMembers) {
-      return fail(res, 400, `Member count must be between ${minMembers} and ${maxMembers}`);
+    const citizen = req.user?.Role === ROLE.ATHLETE ? req.user : null;
+    const bookerName = citizen?.Name || String(body.name || "").trim();
+    const bookerEmail = citizen?.Email || String(body.email || "").trim();
+    const bookerPhone = citizen?.ContactNum || String(body.phone || "").trim();
+    if (!bookerName || !bookerPhone) {
+      return fail(res, 400, "Athlete name and mobile number are required");
     }
-    const date = String(body.date || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, "Select a valid date");
-    const parsedDate = new Date(`${date}T12:00:00+05:30`);
+
     const today = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kolkata",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
-    if (
-      !Number.isFinite(parsedDate.getTime()) ||
-      parsedDate.toISOString().slice(0, 10) !== date ||
-      date < today
-    ) {
-      return fail(res, 400, "Choose a valid date today or later");
-    }
-    const day = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Kolkata",
-      weekday: "short",
-    }).format(parsedDate).toLowerCase();
-    if (
-      slot.days?.length &&
-      !slot.days.some((value) => value.toLowerCase().slice(0, 3) === day)
-    ) {
-      return fail(res, 400, "This slot does not run on the selected day");
-    }
     const window = bookingWindow();
-    if (date < window.start || date > window.end) {
-      return fail(res, 400, `Bookings are available only from ${window.start} to ${window.end}`);
-    }
-    if (!slotCanStillBeBooked(slot, date, window)) return fail(res, 400, "This slot is not available at the selected date and time");
-    const citizen = req.user?.Role === ROLE.ATHLETE ? req.user : null;
-    const bookerName = citizen?.Name || String(body.name || "").trim();
-    const bookerEmail = citizen?.Email || String(body.email || "").trim();
-    const bookerPhone = citizen?.ContactNum || String(body.phone || "").trim();
-    if (!bookerName || !bookerPhone) {
-      return fail(res, 400, "Booker name and mobile number are required");
-    }
-
     const pendingCutoff = new Date(Date.now() - 15 * 60 * 1000);
-    const [activeBookings, activeInstitutionEvents] = await Promise.all([
-      Guest.find({
+
+    // 1. Dynamic Subscription Plan booking (Monthly / Yearly)
+    if (body.bookingType === "subscription" && mongoose.Types.ObjectId.isValid(body.planId)) {
+      const plan = (config.subscriptionPlans || []).find(
+        (p) => String(p._id) === String(body.planId) && p.active !== false
+      );
+      if (!plan) return fail(res, 404, "Subscription plan not found or inactive");
+      const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || "")) ? String(body.date) : today;
+      if (startDate < today) return fail(res, 400, "Start date must be today or later");
+      const durationDays = Number(plan.durationDays) || (plan.durationType === "yearly" ? 365 : 30);
+      const endDate = addDaysToDateStr(startDate, Math.max(1, durationDays) - 1);
+      const slot = (plan.slotId && config.slots.id(plan.slotId)) ||
+        (body.slotId && mongoose.Types.ObjectId.isValid(body.slotId) && config.slots.id(body.slotId)) ||
+        config.slots.find((s) => s.bookable) ||
+        config.slots[0] ||
+        null;
+      const planPrice = Number(plan.price) || 0;
+      if (planPrice < 1) return fail(res, 400, "This subscription plan does not have a valid price");
+      const reference = `SUB-${new Date().getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      const order = await createOrder({
+        amount: planPrice,
+        receipt: reference,
+        notes: {
+          booking_reference: reference,
+          facility_id: String(config.facility),
+          sport: config.sport.SportName,
+          plan: plan.name,
+        },
+      });
+      const assignedCoach = await resolveAssignedCoach(config, slot);
+      const booking = await Guest.create({
+        Name: bookerName,
+        Email: bookerEmail,
+        ContactNum: bookerPhone,
+        citizenUser: citizen?._id || null,
+        Role: 0,
+        IsActive: 1,
+        timeslot: slot ? { from: slot.startTime, to: slot.endTime } : { from: "06:00", to: "21:00" },
+        duration: durationDays,
+        sport: config.sport._id,
+        SportComplexId: config.facility,
+        Startdate: startDate,
+        Enddate: endDate,
         facilitySportConfig: config._id,
-        slotId: slot._id,
-        Startdate: date,
-        $or: [
-          { bookingStatus: "Confirmed" },
-          { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
-        ],
-      }).select("memberCount reservedUnits"),
-      InstitutionBooking.find({
-        status: "Confirmed",
-        selections: { $elemMatch: { facilitySportConfig: config._id, slotId: slot._id, date } },
-      }).select("selections").lean(),
-    ]);
-    const institutionalSelections = activeInstitutionEvents
-      .flatMap((event) => event.selections || [])
-      .filter((item) => String(item.facilitySportConfig) === String(config._id) && String(item.slotId) === String(slot._id) && item.date === date);
-    if (policy.inventoryMode === "exclusive-unit") {
-      const reserved = activeBookings.reduce(
-        (sum, booking) => sum + (Number(booking.reservedUnits) || 1),
-        0
-      ) + institutionalSelections.reduce((sum, booking) => sum + (Number(booking.reservedUnits) || 1), 0);
-      if (reserved >= config.unitCount) return fail(res, 409, "All units are booked for this slot");
-    } else {
-      const occupied = activeBookings.reduce(
-        (sum, booking) => sum + (Number(booking.memberCount) || 1),
-        0
-      ) + institutionalSelections.reduce((sum, booking) => sum + (Number(booking.reservedUnits) || 1), 0);
-      if (occupied + memberCount > slot.capacity) {
-        return fail(res, 409, "The selected slot does not have enough remaining capacity");
-      }
+        slotId: slot?._id || null,
+        coach: assignedCoach,
+        memberCount: 1,
+        reservedUnits: 1,
+        totalAmount: planPrice,
+        bookingReference: reference,
+        bookingType: "subscription",
+        subscriptionPlan: {
+          planId: plan._id,
+          name: plan.name,
+          durationType: plan.durationType,
+          durationDays,
+        },
+        bookingStatus: "Pending Payment",
+        paymentStatus: "Pending",
+        razorpayOrderId: order.id,
+        priceBreakdown: {
+          calculation: plan.durationType,
+          planName: plan.name,
+          durationDays,
+          baseAmount: planPrice,
+        },
+      });
+      await BookingPayment.create({
+        booking: booking._id,
+        bookingIds: [booking._id],
+        bookingReference: reference,
+        facility: config.facility,
+        sport: config.sport._id,
+        coach: assignedCoach,
+        amount: planPrice,
+        currency: "INR",
+        status: "Created",
+        razorpayOrderId: order.id,
+        payer: { name: bookerName, email: bookerEmail, phone: bookerPhone },
+      });
+      return res.status(201).json({
+        data: {
+          id: booking._id,
+          reference,
+          bookingType: "subscription",
+          sport: config.sport.SportName,
+          plan: { name: plan.name, durationType: plan.durationType, durationDays, startDate, endDate },
+          slot: slot ? { label: slot.label, startTime: slot.startTime, endTime: slot.endTime } : { label: plan.name, startTime: "06:00", endTime: "21:00" },
+          memberCount: 1,
+          totalAmount: planPrice,
+          status: booking.bookingStatus,
+          payment: {
+            keyId: checkoutKeyId(),
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            description: `${plan.name} (${plan.durationType}) · ${config.sport.SportName}`,
+            prefill: { name: booking.Name, email: booking.Email, contact: booking.ContactNum },
+          },
+        },
+        rcode: 200,
+      });
     }
 
-    const price = totalFor(config, memberCount);
-    if (price.total < 1) return fail(res, 400, "This booking does not have a payable price");
-    const reference = `BK-${new Date().getFullYear()}-${crypto
-      .randomBytes(4)
-      .toString("hex")
-      .toUpperCase()}`;
+    // 2. Build selections list (supports single booking OR multi-slot/multi-day bulk booking)
+    const rawSelections = Array.isArray(body.selections) && body.selections.length
+      ? body.selections
+      : [{ slotId: body.slotId, date: body.date, memberCount: body.memberCount }];
+
+    if (rawSelections.length > 30) {
+      return fail(res, 400, "Select up to 30 slot sessions per bulk booking");
+    }
+
+    const prepared = [];
+    const seenKeys = new Set();
+    for (const item of rawSelections) {
+      if (!mongoose.Types.ObjectId.isValid(item?.slotId)) {
+        return fail(res, 400, "Select a valid time slot");
+      }
+      const slot = config.slots.id(item.slotId);
+      if (!slot || !slot.bookable) return fail(res, 400, "Selected slot is not bookable");
+
+      const itemDate = String(item.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(itemDate)) return fail(res, 400, "Select a valid date");
+      const parsedDate = new Date(`${itemDate}T12:00:00+05:30`);
+      if (
+        !Number.isFinite(parsedDate.getTime()) ||
+        parsedDate.toISOString().slice(0, 10) !== itemDate ||
+        itemDate < today
+      ) {
+        return fail(res, 400, "Choose valid dates today or later");
+      }
+      const day = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        weekday: "short",
+      }).format(parsedDate).toLowerCase();
+      if (slot.days?.length && !slot.days.some((v) => v.toLowerCase().slice(0, 3) === day)) {
+        return fail(res, 400, `Slot "${slot.label}" does not run on ${itemDate}`);
+      }
+      if (itemDate < window.start || itemDate > window.end) {
+        return fail(res, 400, `Bookings are available only from ${window.start} to ${window.end}`);
+      }
+      if (!slotCanStillBeBooked(slot, itemDate, window)) {
+        return fail(res, 400, `Slot "${slot.label}" on ${itemDate} is no longer bookable`);
+      }
+
+      const uniqueKey = `${itemDate}:${slot._id}`;
+      if (seenKeys.has(uniqueKey)) {
+        return fail(res, 400, `Duplicate slot "${slot.label}" selected on ${itemDate}`);
+      }
+      seenKeys.add(uniqueKey);
+
+      const memberCount = Math.floor(Number(item.memberCount ?? body.memberCount) || 1);
+      const policy = effectivePolicy(config, slot);
+      const minMembers = Number(policy.minMembers) || 1;
+      const maxMembers = Number(policy.maxMembers) || 1;
+      if (memberCount < minMembers || memberCount > maxMembers) {
+        return fail(res, 400, `Member count must be between ${minMembers} and ${maxMembers}`);
+      }
+
+      const [activeBookings, activeInstitutionEvents] = await Promise.all([
+        Guest.find({
+          facilitySportConfig: config._id,
+          slotId: slot._id,
+          Startdate: itemDate,
+          $or: [
+            { bookingStatus: "Confirmed" },
+            { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
+          ],
+        }).select("memberCount reservedUnits"),
+        InstitutionBooking.find({
+          status: "Confirmed",
+          selections: { $elemMatch: { facilitySportConfig: config._id, slotId: slot._id, date: itemDate } },
+        }).select("selections").lean(),
+      ]);
+      const institutionalSelections = activeInstitutionEvents
+        .flatMap((event) => event.selections || [])
+        .filter((sel) => String(sel.facilitySportConfig) === String(config._id) && String(sel.slotId) === String(slot._id) && sel.date === itemDate);
+      if (policy.inventoryMode === "exclusive-unit") {
+        const reserved = activeBookings.reduce((s, b) => s + (Number(b.reservedUnits) || 1), 0) +
+          institutionalSelections.reduce((s, b) => s + (Number(b.reservedUnits) || 1), 0);
+        if (reserved >= config.unitCount) {
+          return fail(res, 409, `All units are booked for ${slot.label} on ${itemDate}`);
+        }
+      } else {
+        const occupied = activeBookings.reduce((s, b) => s + (Number(b.memberCount) || 1), 0) +
+          institutionalSelections.reduce((s, b) => s + (Number(b.reservedUnits) || 1), 0);
+        if (occupied + memberCount > slot.capacity) {
+          return fail(res, 409, `${slot.label} on ${itemDate} does not have enough capacity left`);
+        }
+      }
+
+      const price = totalFor(config, memberCount);
+      if (price.total < 1) return fail(res, 400, "This booking does not have a payable price");
+      prepared.push({ slot, date: itemDate, memberCount, policy, price });
+    }
+
+    const totalAmount = prepared.reduce((sum, item) => sum + item.price.total, 0);
+    const isBulk = prepared.length > 1;
+    const baseRef = `BK-${new Date().getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
     const order = await createOrder({
-      amount: price.total,
-      receipt: reference,
+      amount: totalAmount,
+      receipt: baseRef,
       notes: {
-        booking_reference: reference,
+        booking_reference: baseRef,
         facility_id: String(config.facility),
         sport: config.sport.SportName,
+        sessions: String(prepared.length),
       },
     });
-    // Ensure a coach is bound to the booking so they can guide and evaluate the athlete
-    let assignedCoach = slot.coach || null;
-    if (!assignedCoach) {
-      const availableCoach = await Instructor.findOne({
+
+    const createdBookings = [];
+    for (let idx = 0; idx < prepared.length; idx += 1) {
+      const item = prepared[idx];
+      const ref = isBulk ? `${baseRef}-${idx + 1}` : baseRef;
+      const assignedCoach = await resolveAssignedCoach(config, item.slot);
+      const doc = await Guest.create({
+        Name: bookerName,
+        Email: bookerEmail,
+        ContactNum: bookerPhone,
+        citizenUser: citizen?._id || null,
+        Role: 0,
+        IsActive: 1,
+        timeslot: { from: item.slot.startTime, to: item.slot.endTime },
+        duration: 1,
+        sport: config.sport._id,
         SportComplexId: config.facility,
-        "sports.sport": config.sport._id,
-        status: "Active",
-      }).select("_id");
-      if (availableCoach) {
-        assignedCoach = availableCoach._id;
-      } else {
-        const fallbackCoach = await Instructor.findOne({
-          SportComplexId: config.facility,
-          status: "Active",
-        }).select("_id");
-        if (fallbackCoach) assignedCoach = fallbackCoach._id;
-      }
+        Startdate: item.date,
+        Enddate: item.date,
+        facilitySportConfig: config._id,
+        slotId: item.slot._id,
+        coach: assignedCoach,
+        memberCount: item.memberCount,
+        reservedUnits: 1,
+        totalAmount: item.price.total,
+        bookingReference: ref,
+        bookingType: isBulk ? "bulk" : "slot",
+        bulkGroupId: isBulk ? baseRef : null,
+        bookingStatus: "Pending Payment",
+        paymentStatus: "Pending",
+        razorpayOrderId: order.id,
+        priceBreakdown: {
+          calculation: config.price.calculation || "flat",
+          baseAmount: item.price.base,
+          perMemberAmount: item.price.perMember,
+          memberCount: item.memberCount,
+        },
+      });
+      createdBookings.push(doc);
     }
 
-    const booking = await Guest.create({
-      Name: bookerName,
-      Email: bookerEmail,
-      ContactNum: bookerPhone,
-      citizenUser: citizen?._id || null,
-      Role: 0,
-      IsActive: 1,
-      timeslot: { from: slot.startTime, to: slot.endTime },
-      duration: 1,
-      sport: config.sport._id,
-      SportComplexId: config.facility,
-      Startdate: date,
-      Enddate: date,
-      facilitySportConfig: config._id,
-      slotId: slot._id,
-      coach: assignedCoach,
-      memberCount,
-      reservedUnits: 1,
-      totalAmount: price.total,
-      bookingReference: reference,
-      bookingStatus: "Pending Payment",
-      paymentStatus: "Pending",
-      razorpayOrderId: order.id,
-      priceBreakdown: {
-        calculation: config.price.calculation || "flat",
-        baseAmount: price.base,
-        perMemberAmount: price.perMember,
-        memberCount,
-      },
-    });
     await BookingPayment.create({
-      booking: booking._id,
-      bookingReference: reference,
+      booking: createdBookings[0]._id,
+      bookingIds: createdBookings.map((d) => d._id),
+      bookingReference: baseRef,
       facility: config.facility,
       sport: config.sport._id,
-      coach: assignedCoach,
-      amount: price.total,
+      coach: createdBookings[0].coach,
+      amount: totalAmount,
       currency: "INR",
       status: "Created",
       razorpayOrderId: order.id,
-      payer: {
-        name: bookerName,
-        email: bookerEmail,
-        phone: bookerPhone,
-      },
+      payer: { name: bookerName, email: bookerEmail, phone: bookerPhone },
     });
 
+    const first = prepared[0];
     return res.status(201).json({
       data: {
-        id: booking._id,
-        reference,
+        id: createdBookings[0]._id,
+        bookingIds: createdBookings.map((d) => String(d._id)),
+        reference: baseRef,
+        bookingType: isBulk ? "bulk" : "slot",
+        sessionsCount: prepared.length,
         sport: config.sport.SportName,
-        slot: { label: slot.label, startTime: slot.startTime, endTime: slot.endTime },
-        memberCount,
-        totalAmount: price.total,
-        reservationType: policy.reservationType,
-        inventoryMode: policy.inventoryMode,
-        status: booking.bookingStatus,
+        slot: { label: first.slot.label, startTime: first.slot.startTime, endTime: first.slot.endTime },
+        selections: prepared.map((item, idx) => ({
+          id: String(createdBookings[idx]._id),
+          reference: createdBookings[idx].bookingReference,
+          date: item.date,
+          slotLabel: item.slot.label,
+          startTime: item.slot.startTime,
+          endTime: item.slot.endTime,
+          memberCount: item.memberCount,
+          amount: item.price.total,
+        })),
+        memberCount: first.memberCount,
+        totalAmount,
+        reservationType: first.policy.reservationType,
+        inventoryMode: first.policy.inventoryMode,
+        status: createdBookings[0].bookingStatus,
         payment: {
           keyId: checkoutKeyId(),
           orderId: order.id,
           amount: order.amount,
           currency: order.currency,
-          description: `${config.sport.SportName} booking at the selected facility`,
-          prefill: {
-            name: booking.Name,
-            email: booking.Email,
-            contact: booking.ContactNum,
-          },
+          description: isBulk
+            ? `${config.sport.SportName} bulk booking (${prepared.length} sessions)`
+            : `${config.sport.SportName} booking at the selected facility`,
+          prefill: { name: bookerName, email: bookerEmail, contact: bookerPhone },
         },
       },
       rcode: 200,
@@ -624,6 +818,8 @@ async function myBookings(req, res) {
   try {
     const Attendance = require("../Model/BookingAttendanceModel");
     const query = {
+      bookingStatus: "Confirmed",
+      paymentStatus: "Paid",
       $or: [
         { citizenUser: req.user._id },
         ...(req.user.Email ? [{ citizenUser: null, Email: req.user.Email }] : []),
@@ -647,6 +843,9 @@ async function myBookings(req, res) {
         return ({
         id: booking._id,
         reference: booking.bookingReference,
+        bookingType: booking.bookingType || "slot",
+        bulkGroupId: booking.bulkGroupId || null,
+        subscriptionPlan: booking.subscriptionPlan?.name ? booking.subscriptionPlan : null,
         facility: booking.SportComplexId?.name || "Facility",
         facilityId: booking.SportComplexId?._id || booking.SportComplexId,
         location: booking.SportComplexId?.location || "",
@@ -655,6 +854,7 @@ async function myBookings(req, res) {
         coach: booking.coach?.userId?.Name || "—",
         coachId: booking.coach?._id || booking.coach || null,
         date: booking.Startdate,
+        endDate: booking.Enddate || booking.Startdate,
         time: booking.timeslot,
         members: booking.memberCount || 1,
         amount: booking.totalAmount || 0,
@@ -685,8 +885,8 @@ async function verifyBookingPayment(req, res) {
     }
     const body = req.body || {};
     const paymentRecord = await BookingPayment.findOne({
-      booking: req.params.id,
       razorpayOrderId: body.razorpay_order_id,
+      $or: [{ booking: req.params.id }, { bookingIds: req.params.id }],
     });
     if (!paymentRecord) return fail(res, 404, "Payment order not found");
     if (!verifyPaymentSignature({
@@ -696,6 +896,10 @@ async function verifyBookingPayment(req, res) {
     })) {
       return fail(res, 400, "Payment signature verification failed");
     }
+
+    const allBookingIds = (paymentRecord.bookingIds && paymentRecord.bookingIds.length)
+      ? paymentRecord.bookingIds
+      : [paymentRecord.booking];
 
     if (paymentRecord.status !== "Paid") {
       const gatewayPayment = await fetchPayment(body.razorpay_payment_id);
@@ -725,8 +929,8 @@ async function verifyBookingPayment(req, res) {
             },
           }
         ),
-        Guest.updateOne(
-          { _id: req.params.id },
+        Guest.updateMany(
+          { _id: { $in: allBookingIds } },
           {
             $set: {
               bookingStatus: "Confirmed",
@@ -740,10 +944,11 @@ async function verifyBookingPayment(req, res) {
     }
 
     const booking = await Guest.findById(req.params.id).select(
-      "bookingReference bookingStatus paymentStatus totalAmount paidAt razorpayPaymentId"
+      "bookingReference bookingType bulkGroupId subscriptionPlan Startdate Enddate bookingStatus paymentStatus totalAmount paidAt razorpayPaymentId"
     );
-    const pass = await require("../Utils/bookingPass").loadBookingPass(req.params.id);
-    return res.json({ data: { ...booking.toObject(), pass }, rcode: 200 });
+    const passHelper = require("../Utils/bookingPass");
+    const passes = (await Promise.all(allBookingIds.map((bid) => passHelper.loadBookingPass(bid)))).filter(Boolean);
+    return res.json({ data: { ...booking.toObject(), totalAmount: paymentRecord.amount, pass: passes[0] || null, passes }, rcode: 200 });
   } catch (error) {
     console.error("Payment verification failed:", error.message);
     return fail(res, 500, "Could not verify payment");

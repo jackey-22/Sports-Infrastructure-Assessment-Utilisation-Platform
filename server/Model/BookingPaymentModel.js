@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const bookingPaymentSchema = new mongoose.Schema(
   {
     booking: { type: mongoose.SchemaTypes.ObjectId, ref: "Guest", required: true, unique: true },
+    bookingIds: [{ type: mongoose.SchemaTypes.ObjectId, ref: "Guest" }],
     bookingReference: { type: String, required: true, index: true },
     facility: { type: mongoose.SchemaTypes.ObjectId, ref: "sportscomplexes", required: true, index: true },
     sport: { type: mongoose.SchemaTypes.ObjectId, ref: "sports", required: true },

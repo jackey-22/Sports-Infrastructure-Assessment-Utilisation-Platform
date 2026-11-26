@@ -129,3 +129,17 @@ test("citizen cards can display escalated status without offering manual escalat
   assert.ok(!markup.includes("Response or escalation reason"));
   assert.ok(!markup.includes(">Escalate<"));
 });
+test("coach card hides manual Escalate action even with stale escalation permissions", () => {
+  const markup = renderToStaticMarkup(React.createElement(GrievanceCard, {
+    item,
+    citizen: false,
+    coach: true,
+    busy: false,
+    response: "",
+    onResponse: () => {},
+    onAction: () => {},
+    onAttachment: () => {}
+  }));
+  assert.ok(!markup.includes("Response or escalation reason"));
+  assert.ok(!markup.includes(">Escalate<"));
+});

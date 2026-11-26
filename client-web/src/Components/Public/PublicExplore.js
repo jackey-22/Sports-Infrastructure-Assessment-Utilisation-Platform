@@ -14,10 +14,9 @@ import ExploreFilters from "./ExploreFilters";
 import ExploreListCard from "./ExploreListCard";
 import ExploreInsights from "./ExploreInsights";
 import GujaratGisMap from "./GujaratGisMap";
-import FacilityDetailPanel from "./FacilityDetailPanel";
 import CitizenRatingDialog from "../Citizen/Ratings/CitizenRatingDialog";
 import { getPublicFacilities } from "../../services/public/publicFacilityService";
-import { getFacilityType, sortFacilities } from "./exploreUtils";
+import { getAverageRating, getFacilityType, sortFacilities } from "./exploreUtils";
 import { useSelector } from "react-redux";
 
 const VIEW_OPTIONS = [
@@ -40,10 +39,16 @@ export default function PublicExplore({ embedded = false }) {
   const [selectedDistrict, setSelectedDistrict] = useState("All Districts");
   const [selectedSports, setSelectedSports] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedPurpose, setSelectedPurpose] = useState("");
+  const [selectedAudience, setSelectedAudience] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [subscriptionOnly, setSubscriptionOnly] = useState(false);
+  const [minRatingOnly, setMinRatingOnly] = useState(false);
+  const [gradeAOnly, setGradeAOnly] = useState(false);
   const [sortBy, setSortBy] = useState("relevance");
   const [viewMode, setViewMode] = useState("map");
   const [activeFacility, setActiveFacility] = useState(null);
-  const [detailFacility, setDetailFacility] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nearMeActive, setNearMeActive] = useState(false);
@@ -54,6 +59,17 @@ export default function PublicExplore({ embedded = false }) {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
   }, []);
+
+  const openFacilityDetail = useCallback((facility) => {
+    if (!facility?.id) return;
+    navigate(
+      user?.Role === 7
+        ? `/institute/explore/facility/${facility.id}`
+        : user?.Role === 0 || embedded
+          ? `/citizen/explore/facility/${facility.id}`
+          : `/explore/facility/${facility.id}`
+    );
+  }, [navigate, user?.Role, embedded]);
 
   const openCitizenBooking = useCallback((facility) => {
     if (!facility?.bookingAvailable) {
@@ -137,10 +153,52 @@ export default function PublicExplore({ embedded = false }) {
       const matchesType =
         selectedTypes.length === 0 ||
         selectedTypes.includes(getFacilityType(fac));
-      return matchesType;
+      const matchesPurpose =
+        !selectedPurpose ||
+        (fac.sports || []).some((sp) => (sp.purposes || []).includes(selectedPurpose));
+      const matchesAudience =
+        !selectedAudience ||
+        (fac.sports || []).some((sp) => (sp.audiences || []).includes(selectedAudience));
+      const budget = maxPrice ? Number(maxPrice) : null;
+      const matchesBudget =
+        !budget ||
+        (fac.sports || []).some(
+          (sp) => typeof sp.price?.amount === "number" && sp.price.amount <= budget
+        );
+      const matchesAmenities = selectedAmenities.every(
+        (key) => fac.amenities?.[key] === true
+      );
+      const matchesSubscription = !subscriptionOnly || Boolean(fac.hasSubscriptions);
+      const avgRating = getAverageRating(fac).avg;
+      const matchesRating = !minRatingOnly || (avgRating != null && avgRating >= 4);
+      const matchesGradeA =
+        !gradeAOnly ||
+        String(fac.condition?.grade || "").toLowerCase().startsWith("excellent") ||
+        Number(fac.condition?.score) >= 85;
+      return (
+        matchesType &&
+        matchesPurpose &&
+        matchesAudience &&
+        matchesBudget &&
+        matchesAmenities &&
+        matchesSubscription &&
+        matchesRating &&
+        matchesGradeA
+      );
     });
     return sortFacilities(list, sortBy);
-  }, [baseFiltered, selectedTypes, sortBy]);
+  }, [
+    baseFiltered,
+    selectedTypes,
+    selectedPurpose,
+    selectedAudience,
+    maxPrice,
+    selectedAmenities,
+    subscriptionOnly,
+    minRatingOnly,
+    gradeAOnly,
+    sortBy,
+  ]);
 
   // Soft selection: only pick first result if current selection dropped out — don't yank on every filter tweak when still valid
   useEffect(() => {
@@ -174,6 +232,13 @@ export default function PublicExplore({ embedded = false }) {
     (selectedDistrict !== "All Districts" ? 1 : 0) +
     selectedSports.length +
     selectedTypes.length +
+    (selectedPurpose ? 1 : 0) +
+    (selectedAudience ? 1 : 0) +
+    (maxPrice ? 1 : 0) +
+    selectedAmenities.length +
+    (subscriptionOnly ? 1 : 0) +
+    (minRatingOnly ? 1 : 0) +
+    (gradeAOnly ? 1 : 0) +
     (nearMeActive ? 1 : 0);
 
   const handleClearAll = () => {
@@ -181,6 +246,13 @@ export default function PublicExplore({ embedded = false }) {
     setSelectedDistrict("All Districts");
     setSelectedSports([]);
     setSelectedTypes([]);
+    setSelectedPurpose("");
+    setSelectedAudience("");
+    setMaxPrice("");
+    setSelectedAmenities([]);
+    setSubscriptionOnly(false);
+    setMinRatingOnly(false);
+    setGradeAOnly(false);
     setSortBy("relevance");
     setNearMeActive(false);
     loadFacilities();
@@ -228,6 +300,20 @@ export default function PublicExplore({ embedded = false }) {
     onClearSports: () => setSelectedSports([]),
     selectedTypes,
     onToggleType: (type) => toggleInList(selectedTypes, type, setSelectedTypes),
+    selectedPurpose,
+    onPurposeChange: setSelectedPurpose,
+    selectedAudience,
+    onAudienceChange: setSelectedAudience,
+    maxPrice,
+    onMaxPriceChange: setMaxPrice,
+    selectedAmenities,
+    onToggleAmenity: (key) => toggleInList(selectedAmenities, key, setSelectedAmenities),
+    subscriptionOnly,
+    onToggleSubscriptionOnly: () => setSubscriptionOnly((v) => !v),
+    minRatingOnly,
+    onToggleMinRatingOnly: () => setMinRatingOnly((v) => !v),
+    gradeAOnly,
+    onToggleGradeAOnly: () => setGradeAOnly((v) => !v),
     onClearAll: handleClearAll,
     typeCountFacilities: facilities,
   };
@@ -260,6 +346,31 @@ export default function PublicExplore({ embedded = false }) {
       key: `type-${t}`,
       label: t,
       onRemove: () => setSelectedTypes((prev) => prev.filter((x) => x !== t)),
+    })
+  );
+  if (selectedPurpose) {
+    chips.push({ key: "purpose", label: `Purpose: ${selectedPurpose}`, onRemove: () => setSelectedPurpose("") });
+  }
+  if (selectedAudience) {
+    chips.push({ key: "audience", label: `Batch: ${selectedAudience}`, onRemove: () => setSelectedAudience("") });
+  }
+  if (maxPrice) {
+    chips.push({ key: "price", label: `Up to ₹${maxPrice}`, onRemove: () => setMaxPrice("") });
+  }
+  if (subscriptionOnly) {
+    chips.push({ key: "sub", label: "Subscription plans", onRemove: () => setSubscriptionOnly(false) });
+  }
+  if (minRatingOnly) {
+    chips.push({ key: "rating", label: "4.0★ & above", onRemove: () => setMinRatingOnly(false) });
+  }
+  if (gradeAOnly) {
+    chips.push({ key: "grade", label: "Grade A condition", onRemove: () => setGradeAOnly(false) });
+  }
+  selectedAmenities.forEach((key) =>
+    chips.push({
+      key: `amenity-${key}`,
+      label: key.replace(/([A-Z])/g, " $1"),
+      onRemove: () => setSelectedAmenities((prev) => prev.filter((x) => x !== key)),
     })
   );
   if (nearMeActive) {
@@ -315,7 +426,7 @@ export default function PublicExplore({ embedded = false }) {
               selected={activeFacility?.id === facility.id}
               compact={compact}
               onSelect={setActiveFacility}
-              onViewDetails={setDetailFacility}
+              onViewDetails={openFacilityDetail}
               onBook={openCitizenBooking}
               bookLabel={user?.Role === 7 ? "Plan event" : "Book"}
               onRate={openRating}
@@ -500,7 +611,7 @@ export default function PublicExplore({ embedded = false }) {
                       setActiveFacility(f);
                     }}
                     onOpenBooking={openCitizenBooking}
-                    onViewDetails={setDetailFacility}
+                    onViewDetails={openFacilityDetail}
                     onLocateResult={(r) =>
                       showToast(r.message, r.ok ? "ok" : "error")
                     }
@@ -548,19 +659,6 @@ export default function PublicExplore({ embedded = false }) {
             />
           </div>
         </div>
-      )}
-
-      {detailFacility && (
-        <FacilityDetailPanel
-          facility={detailFacility}
-          onClose={() => setDetailFacility(null)}
-          onOpenBooking={(f) => {
-            setDetailFacility(null);
-            openCitizenBooking(f);
-          }}
-          onRate={(f) => { setDetailFacility(null); openRating(f); }}
-          institutionBooking={user?.Role === 7}
-        />
       )}
 
       <CitizenRatingDialog open={Boolean(ratingFacility)} onClose={() => setRatingFacility(null)} initialFacilityId={ratingFacility?.id} initialTarget="facility" onSaved={() => { showToast("Rating submitted successfully.", "ok"); loadFacilities(); }} />

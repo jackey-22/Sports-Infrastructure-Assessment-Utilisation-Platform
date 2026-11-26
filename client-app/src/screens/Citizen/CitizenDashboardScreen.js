@@ -33,7 +33,12 @@ export const CitizenDashboardScreen = ({
       setPassLoading(true);
       setPassError("");
       api.get("/api/citizen/bookings").then(result => {
-        if (active) setBookings(result.data || []);
+        if (active) {
+          const confirmedOnly = (result.data || []).filter(
+            (b) => b.bookingStatus === "Confirmed" && b.paymentStatus === "Paid"
+          );
+          setBookings(confirmedOnly);
+        }
       }).catch(error => {
         if (active) {
           setPassError(error.message);
@@ -190,7 +195,7 @@ export const CitizenDashboardScreen = ({
                 <View style={{
                   flex: 1,
                   gap: 4
-                }}><Text style={styles.bookingFacility}>{booking.facility}</Text><Text style={styles.bookingMeta}>{booking.sport} · {booking.date} · {booking.time?.from || ""}-{booking.time?.to || ""}</Text><Text style={styles.bookingReference}>{booking.reference || String(booking.id).slice(-8).toUpperCase()}</Text></View>
+                }}><Text style={styles.bookingFacility}>{booking.facility}</Text><Text style={styles.bookingMeta}>{booking.sport}{booking.bookingType === "subscription" ? ` · Plan (${booking.date} to ${booking.endDate || booking.date})` : ` · ${booking.date} · ${booking.time?.from || ""}-${booking.time?.to || ""}`}</Text><Text style={styles.bookingReference}>{booking.reference || String(booking.id).slice(-8).toUpperCase()}</Text></View>
                 <View style={{
                   alignItems: "flex-end",
                   gap: 6

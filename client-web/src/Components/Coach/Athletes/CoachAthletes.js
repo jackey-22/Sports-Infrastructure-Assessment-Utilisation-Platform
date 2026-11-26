@@ -66,13 +66,38 @@ export default function CoachAthletes() {
       const response = await api.get(`/api/evaluation-templates/${sportId}`);
       const template = response.data;
       setTemplates((old) => ({ ...old, [row.id]: template }));
+      const savedDetails =
+        session.evaluationDetails?.length
+          ? session.evaluationDetails
+          : session.isEvaluated && String(row.latestEvaluation?.sport?._id || row.latestEvaluation?.sport || "") === String(sportId)
+            ? row.latestEvaluation?.details || []
+            : [];
+      const savedByParam = new Map(
+        savedDetails.map((detail) => [String(detail.parameterId?._id || detail.parameterId), detail.actualValue])
+      );
+      const savedRemarks =
+        session.evaluationRemarks ||
+        (session.isEvaluated && String(row.latestEvaluation?.sport?._id || row.latestEvaluation?.sport || "") === String(sportId)
+          ? row.latestEvaluation?.remarks || ""
+          : "");
       updateForm(row.id, {
         sportId,
         bookingId: session.id,
         sessionLabel: `${session.sport || "Session"} · ${date(session.date)}${session.time?.from ? ` · ${session.time.from}` : ""}`,
         isUpdate: Boolean(session.isEvaluated),
-        scores: Object.fromEntries(template.parameters.filter((parameter) => parameter.active).map((parameter) => [parameter._id, parameter.evaluationType === "qualitative" ? 5 : parameter.benchmark?.min ?? 0])),
-        remarks: "",
+        scores: Object.fromEntries(
+          template.parameters
+            .filter((parameter) => parameter.active)
+            .map((parameter) => [
+              parameter._id,
+              savedByParam.has(String(parameter._id))
+                ? savedByParam.get(String(parameter._id))
+                : parameter.evaluationType === "qualitative"
+                  ? 5
+                  : parameter.benchmark?.min ?? 0,
+            ])
+        ),
+        remarks: savedRemarks,
       });
       setEvaluationOpen(row.id);
     } catch (error) { setNotice(error.message); }

@@ -13,6 +13,7 @@ const {
   HANDLERS,
   LABELS,
   startLevel,
+  nextLevel,
   permissions,
   nextDeadline
 } = require("../Utils/grievancePolicy");
@@ -117,6 +118,7 @@ async function escalateOverdueComplaints() {
   let count = 0;
   for (const item of rows) {
     const now = new Date();
+    const targetLevel = nextLevel(item.level);
     const updated = await Complaint.findOneAndUpdate({
       _id: item._id,
       revision: item.revision,
@@ -127,7 +129,7 @@ async function escalateOverdueComplaints() {
       }
     }, {
       $set: {
-        level: item.level + 1,
+        level: targetLevel,
         workflowStatus: "Escalated",
         escalatedAt: now,
         dueAt: nextDeadline(),
@@ -140,8 +142,8 @@ async function escalateOverdueComplaints() {
         history: {
           action: "escalated",
           fromLevel: item.level,
-          toLevel: item.level + 1,
-          reason: "Unresolved deadline exceeded",
+          toLevel: targetLevel,
+          reason: "No response or resolution within 3 days",
           date: now
         }
       }
@@ -179,6 +181,9 @@ async function facilities(req, res) {
 async function grievanceList(req, res) {
   try {
     await normalizeLegacy();
+    if (mongoose.connection.readyState === 1) {
+      await escalateOverdueComplaints().catch(() => {});
+    }
     const own = {
       userId: req.user._id
     };
@@ -298,7 +303,8 @@ async function transition(req, res, action) {
     const item = await Complaint.findById(req.params.id).lean();
     if (!item) return fail(res, 404, "Grievance not found");
     if (req.body.revision !== undefined && req.body.revision !== item.revision) return fail(res, 409, "Grievance changed. Refresh before trying again.");
-    if (action === "escalate" && req.body.level !== undefined && Number(req.body.level) !== item.level + 1) return fail(res, 400, "Escalation must move exactly one level upward");
+    const targetLevel = nextLevel(item.level);
+    if (action === "escalate" && req.body.level !== undefined && Number(req.body.level) !== targetLevel) return fail(res, 400, "Escalation must move to the next authority level");
     const allowed = permissions(item, req.user, await canAccessComplex(req.user, item.sportsComplex));
     if (!(action === "escalate" ? allowed.canEscalate : allowed.canRespond)) return fail(res, 403, "This action is not available for your role or this grievance");
     const reason = String(action === "escalate" ? req.body.reason || req.body.remark || "" : req.body.response || req.body.remark || "").trim();
@@ -307,7 +313,7 @@ async function transition(req, res, action) {
     const now = new Date(),
       resolve = req.body.resolve === true && action !== "escalate";
     const set = action === "escalate" ? {
-      level: item.level + 1,
+      level: targetLevel,
       workflowStatus: "Escalated",
       escalatedAt: now,
       dueAt: nextDeadline(),

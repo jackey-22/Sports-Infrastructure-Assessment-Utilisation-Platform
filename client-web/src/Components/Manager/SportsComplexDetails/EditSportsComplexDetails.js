@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../API/client";
-import UploadImageField from "../../Common/UploadImageField";
+import UploadImageField, { MultiImageField } from "../../Common/UploadImageField";
 import { Button, Card, PageHeader, PageShell } from "../Common/ManagerUI";
 
 const input = "w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10";
@@ -39,7 +39,8 @@ export default function EditSportsComplexDetails() {
         <Field label="Daily capacity"><input min="0" type="number" className={input} value={form.capacityDaily || 0} onChange={(e) => update("capacityDaily", Number(e.target.value))} /></Field>
         <div className="sm:col-span-2"><p className="mb-2 text-xs font-bold text-slate-600">Amenities</p><div className="grid gap-2 rounded-2xl bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(amenities).map(([key, label]) => <label key={key} className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={Boolean(form.amenities?.[key])} onChange={(e) => update("amenities", { ...form.amenities, [key]: e.target.checked })} />{label}</label>)}</div></div>
       </div></Card>
-      <div className="space-y-5"><Card><div className="p-5"><UploadImageField label="Public facility cover" value={form.picture || ""} onChange={(value) => update("picture", value)} /></div></Card><Card><div className="p-5"><p className="font-extrabold text-slate-900">Save changes</p><p className="mt-1 text-sm text-slate-500">Updates become visible in the public facility directory.</p>{message ? <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p> : null}<button disabled={saving} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save facility</button></div></Card></div>
+      <div className="space-y-5">
+        <Card><div className="p-5 space-y-5"><UploadImageField label="Public facility cover" value={form.picture || ""} onChange={(value) => update("picture", value)} /><MultiImageField label="Facility &amp; condition gallery photos" values={form.images || []} onChange={(next) => update("images", next)} max={8} /></div></Card><Card><div className="p-5"><p className="font-extrabold text-slate-900">Save changes</p><p className="mt-1 text-sm text-slate-500">Updates become visible in the public facility directory.</p>{message ? <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p> : null}<button disabled={saving} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save facility</button></div></Card></div>
     </form>}
   </PageShell>;
 }

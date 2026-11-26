@@ -229,6 +229,11 @@ async function coachRateableAthletes(req, res) {
         isEvaluated,
         evaluationScore: bookingEval ? bookingEval.totalScore : (booking.evaluationScore || null),
         evaluationDate: bookingEval ? bookingEval.evaluationDate : (booking.evaluatedAt || null),
+        evaluationRemarks: bookingEval?.remarks || "",
+        evaluationDetails: (bookingEval?.details || []).map((detail) => ({
+          parameterId: String(detail.parameterId),
+          actualValue: detail.actualValue,
+        })),
         canRate: Boolean(athlete && isConfirmed && isPaid && isPlayed),
         statusText: isEvaluated
           ? `Evaluated (${Number(bookingEval?.totalScore || booking.evaluationScore || 0).toFixed(1)}/100)`

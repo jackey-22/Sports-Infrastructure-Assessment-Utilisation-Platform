@@ -43,13 +43,40 @@ function validateSlots(slots, bookingMode, unitCount, capacityPerUnit) {
   return null;
 }
 
+function normalizePlans(plans) {
+  if (!Array.isArray(plans)) return [];
+  return plans
+    .filter((plan) => plan && String(plan.name || "").trim())
+    .slice(0, 12)
+    .map((plan) => {
+      const durationType = plan.durationType === "yearly" ? "yearly" : "monthly";
+      const durationDays = Number(plan.durationDays) > 0
+        ? Math.floor(Number(plan.durationDays))
+        : durationType === "yearly" ? 365 : 30;
+      return {
+        ...(plan._id && mongoose.Types.ObjectId.isValid(plan._id) ? { _id: plan._id } : {}),
+        name: String(plan.name || "").trim().slice(0, 100),
+        durationType,
+        durationDays,
+        price: Math.max(0, Number(plan.price) || 0),
+        slotId: plan.slotId && mongoose.Types.ObjectId.isValid(plan.slotId) ? plan.slotId : null,
+        description: String(plan.description || "").trim().slice(0, 400),
+        active: plan.active !== false,
+      };
+    });
+}
+
 function payload(body, facility, userId) {
   const bookingMode = body.bookingMode;
   const unitCount = Number(body.unitCount);
   const capacityPerUnit = Number(body.capacityPerUnit);
+  const images = Array.isArray(body.images)
+    ? body.images.map((item) => String(item || "").trim().slice(0, 1500)).filter(Boolean).slice(0, 8)
+    : [];
   return {
     facility,
     sport: body.sportId,
+    images,
     bookingMode,
     unitLabel: String(body.unitLabel || "participants").trim().slice(0, 80),
     unitCount,
@@ -71,6 +98,7 @@ function payload(body, facility, userId) {
         Number(body.bookingPolicy && body.bookingPolicy.maxMembers) || 1,
     },
     slots: (body.slots || []).map((slot) => ({
+      ...(slot._id && mongoose.Types.ObjectId.isValid(slot._id) ? { _id: slot._id } : {}),
       label: String(slot.label || "").trim().slice(0, 100),
       startTime: slot.startTime,
       endTime: slot.endTime,
@@ -81,6 +109,7 @@ function payload(body, facility, userId) {
       coach: slot.coachId || slot.coach || null,
       bookable: slot.bookable !== false,
     })),
+    subscriptionPlans: normalizePlans(body.subscriptionPlans),
     status: body.status || "Active",
     notes: String(body.notes || "").trim().slice(0, 2000),
     configuredBy: userId,
@@ -178,6 +207,7 @@ async function create(req, res) {
         $push: {
           sports: {
             sport: data.sport,
+            images: data.images,
             fees: String(data.price.amount),
             capacity: String(data.unitCount * data.capacityPerUnit),
           },
@@ -241,6 +271,7 @@ async function update(req, res) {
       { _id: facility, "sports.sport": existing.sport },
       {
         $set: {
+          "sports.$.images": existing.images || [],
           "sports.$.fees": String(existing.price.amount),
           "sports.$.capacity": String(existing.unitCount * existing.capacityPerUnit),
         },

@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Clock3, Edit3, Loader2, Plus, Trash2, Users, X } from "lucide-react";
 import { api } from "../../../API/client";
 import { Button, Card, ConfirmDialog, EmptyState, PageHeader, PageShell } from "../Common/ManagerUI";
+import { MultiImageField } from "../../Common/UploadImageField";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10";
 const blankSlot = () => ({ label: "", startTime: "", endTime: "", days: [...DAYS], capacity: 1, audience: "mixed", purpose: "open-play", coachId: "", bookable: true });
+const blankPlan = () => ({ name: "", durationType: "monthly", durationDays: 30, price: 0, slotId: "", description: "", active: true });
 const blankConfig = () => ({
   sportId: "",
+  images: [],
   bookingMode: "capacity",
   unitLabel: "participants",
   unitCount: 1,
@@ -15,6 +18,7 @@ const blankConfig = () => ({
   price: { amount: 0, unit: "slot", calculation: "flat", perMemberAmount: 0 },
   bookingPolicy: { reservationType: "individual", inventoryMode: "shared-capacity", minMembers: 1, maxMembers: 1 },
   slots: [blankSlot()],
+  subscriptionPlans: [],
   status: "Active",
   notes: "",
 });
@@ -42,6 +46,8 @@ function normalize(row) {
   return {
     ...row,
     sportId: row.sport?._id || row.sport,
+    images: Array.isArray(row.images) ? row.images : [],
+    subscriptionPlans: Array.isArray(row.subscriptionPlans) ? row.subscriptionPlans : [],
     price: { calculation: "flat", perMemberAmount: 0, ...row.price },
     bookingPolicy: {
       reservationType: "individual",
@@ -130,6 +136,15 @@ function ConfigCard({ row, onEdit, onDelete }) {
   return <Card><div className="p-5">
     <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-primary">{row.bookingMode} booking</p><h3 className="mt-1 font-display text-xl font-extrabold text-brand-dark">{row.sport?.SportName}</h3><p className="text-sm text-slate-500">{row.unitCount} {row.unitLabel} · capacity {maxCapacity} · {pricing}</p><p className="mt-1 text-xs font-semibold text-slate-500">{groupBooking ? `${row.bookingPolicy?.minMembers}–${row.bookingPolicy?.maxMembers} members per booking` : "One athlete per booking"} · {exclusive ? "whole unit reserved" : "shared slot capacity"}</p></div><div className="flex gap-1"><button onClick={onEdit} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-primary"><Edit3 className="h-4 w-4" /></button><button onClick={onDelete} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div>
     <div className="mt-5 space-y-2">{row.slots.map((slot) => <div key={slot._id || slot.label} className="rounded-xl border border-slate-100 bg-slate-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-slate-700">{slot.label}</p><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-500">{slot.audience} · {slot.purpose}</span></div><div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{slot.startTime}–{slot.endTime}</span><span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{slot.capacity} capacity</span><span>{slot.coach?.userId?.Name || "No coach"}</span></div></div>)}</div>
+    {row.subscriptionPlans?.length ? (
+      <div className="mt-4 flex flex-wrap gap-2">
+        {row.subscriptionPlans.map((plan, idx) => (
+          <span key={plan._id || idx} className={`rounded-full px-3 py-1 text-xs font-bold ${plan.active !== false ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}>
+            {plan.name} · ₹{plan.price}/{plan.durationType === "yearly" ? "yr" : "mo"}
+          </span>
+        ))}
+      </div>
+    ) : null}
   </div></Card>;
 }
 
@@ -179,6 +194,41 @@ function ConfigModal({ value: initial, catalog, onClose, onSave }) {
           <Field label="Label"><input required className={input} value={slot.label} onChange={(e) => updateSlot(index, "label", e.target.value)} placeholder="Morning ladies" /></Field><Field label="Start"><input required type="time" className={input} value={slot.startTime} onChange={(e) => updateSlot(index, "startTime", e.target.value)} /></Field><Field label="End"><input required type="time" className={input} value={slot.endTime} onChange={(e) => updateSlot(index, "endTime", e.target.value)} /></Field><Field label="Capacity"><input required min="1" type="number" className={input} value={slot.capacity} onChange={(e) => updateSlot(index, "capacity", Number(e.target.value))} /></Field>
           <Field label="Audience"><select className={input} value={slot.audience} onChange={(e) => updateSlot(index, "audience", e.target.value)}>{["mixed", "women", "men", "children", "members"].map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Purpose"><select className={input} value={slot.purpose} onChange={(e) => updateSlot(index, "purpose", e.target.value)}>{["open-play", "coaching", "competition"].map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Coach"><select className={input} value={slot.coachId || ""} onChange={(e) => updateSlot(index, "coachId", e.target.value)}><option value="">No coach</option>{compatibleCoaches.map((coach) => <option key={coach._id} value={coach._id}>{coach.userId?.Name}</option>)}</select></Field><Field label="Booking"><select className={input} value={String(slot.bookable)} onChange={(e) => updateSlot(index, "bookable", e.target.value === "true")}><option value="true">Bookable</option><option value="false">Blocked</option></select></Field>
         </div><div className="mt-3 flex flex-wrap gap-2">{DAYS.map((day) => <button type="button" key={day} onClick={() => toggleDay(index, day)} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${(slot.days || []).includes(day) ? "bg-brand-primary text-white" : "bg-white text-slate-500"}`}>{day}</button>)}</div></div>)}</div>
+      </div>
+      <div className="rounded-2xl border border-slate-200 p-4">
+        <MultiImageField label="Sport photographs (courts, lanes, equipment)" values={value.images || []} onChange={(next) => update("images", next)} max={6} />
+      </div>
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h4 className="font-display text-lg font-extrabold text-brand-dark">Monthly &amp; yearly subscription plans</h4>
+            <p className="text-xs text-slate-500">Optional dynamic passes citizens can subscribe to directly during booking.</p>
+          </div>
+          <button type="button" onClick={() => update("subscriptionPlans", [...(value.subscriptionPlans || []), blankPlan()])} className="inline-flex items-center gap-1 rounded-lg bg-brand-soft px-3 py-2 text-xs font-bold text-brand-primary">
+            <Plus className="h-3.5 w-3.5" /> Add plan
+          </button>
+        </div>
+        {(value.subscriptionPlans || []).length ? (
+          <div className="space-y-3">
+            {(value.subscriptionPlans || []).map((plan, pIndex) => (
+              <div key={plan._id || pIndex} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex justify-between">
+                  <p className="text-sm font-extrabold text-slate-700">Plan {pIndex + 1}</p>
+                  <button type="button" onClick={() => update("subscriptionPlans", (value.subscriptionPlans || []).filter((_, i) => i !== pIndex))} className="text-red-500"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-4">
+                  <Field label="Plan name"><input required className={input} value={plan.name || ""} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, name: e.target.value } : p))} placeholder="Monthly Member Pass" /></Field>
+                  <Field label="Billing cycle"><select className={input} value={plan.durationType || "monthly"} onChange={(e) => { const durationType = e.target.value; update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, durationType, durationDays: durationType === "yearly" ? 365 : 30 } : p)); }}><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></Field>
+                  <Field label="Validity (days)"><input required min="1" type="number" className={input} value={plan.durationDays || 30} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, durationDays: Number(e.target.value) } : p))} /></Field>
+                  <Field label="Price (₹)"><input required min="1" type="number" className={input} value={plan.price || 0} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, price: Number(e.target.value) } : p))} /></Field>
+                  <Field label="Linked slot"><select className={input} value={plan.slotId || ""} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, slotId: e.target.value } : p))}><option value="">Any sport slot</option>{(value.slots || []).filter((s) => s._id).map((s) => <option key={s._id} value={s._id}>{s.label} ({s.startTime}–{s.endTime})</option>)}</select></Field>
+                  <Field label="Status"><select className={input} value={String(plan.active !== false)} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, active: e.target.value === "true" } : p))}><option value="true">Active</option><option value="false">Paused</option></select></Field>
+                  <div className="md:col-span-2"><Field label="Details"><input className={input} value={plan.description || ""} onChange={(e) => update("subscriptionPlans", value.subscriptionPlans.map((p, i) => i === pIndex ? { ...p, description: e.target.value } : p))} placeholder="Access included, locker/coaching notes" /></Field></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">No subscription plans added yet. Click &ldquo;Add plan&rdquo; to offer monthly or yearly passes.</p>}
       </div>
       {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
       <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500">Cancel</button><button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Save configuration</button></div>

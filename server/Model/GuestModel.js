@@ -62,6 +62,18 @@ const GuestSchema = new mongoose.Schema(
     reservedUnits: { type: Number, min: 1, default: 1 },
     totalAmount: { type: Number, min: 0, default: 0 },
     bookingReference: { type: String, index: true },
+    bookingType: {
+      type: String,
+      enum: ["slot", "bulk", "subscription"],
+      default: "slot",
+    },
+    bulkGroupId: { type: String, index: true, default: null },
+    subscriptionPlan: {
+      planId: { type: mongoose.SchemaTypes.ObjectId, default: null },
+      name: { type: String, default: "" },
+      durationType: { type: String, default: "" },
+      durationDays: { type: Number, default: null },
+    },
     bookingStatus: {
       type: String,
       enum: ["Pending Payment", "Confirmed", "Cancelled"],

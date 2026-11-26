@@ -229,12 +229,21 @@ async function coach(req, res) {
         .lean(),
     ]);
 
+    const uniqueEvaluationsMap = new Map();
+    evaluations.forEach((evaluation) => {
+      const dedupeKey = evaluation.booking ? `booking:${evaluation.booking}` : `eval:${evaluation._id}`;
+      if (!uniqueEvaluationsMap.has(dedupeKey)) {
+        uniqueEvaluationsMap.set(dedupeKey, evaluation);
+      }
+    });
+    const uniqueEvaluations = [...uniqueEvaluationsMap.values()];
+
     const trend = new Map(months.map((month) => [month.key, month]));
     bookings.filter((booking) => new Date(booking.createdAt) >= trendStart).forEach((booking) => {
       const month = trend.get(monthKey(new Date(booking.createdAt)));
       if (month) month.bookings += 1;
     });
-    evaluations.forEach((evaluation) => {
+    uniqueEvaluations.forEach((evaluation) => {
       const evDate = new Date(evaluation.evaluationDate || evaluation.createdAt);
       if (!Number.isNaN(evDate.getTime()) && evDate >= trendStart) {
         const month = trend.get(monthKey(evDate));
@@ -243,7 +252,7 @@ async function coach(req, res) {
     });
 
     const evaluatedBookingIds = new Set(
-      evaluations.map((ev) => (ev.booking ? String(ev.booking) : "")).filter(Boolean)
+      uniqueEvaluations.map((ev) => (ev.booking ? String(ev.booking) : "")).filter(Boolean)
     );
 
     const sportMap = new Map();
@@ -297,7 +306,7 @@ async function coach(req, res) {
           todayBookings: bookings.filter((item) => item.Startdate === today).length,
           upcomingBookings: bookings.filter((item) => String(item.Startdate) >= today).length,
           uniqueAthletes: uniqueAthletes.size,
-          evaluationsCount: evaluations.length,
+          evaluationsCount: uniqueEvaluations.length,
           coachingSlots: coachingSlots.length,
         },
         trend: months.map(({ key, label, bookings: count, evaluations: evalCount }) => ({ key, label, bookings: count, evaluations: evalCount })),

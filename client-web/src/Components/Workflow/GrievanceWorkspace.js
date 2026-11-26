@@ -30,6 +30,7 @@ const fileUrl = (value) =>
 export default function GrievanceWorkspace({ role }) {
   const admin = role === "admin";
   const citizen = ["citizen", "athlete"].includes(role);
+  const noManualEscalate = ["citizen", "athlete", "coach"].includes(role);
   const [rows, setRows] = useState([]);
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -471,7 +472,7 @@ export default function GrievanceWorkspace({ role }) {
                   </div>
                 ) : null}
 
-                {!citizen && (item.permissions?.canRespond || item.permissions?.canEscalate) ? (
+                {!citizen && (item.permissions?.canRespond || (!noManualEscalate && item.permissions?.canEscalate)) ? (
                   <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                     <textarea
                       className={inputClass}
@@ -493,7 +494,7 @@ export default function GrievanceWorkspace({ role }) {
                           Send Response
                         </Button>
                       ) : null}
-                      {!citizen && item.permissions.canEscalate ? (
+                      {!noManualEscalate && item.permissions.canEscalate ? (
                         <Button
                           variant="amber"
                           disabled={saving}

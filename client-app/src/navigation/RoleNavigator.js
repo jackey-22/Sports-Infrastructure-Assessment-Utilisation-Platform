@@ -67,11 +67,9 @@ export const RoleNavigator = ({ user, onLogout }) => {
         ];
       case 2: // Coach
         return [
-          { key: "home", label: "Squad", icon: "people" },
-          { key: "rate", label: "Evaluate", icon: "star-outline" },
+          { key: "home", label: "Dashboard", icon: "speedometer-outline" },
           { key: "achievements", label: "Awards", icon: "trophy-outline" },
-          { key: "explore", label: "Facilities", icon: "business-outline" },
-          { key: "complaints", label: "Issues", icon: "warning-outline" },
+          { key: "complaints", label: "Grievances", icon: "warning-outline" },
         ];
       case 1: // Supervisor
         return [
@@ -192,24 +190,6 @@ export const RoleNavigator = ({ user, onLogout }) => {
     if (role === 2) {
       if (activeTab === "achievements") {
         return <AchievementsScreen role="coach" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
-      }
-      if (activeTab === "rate") {
-        return (
-          <RateAthleteScreen
-            athlete={null}
-            onBack={() => setActiveTab("home")}
-            onSaved={() => {
-              setCoachRefreshKey((k) => k + 1);
-              setActiveTab("home");
-            }}
-          />
-        );
-      }
-      if (activeTab === "explore") {
-        return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
-      }
-      if (activeTab === "complaints") {
-        return <ComplaintsScreen onBack={() => setActiveTab("home")} />;
       }
       return (
         <CoachDashboardScreen

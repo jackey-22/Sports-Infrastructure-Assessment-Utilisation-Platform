@@ -8,11 +8,16 @@ function startLevel(role) {
     0: 0,
     1: 1,
     2: 0,
-    3: 2,
+    3: 3,
     4: 3,
     5: 3,
     6: 0
   }[Number(role)];
+}
+function nextLevel(level) {
+  const current = Number(level);
+  if (current <= 0) return 1;
+  return 3;
 }
 function isOpen(item) {
   return item.status !== 1 && item.workflowStatus !== "Resolved";
@@ -23,16 +28,17 @@ function permissions(item, user, inScope) {
   return {
     canRespond: handler && isOpen(item),
     canResolve: handler && isOpen(item),
-    canEscalate: Number(user.Role) !== ROLE.ATHLETE && (own || handler) && isOpen(item) && item.level < 3
+    canEscalate: ![ROLE.ATHLETE, ROLE.COACH].includes(Number(user.Role)) && (own || handler) && isOpen(item) && item.level < 3
   };
 }
 function nextDeadline(now = Date.now()) {
-  return new Date(now + Math.max(1, Number(process.env.GRIEVANCE_RESPONSE_HOURS) || 48) * 3600000);
+  return new Date(now + Math.max(1, Number(process.env.GRIEVANCE_RESPONSE_HOURS) || 72) * 3600000);
 }
 module.exports = {
   HANDLERS,
   LABELS,
   startLevel,
+  nextLevel,
   isOpen,
   permissions,
   nextDeadline

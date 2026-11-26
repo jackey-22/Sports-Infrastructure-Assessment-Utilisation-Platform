@@ -112,13 +112,6 @@ export default function RateAthleteScreen({ athlete, onBack, onSaved }) {
       if (!mounted.current) return;
       if (val?.parameters?.length) {
         setTemplate(val);
-        const nextScores = {};
-        val.parameters
-          .filter((p) => p.active)
-          .forEach((p) => {
-            nextScores[p._id] = defaultValueForParam(p);
-          });
-        setScores(nextScores);
       } else {
         setTemplate(null);
         setTemplateError("No active evaluation parameters found for this sport.");
@@ -140,6 +133,38 @@ export default function RateAthleteScreen({ athlete, onBack, onSaved }) {
       loadTemplate(sportId);
     }
   }, [selected, sportId, loadTemplate]);
+
+  useEffect(() => {
+    if (!template?.parameters?.length) return;
+    const savedDetails = activeSession?.evaluationDetails?.length
+      ? activeSession.evaluationDetails
+      : activeSession?.isEvaluated &&
+          String(selected?.latestEvaluation?.sport?._id || selected?.latestEvaluation?.sport || "") === String(sportId)
+        ? selected?.latestEvaluation?.details || []
+        : [];
+    const savedByParam = new Map(
+      savedDetails.map((detail) => [
+        String(detail.parameterId?._id || detail.parameterId),
+        String(detail.actualValue),
+      ])
+    );
+    const nextScores = {};
+    template.parameters
+      .filter((p) => p.active)
+      .forEach((p) => {
+        nextScores[p._id] = savedByParam.has(String(p._id))
+          ? savedByParam.get(String(p._id))
+          : defaultValueForParam(p);
+      });
+    setScores(nextScores);
+    const nextRemarks =
+      activeSession?.evaluationRemarks ||
+      (activeSession?.isEvaluated &&
+      String(selected?.latestEvaluation?.sport?._id || selected?.latestEvaluation?.sport || "") === String(sportId)
+        ? selected?.latestEvaluation?.remarks || ""
+        : "");
+    setRemarks(nextRemarks);
+  }, [template, activeSession, selected, sportId]);
 
   const activeParameters = useMemo(
     () => (template?.parameters || []).filter((p) => p.active),

@@ -13,6 +13,7 @@ import CitizenSignup from "./Pages/CitizenSignup";
 import InstitutionSignup from "./Pages/InstitutionSignup";
 import HomeLanding from "./Components/Public/HomeLanding";
 import PublicExplore from "./Components/Public/PublicExplore";
+import FacilityDetailPage from "./Components/Public/FacilityDetailPage";
 import CitizenBookingPage from "./Components/Public/CitizenBookingPage";
 
 //ErrorPage
@@ -93,6 +94,10 @@ const routes = createBrowserRouter([
   {
     path: "/explore",
     element: <PublicExplore />,
+  },
+  {
+    path: "/explore/facility/:facilityId",
+    element: <FacilityDetailPage />,
   },
   {
     path: "/book/:facilityId",
@@ -275,6 +280,11 @@ const routes = createBrowserRouter([
         errorElement: <ErrorPage />,
       },
       {
+        path: "explore/facility/:facilityId",
+        element: <FacilityDetailPage embedded />,
+        errorElement: <ErrorPage />,
+      },
+      {
         path: "book/:facilityId",
         element: <CitizenBookingPage embedded />,
         errorElement: <ErrorPage />,
@@ -320,6 +330,7 @@ const routes = createBrowserRouter([
       { index: true, element: <InstitutionEvents /> },
       { path: "new", element: <InstitutionEvents createMode /> },
       { path: "explore", element: <PublicExplore embedded /> },
+      { path: "explore/facility/:facilityId", element: <FacilityDetailPage embedded /> },
     ],
   },
 ]);

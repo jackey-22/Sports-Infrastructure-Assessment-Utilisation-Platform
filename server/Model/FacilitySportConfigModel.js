@@ -23,6 +23,19 @@ const slotSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const subscriptionPlanSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    durationType: { type: String, enum: ["monthly", "yearly"], required: true },
+    durationDays: { type: Number, min: 1, default: 30 },
+    price: { type: Number, min: 1, required: true },
+    slotId: { type: mongoose.SchemaTypes.ObjectId, default: null },
+    description: { type: String, trim: true, default: "", maxlength: 400 },
+    active: { type: Boolean, default: true },
+  },
+  { _id: true }
+);
+
 const facilitySportConfigSchema = new mongoose.Schema(
   {
     facility: {
@@ -37,6 +50,7 @@ const facilitySportConfigSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    images: { type: [String], default: [] },
     bookingMode: {
       type: String,
       enum: ["capacity", "court", "hybrid"],
@@ -74,6 +88,7 @@ const facilitySportConfigSchema = new mongoose.Schema(
       maxMembers: { type: Number, min: 1, default: 1 },
     },
     slots: { type: [slotSchema], default: [] },
+    subscriptionPlans: { type: [subscriptionPlanSchema], default: [] },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     notes: { type: String, default: "" },
     configuredBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users" },

@@ -31,16 +31,16 @@ export default function CitizenBookings() {
   const [ratingBooking, setRatingBooking] = useState(null);
   const load = async () => {
     setLoading(true); setError(null);
-    try { const [response, ratingResponse] = await Promise.all([api.get("/api/citizen/bookings"), api.get("/api/citizen/reviews")]); setRows(response.data || []); setReviews(ratingResponse.data || []); }
+    try { const [response, ratingResponse] = await Promise.all([api.get("/api/citizen/bookings"), api.get("/api/citizen/reviews")]); const confirmedOnly = (response.data || []).filter((item) => item.bookingStatus === "Confirmed" && item.paymentStatus === "Paid"); setRows(confirmedOnly); setReviews(ratingResponse.data || []); }
     catch (loadError) { setError(loadError); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
-  const visible = useMemo(() => rows.filter((row) => view === "all" || (view === "upcoming" ? row.date >= today() : row.date < today())), [rows, view]);
-  const paid = rows.filter((row) => row.paymentStatus === "Paid");
+  const visible = useMemo(() => rows.filter((row) => view === "all" || (view === "upcoming" ? (row.endDate || row.date) >= today() : (row.endDate || row.date) < today())), [rows, view]);
+  const paid = rows;
   return <PageShell>
-    <PageHeader eyebrow="Citizen account" title="My bookings" description="Your facility reservations, coaching bookings and Razorpay payment status." />
-    <div className="mb-5 grid gap-3 sm:grid-cols-3"><KpiCard label="Total bookings" value={rows.length} caption="All reservations linked to your account" icon={CalendarCheck} tone="blue" /><KpiCard label="Upcoming" value={rows.filter((row) => row.date >= today() && row.bookingStatus !== "Cancelled").length} caption="Confirmed and pending reservations" icon={Clock3} tone="green" /><KpiCard label="Amount paid" value={money(paid.reduce((sum, row) => sum + row.amount, 0))} caption={`${paid.length} paid bookings`} icon={IndianRupee} tone="violet" /></div>
+    <PageHeader eyebrow="Citizen account" title="My bookings" description="Your confirmed facility bookings, bulk session passes, and active subscriptions." />
+    <div className="mb-5 grid gap-3 sm:grid-cols-3"><KpiCard label="Confirmed bookings" value={rows.length} caption="Completed & paid reservations" icon={CalendarCheck} tone="blue" /><KpiCard label="Active & upcoming" value={rows.filter((row) => (row.endDate || row.date) >= today()).length} caption="Upcoming slots and active passes" icon={Clock3} tone="green" /><KpiCard label="Amount paid" value={money(paid.reduce((sum, row) => sum + row.amount, 0))} caption={`${paid.length} confirmed bookings`} icon={IndianRupee} tone="violet" /></div>
     {!!passError && <p role="alert" className="mb-4 text-red-700">{passError}</p>}
     {pass && (
       <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -92,7 +92,15 @@ export default function CitizenBookings() {
                     {row.sport}
                   </p>
                   <StatusPill status={row.bookingStatus} />
-                  <StatusPill status={row.paymentStatus} />
+                  {row.bookingType === "subscription" ? (
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                      {row.subscriptionPlan?.name || "Subscription"} ({row.subscriptionPlan?.durationType || "plan"})
+                    </span>
+                  ) : row.bookingType === "bulk" ? (
+                    <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-bold text-sky-800">
+                      Bulk Session
+                    </span>
+                  ) : null}
                 </div>
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                   <MapPin className="h-4 w-4 shrink-0 text-brand-primary" />
@@ -106,7 +114,9 @@ export default function CitizenBookings() {
               {/* Column 2: Date, time, members, coach */}
               <div className="min-w-0 space-y-1.5 text-sm text-slate-600">
                 <p className="font-bold text-slate-800">
-                  {formatDate(row.date)}{row.time?.from ? ` · ${row.time.from}–${row.time.to}` : ""}
+                  {row.bookingType === "subscription" && row.endDate && row.endDate !== row.date
+                    ? `Valid ${formatDate(row.date)} – ${formatDate(row.endDate)}`
+                    : `${formatDate(row.date)}${row.time?.from ? ` · ${row.time.from}–${row.time.to}` : ""}`}
                 </p>
                 <p className="flex items-center gap-1.5">
                   <Users className="h-4 w-4 shrink-0 text-slate-400" />

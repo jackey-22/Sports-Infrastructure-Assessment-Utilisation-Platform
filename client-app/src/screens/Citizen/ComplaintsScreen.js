@@ -26,7 +26,8 @@ export default function ComplaintsScreen({
     [subject, setSubject] = useState(""),
     [description, setDescription] = useState(""),
     [photo, setPhoto] = useState(null),
-    [responses, setResponses] = useState({});
+    [responses, setResponses] = useState({}),
+    [showForm, setShowForm] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
@@ -140,8 +141,9 @@ export default function ComplaintsScreen({
       setSubject("");
       setDescription("");
       setPhoto(null);
+      setShowForm(false);
       await load();
-      setMessage("Grievance submitted. View it in My grievances.");
+      setMessage(Number(user?.Role) === 2 ? "Grievance submitted. View it in Coach grievances." : "Grievance submitted. View it in My grievances.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -175,7 +177,10 @@ export default function ComplaintsScreen({
     }
   };
   const citizen = Number(user?.Role ?? 0) === 0;
+  const isCoach = Number(user?.Role) === 2;
   const staffQueue = [1, 3, 4, 5].includes(Number(user?.Role));
+  const mineTitle = isCoach ? "Coach grievances" : "My grievances";
+  const mineSubtitle = isCoach ? "Track and manage grievances raised by you." : "Track and view your raised grievances.";
   const visibleRows = rows.filter(item => filter === "all" || item.workflowStatus === filter);
   return <View style={styles.root}><AppScreenScroll keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl tintColor={GREEN} colors={[GREEN]} refreshing={loading} onRefresh={() => {
       load();
@@ -191,7 +196,20 @@ export default function ComplaintsScreen({
               loadFacilities();
             }} disabled={busy} /></View></View>}
       {!!message && <View style={styles.successNotice}><Ionicons name="checkmark-circle-outline" size={20} color={GREEN} /><Text style={styles.noticeText}>{message}</Text></View>}
-      <View style={styles.section}>
+      <View style={styles.formActions}>
+        <GrievanceButton
+          label={showForm ? "Close grievance form" : "Add grievance"}
+          icon={showForm ? "close-outline" : "add-circle-outline"}
+          outline={showForm}
+          onPress={() => {
+            setShowForm((prev) => !prev);
+            setError("");
+            setMessage("");
+          }}
+          disabled={busy}
+        />
+      </View>
+      {showForm && <View style={styles.section}>
         <SectionHeading icon="document-text-outline" title="Raise a grievance" subtitle="Report an issue related to a sports facility." />
         <Text style={styles.label}>Facility</Text>
         <View style={styles.field}><Ionicons name="business-outline" size={21} color={INK} /><Picker accessibilityLabel="Facility" enabled={!busy} selectedValue={facility} onValueChange={setFacility} style={styles.picker} dropdownIconColor={INK}><Picker.Item label="Select facility" value="" />{facilities.map(item => <Picker.Item key={item._id} label={item.name} value={item._id} />)}</Picker></View>
@@ -205,10 +223,10 @@ export default function ComplaintsScreen({
               flex: 1
             }]} numberOfLines={2}>{photo.fileName || "Photo attached"}</Text><TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => setPhoto(null)} style={styles.removePhoto}><Ionicons name="close-circle-outline" size={24} color="#B42318" /></TouchableOpacity></View>}
         <View style={styles.formActions}><GrievanceButton label="Choose photo" icon="images-outline" outline onPress={() => pickPhoto(false)} disabled={busy} /><GrievanceButton label="Take photo" icon="camera-outline" outline onPress={() => pickPhoto(true)} disabled={busy} /><GrievanceButton label={busy ? "Saving..." : "Submit grievance"} icon="paper-plane-outline" onPress={submit} disabled={busy} /></View>
-      </View>
+      </View>}
       <View style={styles.section}>
-        <SectionHeading icon="clipboard-outline" title={view === "mine" ? "My grievances" : "Assigned grievances"} subtitle={view === "mine" ? "Track and view your raised grievances." : "Review, respond and manage assigned grievances."} />
-        {staffQueue && <View style={styles.tabs}>{[["mine", "My grievances"], ["assigned", "Assigned grievances"]].map(([key, label]) => <TouchableOpacity key={key} disabled={busy} accessibilityRole="button" accessibilityState={{
+        <SectionHeading icon="clipboard-outline" title={view === "mine" ? mineTitle : "Assigned grievances"} subtitle={view === "mine" ? mineSubtitle : "Review, respond and manage assigned grievances."} />
+        {staffQueue && <View style={styles.tabs}>{[["mine", mineTitle], ["assigned", "Assigned grievances"]].map(([key, label]) => <TouchableOpacity key={key} disabled={busy} accessibilityRole="button" accessibilityState={{
               selected: view === key
             }} onPress={() => setView(key)} style={[styles.tab, view === key && styles.activeTab]}><Text style={[styles.tabText, view === key && styles.activeTabText]}>{label}</Text></TouchableOpacity>)}</View>}
         <View style={styles.field}><Ionicons name="filter-outline" size={21} color={INK} /><Picker accessibilityLabel="Status filter" selectedValue={filter} onValueChange={setFilter} style={styles.picker} dropdownIconColor={INK}>{["all", "Open", "Responded", "Escalated", "Resolved"].map(value => <Picker.Item key={value} label={value === "all" ? "All statuses" : value} value={value} />)}</Picker></View>
@@ -216,7 +234,7 @@ export default function ComplaintsScreen({
             padding: 20
           }} />}
         {!loading && !error && !visibleRows.length && <View style={styles.empty}><Ionicons name="file-tray-outline" size={32} color="#7B9485" /><Text style={styles.smallText}>No grievances found.</Text></View>}
-        {visibleRows.map(item => <GrievanceCard key={item._id} item={item} citizen={citizen} busy={busy} response={responses[item._id] || ""} onResponse={value => setResponses(old => ({
+        {visibleRows.map(item => <GrievanceCard key={item._id} item={item} citizen={citizen} coach={isCoach} busy={busy} response={responses[item._id] || ""} onResponse={value => setResponses(old => ({
             ...old,
             [item._id]: value
           }))} onAction={action => act(item, action)} onAttachment={() => Linking.openURL(/^https?:\/\//i.test(item.photo) ? item.photo : `${API_BASE_URL}${item.photo}`).catch(err => setError(err.message))} />)}
@@ -252,6 +270,7 @@ export function GrievanceButton({
 export function GrievanceCard({
   item,
   citizen,
+  coach = false,
   busy,
   response,
   onResponse,
@@ -259,9 +278,9 @@ export function GrievanceCard({
   onAttachment
 }) {
   const [expanded, setExpanded] = useState(false);
-  const canRespond = !citizen && item.permissions?.canRespond;
-  const canResolve = !citizen && item.permissions?.canResolve;
-  const canEscalate = !citizen && item.permissions?.canEscalate;
+  const canRespond = !citizen && !coach && item.permissions?.canRespond;
+  const canResolve = !citizen && !coach && item.permissions?.canResolve;
+  const canEscalate = !citizen && !coach && item.permissions?.canEscalate;
   const resolved = item.workflowStatus === "Resolved" || item.status === 1;
   const escalated = item.workflowStatus === "Escalated";
   const history = [...(item.remarks || []).filter(remark => !(item.history || []).some(event => event.reason === remark.remark && String(event.userId?._id || event.userId) === String(remark.userId?._id || remark.userId))), ...(item.history || [])].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));

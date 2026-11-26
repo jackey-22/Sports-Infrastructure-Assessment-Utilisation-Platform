@@ -22,13 +22,21 @@ function normalizeFacility(row) {
     id: String(row.id),
     picture: assetUrl(row.picture) || PUBLIC_IMAGE_FALLBACK,
     gallery: (row.gallery || []).map(assetUrl),
+    conditionPhotos: (row.conditionPhotos || []).map((p) => ({
+      ...p,
+      url: assetUrl(p.url),
+    })).filter((p) => p.url),
     latitude: Number(row.latitude),
     longitude: Number(row.longitude),
-    sports: (row.sports || []).map((sport) => ({
-      ...sport,
-      image: assetUrl(SPORT_IMAGES[sport.name] || (/^\.?[\\/]sports[\\/]/i.test(sport.image || "") ? "" : sport.image)),
-      courts: sport.units,
-    })),
+    sports: (row.sports || []).map((sport) => {
+      const sportImgs = Array.isArray(sport.images) ? sport.images.map(assetUrl).filter(Boolean) : [];
+      return {
+        ...sport,
+        image: sportImgs[0] || assetUrl(SPORT_IMAGES[sport.name] || (/^\.?[\\/]sports[\\/]/i.test(sport.image || "") ? "" : sport.image)),
+        images: sportImgs,
+        courts: sport.units,
+      };
+    }),
   };
 }
 

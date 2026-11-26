@@ -256,7 +256,7 @@ async function createEvaluation(req, res) {
       });
     }
     const totalScore = Math.round(evaluationDetails.reduce((sum, item) => sum + item.weightedScore, 0) * 100) / 100;
-    const data = await Evaluation.create({
+    const evaluationPayload = {
       athlete: athleteId,
       sport: sportId,
       coach: req.user._id,
@@ -269,7 +269,30 @@ async function createEvaluation(req, res) {
       remarks: String(remarks || ""),
       evaluationDate: evaluationDate || new Date(),
       details: evaluationDetails,
-    });
+    };
+
+    let data;
+    let isUpdate = false;
+    if (matchedBooking?._id && mongoose.connection.readyState === 1) {
+      const existingEval = await Evaluation.findOne({
+        coach: req.user._id,
+        athlete: athleteId,
+        booking: matchedBooking._id,
+      })
+        .select("_id")
+        .lean();
+      if (existingEval) {
+        data = await Evaluation.findOneAndUpdate(
+          { _id: existingEval._id },
+          { $set: evaluationPayload },
+          { new: true }
+        );
+        isUpdate = true;
+      }
+    }
+    if (!data) {
+      data = await Evaluation.create(evaluationPayload);
+    }
 
     if (matchedBooking && (mongoose.connection.readyState === 1 || Object.hasOwn(Guest, "updateOne"))) {
       await Guest.updateOne(
@@ -278,7 +301,7 @@ async function createEvaluation(req, res) {
       );
     }
 
-    return res.status(201).json({ data, rcode: 200 });
+    return res.status(isUpdate ? 200 : 201).json({ data, rcode: 200 });
   } catch (error) {
     console.error("Could not submit athlete evaluation:", error.message);
     return fail(res, 500, "Could not submit athlete evaluation");

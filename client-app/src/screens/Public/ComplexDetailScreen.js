@@ -53,7 +53,12 @@ export default function ComplexDetailScreen({
   }, [selected?.id, revision]);
   if (booking) return <BookingCheckoutScreen facility={facility} onBack={() => setBooking(false)} onDone={() => setBooking(false)} />;
   if (!facility) return <View style={ui.safe}><View style={ui.screen}><AppScreenScroll contentContainerStyle={ui.content} header={<AppHeader title="Facility details" onBack={back} />}><StateMessage title="No facility selected" message="Choose a facility from Explore." action={back ? "Go back" : undefined} onAction={back} /></AppScreenScroll></View></View>;
-  const photos = [...new Set([facility.picture, ...(facility.gallery || [])].map(imageUrl).filter(Boolean))];
+  const photos = [...new Set([
+    facility.picture,
+    ...(facility.gallery || []),
+    ...(facility.sports || []).flatMap(sp => sp.images || (sp.image ? [sp.image] : [])),
+    ...(facility.conditionPhotos || []).map(cp => cp.url),
+  ].map(imageUrl).filter(Boolean))];
   const score = facility.condition?.score;
   const price = startingPrice(facility);
   const amenities = AMENITIES.filter(a => facility.amenities?.[a.key]);
@@ -103,9 +108,9 @@ export default function ComplexDetailScreen({
               marginTop: 8
             }]}>Last inspection: {facility.condition.lastInspectionDate}</Text>}</View>
         <View style={ui.card}><Text style={ui.sectionTitle}>Infrastructure amenities</Text><View style={s.amenities}>{amenities.map(a => <View style={s.amenity} key={a.key}><Ionicons name={a.icon} size={27} color={GREEN} /><Text style={s.amenityLabel}>{a.label}</Text></View>)}</View>{!amenities.length && <Text style={ui.muted}>No amenities recorded.</Text>}</View>
-        <View style={ui.card}><Text style={ui.sectionTitle}>Sports & booking rates</Text>{facility.sports?.map((sport, index) => <View style={s.sport} key={`${sport.id}-${index}`}><View style={{
+        <View style={ui.card}><Text style={ui.sectionTitle}>Sports, rates &amp; plans</Text>{facility.sports?.map((sport, index) => <View style={s.sport} key={`${sport.id}-${index}`}><View style={{
                 flex: 1
-              }}><Text style={s.metricValue}>{sport.name}</Text><Text style={ui.muted}>{sport.bookable ? "Online slots available" : "Contact facility for availability"}</Text><Text style={[ui.muted, { color: sport.condition ? GREEN : colors.slate[400], marginTop: 3 }]}>{sport.condition ? `${sport.condition.grade} · ${sport.condition.score}/100 condition` : "Condition not assessed"}</Text></View><Text style={s.rate}>{sport.price ? `₹${sport.price.amount}/${sport.price.unit || "slot"}` : "Contact facility"}</Text></View>)}{!facility.sports?.length && <Text style={ui.muted}>No sports configured.</Text>}</View>
+              }}><Text style={s.metricValue}>{sport.name}</Text><Text style={ui.muted}>{sport.bookable ? "Online slots available" : "Contact facility for availability"}</Text><Text style={[ui.muted, { color: sport.condition ? GREEN : colors.slate[400], marginTop: 3 }]}>{sport.condition ? `${sport.condition.grade} · ${sport.condition.score}/100 condition` : "Condition not assessed"}</Text>{!!sport.subscriptionPlans?.length && <Text style={[ui.muted, { color: GREEN, fontWeight: "700", marginTop: 3 }]}>Plans: {sport.subscriptionPlans.map(p => `${p.name} (₹${p.price}/${p.durationType === "yearly" ? "yr" : "mo"})`).join(" · ")}</Text>}</View><Text style={s.rate}>{sport.price ? `₹${sport.price.amount}/${sport.price.unit || "slot"}` : "Contact facility"}</Text></View>)}{!facility.sports?.length && <Text style={ui.muted}>No sports configured.</Text>}</View>
         {canRate ? <TouchableOpacity accessibilityRole="button" onPress={() => setRatingOpen(true)} style={s.ratingAction}><Ionicons name="star" size={22} color="#F59E0B" /><View style={{ flex: 1 }}><Text style={s.ratingTitle}>Rate facility, sport or coach</Text><Text style={ui.muted}>Share a star rating or update your previous review.</Text></View><Ionicons name="chevron-forward" size={20} color={GREEN} /></TouchableOpacity> : null}
         <View style={ui.card}><Text style={ui.sectionTitle}>Administration & contact</Text><View style={[ui.row, {
               marginTop: 14
