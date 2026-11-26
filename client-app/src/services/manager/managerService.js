@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import { grievanceService } from "../grievanceService";
 // Manager feature service layer. Phase 2D.2 reads and writes the shared
 // in-memory demo store (src/data/demoStore.js) scoped to the manager's facility,
@@ -95,96 +96,38 @@ export const managerService = {
     return data.facility;
   },
 
-  // POST /api/manager/assessments/analyse — real vision call. No demo fallback.
-  analyseFacilityPhotos(fileList, managerNotes) {
+  async analyseSportPhotos(sportId, photos) {
     const body = new FormData();
-    Array.from(fileList || []).forEach((file) => {
-      body.append("photos", file, file.name);
-    });
-    if (managerNotes) body.append("managerNotes", managerNotes);
-    return api.upload("/api/manager/assessments/analyse", body);
-  },
-
-  // GET /api/manager/assessments. Database rows win; demo rows fill the gaps.
-  async listAssessments() {
-    const local = demoStore.assessmentsForFacility(MANAGER_FACILITY_ID);
-    try {
-      const data = await api.get("/api/manager/assessments");
-      const remote = data.assessments || [];
-      const ids = new Set(remote.map((row) => row.id));
-      const extras = local.filter((row) => !ids.has(row.id) && row.source !== "database");
-      return [...remote, ...extras];
-    } catch (error) {
-      return local;
-    }
-  },
-
-  // GET /api/manager/assessments/:id
-  async getAssessment(id) {
-    const local = () =>
-      demoStore.assessmentsForFacility(MANAGER_FACILITY_ID).find((row) => row.id === id) ||
-      null;
-    if (/^[a-f\d]{24}$/i.test(String(id || ""))) {
-      try {
-        const data = await api.get(`/api/manager/assessments/${id}`);
-        return data.assessment || null;
-      } catch (error) {
-        return local() || Promise.reject(error);
+    body.append("sportId", sportId);
+    for (const { file, uri } of photos) {
+      const photo = file || new File(uri);
+      if (!file && !photo.exists) {
+        throw new Error("A selected photo is unavailable. Remove it and choose it again.");
       }
+      body.append("photos", photo);
     }
-    return local();
+    const { assessment } = await api.upload("/api/manager/assessments/analyse", body);
+    return assessment;
   },
 
-  // POST /api/manager/assessments. Saves the questionnaire on the server.
-  // A browser copy keeps the manager dashboard in step after refresh.
-  async saveAssessment(input) {
-    try {
-      const data = await api.post("/api/manager/assessments", input);
-      const assessment = data.assessment;
-      demoStore.saveAssessment({
-        id: assessment.id,
-        facilityId: MANAGER_FACILITY_ID,
-        facilityName: assessment.facilityName,
-        district: assessment.district,
-        assessmentDate: assessment.date,
-        totalScore: assessment.score,
-        grade: assessment.grade,
-        status: assessment.status,
-        inspectorName: assessment.inspector,
-        maintenanceUrgency: assessment.maintenanceUrgency,
-        photos: assessment.photos,
-        summary: assessment.summary,
-        ai: assessment.ai,
-        source: "database",
-      });
-      return { demo: false, assessment };
-    } catch {
-      const score = Object.values(input.scores || {}).reduce(
-        (total, value) => total + (Number(value) || 0),
-        0
-      );
-      const grade =
-        score >= 85
-          ? "Grade A (Excellent)"
-          : score >= 70
-            ? "Grade B (Good)"
-            : "Grade C (Fair)";
-      const assessment = demoStore.saveAssessment({
-        facilityId: MANAGER_FACILITY_ID,
-        facilityName: MANAGER_FACILITY.name,
-        district: MANAGER_FACILITY.district,
-        assessmentDate: input.assessmentDate,
-        totalScore: score,
-        grade,
-        status: "Submitted",
-        inspectorName: input.inspectorName,
-        maintenanceUrgency: input.maintenanceUrgency,
-        photos: input.photoNames || [],
-        summary: input.managerObservations,
-        source: "demo",
-      });
-      return { demo: true, assessment };
-    }
+  async listPendingAssessments() {
+    const { assessments } = await api.get("/api/manager/assessments?status=Analysed");
+    return assessments || [];
+  },
+
+  async listAssessments(before) {
+    const query = before ? `?before=${encodeURIComponent(before)}` : "";
+    const { assessments, nextCursor } = await api.get(`/api/manager/assessments${query}`);
+    return { assessments: assessments || [], nextCursor: nextCursor || null };
+  },
+
+  async saveAssessment(analysisId) {
+    const { assessment } = await api.post("/api/manager/assessments", { analysisId });
+    return assessment;
+  },
+
+  discardAssessment(analysisId) {
+    return api.del(`/api/manager/assessments/${encodeURIComponent(analysisId)}`);
   },
 
   // Expose role-bound capabilities for the UI.

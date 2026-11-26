@@ -3,27 +3,18 @@ const path = require("path");
 const multer = require("multer");
 const mongoose = require("mongoose");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
+const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const SportsComplexModel = require("../Model/SportsComplexModel");
-const { canAccessComplex } = require("../Utils/scope");
+const { canAccessComplex, complexFilter } = require("../Utils/scope");
 const { detectImage, MAX_BYTES } = require("../Utils/photoUpload");
 const { createRateLimiter } = require("../Utils/rateLimit");
 const { ROLE } = require("../Utils/roles");
 const { analyseImages, VisionError } = require("../Services/facilityVision");
 
 const MAX_PHOTOS = 6;
-const SCORE_LIMITS = {
-  turf: 25,
-  lighting: 20,
-  sanitation: 20,
-  safety: 15,
-  accessibility: 20,
-};
-const URGENCY = new Set([
-  "Normal / Routine",
-  "Minor Attention Required",
-  "High Priority Repair",
-  "Critical Renovation",
-]);
+// Leave room for base64 and the prompt within Gemini's inline request limit.
+const MAX_TOTAL_PHOTO_BYTES = 14 * 1024 * 1024;
+const savedRecords = { $or: [{ status: "Submitted" }, { sportId: null }] };
 
 const analysisRateLimiter = createRateLimiter({
   windowMs: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
@@ -78,24 +69,19 @@ function todayInIndia() {
   return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-function gradeFor(score) {
-  if (score >= 85) return "Grade A (Excellent)";
-  if (score >= 70) return "Grade B (Good)";
-  if (score >= 55) return "Grade C (Fair)";
-  return "Grade D (Needs attention)";
-}
-
 async function resolveFacility(user) {
   if (!user || user.Role !== ROLE.MANAGER) return null;
   if (user.SportComplexId) {
     if (!(await canAccessComplex(user, user.SportComplexId))) return null;
     return SportsComplexModel.findById(user.SportComplexId)
       .populate("district", "District")
+      .populate("sports.sport", "SportName status")
       .lean();
   }
   // Seeded managers are stored on the complex, and the user record was left blank.
   const managed = await SportsComplexModel.find({ manager: user._id })
     .populate("district", "District")
+    .populate("sports.sport", "SportName status")
     .lean();
   return managed.length === 1 ? managed[0] : null;
 }
@@ -107,6 +93,24 @@ async function managerOwns(user, facilityId) {
   if (user.Role !== ROLE.MANAGER) return false;
   const complex = await SportsComplexModel.findById(facilityId).select("manager").lean();
   return Boolean(complex && complex.manager && String(complex.manager) === String(user._id));
+}
+
+async function availableSports(facility) {
+  const configs = await FacilitySportConfig.find({ facility: facility._id })
+    .select("sport status")
+    .populate("sport", "SportName status")
+    .lean();
+  // Facilities without configuration records still use their own sport assignments.
+  const entries = configs.length
+    ? configs.filter((config) => config.status === "Active")
+    : facility.sports || [];
+  const sports = new Map();
+  for (const { sport } of entries) {
+    if (sport?.SportName && sport.status !== "Inactive") {
+      sports.set(String(sport._id), { id: String(sport._id), name: sport.SportName });
+    }
+  }
+  return Array.from(sports.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function facilityFields(facility) {
@@ -126,6 +130,8 @@ function present(doc) {
     id: String(doc._id),
     facilityId: String(doc.facilityId),
     facilityName: doc.facilityName || "",
+    sportId: doc.sportId ? String(doc.sportId) : null,
+    sportName: doc.sportName || "",
     district: doc.districtName || "",
     date: doc.assessmentDate || "",
     inspector: doc.inspectorName || "",
@@ -148,6 +154,9 @@ function readImages(files) {
   if (files.length > MAX_PHOTOS) {
     return { error: `Attach at most ${MAX_PHOTOS} photographs.` };
   }
+  if (files.reduce((total, file) => total + (file.buffer?.length || 0), 0) > MAX_TOTAL_PHOTO_BYTES) {
+    return { error: "Photographs must total 14 MB or less." };
+  }
   const images = [];
   for (const file of files) {
     if (!file.buffer || file.buffer.length < 64) {
@@ -166,72 +175,38 @@ function readImages(files) {
   return { images };
 }
 
-function readQuestionnaire(body) {
-  const scores = {};
-  let totalScore = 0;
-  for (const [key, max] of Object.entries(SCORE_LIMITS)) {
-    const value = Number(body.scores && body.scores[key]);
-    if (!Number.isFinite(value) || value < 0 || value > max) {
-      return { error: `Score for ${key} must be between 0 and ${max}.` };
-    }
-    scores[key] = value;
-    totalScore += value;
-  }
-  const inspectorName = clip(body.inspectorName, 120);
-  const assessmentDate = clip(body.assessmentDate, 10);
-  const managerObservations = clip(body.managerObservations, 4000);
-  const maintenanceUrgency = clip(body.maintenanceUrgency, 80);
-  if (!inspectorName) return { error: "Inspector name is required." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(assessmentDate) || assessmentDate > todayInIndia()) {
-    return { error: "Assessment date must be today or earlier." };
-  }
-  if (!managerObservations) return { error: "Field observations are required." };
-  if (!URGENCY.has(maintenanceUrgency)) {
-    return { error: "Urgency classification is required." };
-  }
-  return {
-    value: {
-      inspectorName,
-      assessmentDate,
-      managerObservations,
-      questionnaire: {
-        scores,
-        totalScore,
-        grade: gradeFor(totalScore),
-        maintenanceUrgency,
-        scoreMethod:
-          "Questionnaire score is the sum of manager-entered component ratings (surface 25, lighting 20, sanitation 20, safety 15, accessibility 20). It is not an AI result.",
-      },
-    },
-  };
-}
-
 async function assignedFacility(req, res) {
-  const facility = await resolveFacility(req.user);
-  if (!facility) return fail(res, 403, "No facility is assigned to this account.");
-  return res.json({
-    rcode: 200,
-    facility: {
-      id: String(facility._id),
-      name: facility.name,
-      district: facility.district ? facility.district.District : "",
-      location: facility.location || "",
-      taluka: facility.taluka || "",
-      area: facility.area || "",
-      facilityType: facility.facilityType || "Sports Complex",
-      category: facility.category || "",
-      ownership: facility.ownership || "",
-      operationalSince: facility.operationalSince || "",
-      contactPhone: facility.contactPhone || "",
-      contactEmail: facility.contactEmail || "",
-      status: facility.status || "Active",
-      picture: facility.picture || "",
-      images: facility.images || [],
-      timings: facility.timings || {},
-      amenities: facility.amenities || {},
-      capacityDaily: facility.capacityDaily || 0,
-    },
-  });
+  try {
+    const facility = await resolveFacility(req.user);
+    if (!facility) return fail(res, 403, "No facility is assigned to this account.");
+    const sports = await availableSports(facility);
+    return res.json({
+      rcode: 200,
+      facility: {
+        id: String(facility._id),
+        name: facility.name,
+        sports,
+        district: facility.district ? facility.district.District : "",
+        location: facility.location || "",
+        taluka: facility.taluka || "",
+        area: facility.area || "",
+        facilityType: facility.facilityType || "Sports Complex",
+        category: facility.category || "",
+        ownership: facility.ownership || "",
+        operationalSince: facility.operationalSince || "",
+        contactPhone: facility.contactPhone || "",
+        contactEmail: facility.contactEmail || "",
+        status: facility.status || "Active",
+        picture: facility.picture || "",
+        images: facility.images || [],
+        timings: facility.timings || {},
+        amenities: facility.amenities || {},
+        capacityDaily: facility.capacityDaily || 0,
+      },
+    });
+  } catch (error) {
+    return fail(res, 500, "Facility details could not be loaded.");
+  }
 }
 
 async function updateAssignedFacility(req, res) {
@@ -271,16 +246,23 @@ async function analyse(req, res) {
   try {
     const facility = await resolveFacility(req.user);
     if (!facility) return fail(res, 403, "No facility is assigned to this account.");
+    const sports = await availableSports(facility);
+    const sport = sports.find(({ id }) => id === req.body?.sportId);
+    if (!sport) return fail(res, 400, "Select a sport available at your facility.");
     const parsed = readImages(req.files);
     if (parsed.error) return fail(res, 400, parsed.error);
     const ai = await analyseImages(parsed.images, {
-      managerNotes: clip(req.body && req.body.managerNotes, 1500),
+      provider: "gemini",
+      sportName: sport.name,
     });
     const doc = await FacilityAssessment.create({
       ...facilityFields(facility),
       submittedBy: req.user._id,
+      sportId: sport.id,
+      sportName: sport.name,
+      inspectorName: req.user.Name || "",
+      assessmentDate: todayInIndia(),
       status: "Analysed",
-      managerObservations: clip(req.body && req.body.managerNotes, 4000),
       photos: parsed.images.map((image) => ({
         filename: image.filename,
         mime: image.mime,
@@ -301,74 +283,83 @@ async function createAssessment(req, res) {
   try {
     const facility = await resolveFacility(req.user);
     if (!facility) return fail(res, 403, "No facility is assigned to this account.");
-    const questionnaire = readQuestionnaire(req.body || {});
-    if (questionnaire.error) return fail(res, 400, questionnaire.error);
-    const fields = questionnaire.value;
-
-    if (req.body && req.body.analysisId) {
-      if (!mongoose.isValidObjectId(req.body.analysisId)) {
-        return fail(res, 400, "Analysis reference is invalid.");
-      }
-      const existing = await FacilityAssessment.findById(req.body.analysisId);
-      if (!existing) return fail(res, 404, "Analysis was not found.");
-      if (String(existing.facilityId) !== String(facility._id)) {
-        return fail(res, 403, "That analysis belongs to another facility.");
-      }
-      if (String(existing.submittedBy) !== String(req.user._id)) {
-        return fail(res, 403, "That analysis belongs to another manager.");
-      }
-      if (existing.status !== "Analysed") {
-        return fail(res, 409, "This analysis was already submitted.");
-      }
-      existing.inspectorName = fields.inspectorName;
-      existing.assessmentDate = fields.assessmentDate;
-      existing.managerObservations = fields.managerObservations;
-      existing.questionnaire = fields.questionnaire;
-      existing.status = "Submitted";
-      await existing.save();
-      return res.json({ rcode: 200, assessment: present(existing) });
+    const { analysisId } = req.body || {};
+    if (typeof analysisId !== "string" || !mongoose.isValidObjectId(analysisId)) {
+      return fail(res, 400, "Select a completed sport analysis.");
     }
-
-    const names = Array.isArray(req.body.photoNames) ? req.body.photoNames : [];
-    const doc = await FacilityAssessment.create({
-      ...facilityFields(facility),
+    const filter = {
+      _id: analysisId,
+      facilityId: facility._id,
       submittedBy: req.user._id,
-      inspectorName: fields.inspectorName,
-      assessmentDate: fields.assessmentDate,
-      managerObservations: fields.managerObservations,
-      questionnaire: fields.questionnaire,
-      status: "Submitted",
-      photos: names.slice(0, MAX_PHOTOS).map((name) => ({
-        filename: safeName(name),
-        verified: false,
-        retained: false,
-      })),
-      ai: {
-        status: "not_requested",
-        disclaimer: "No photograph analysis was requested. Questionnaire scores are manager-entered.",
-      },
-    });
+      sportId: { $ne: null },
+      "ai.status": "completed",
+      "ai.provider": "gemini",
+    };
+    const doc = await FacilityAssessment.findOneAndUpdate(
+      { ...filter, status: "Analysed" },
+      { $set: { status: "Submitted" } },
+      { new: true }
+    ).lean() || await FacilityAssessment.findOne({ ...filter, status: "Submitted" }).lean();
+    if (!doc) return fail(res, 404, "Sport analysis was not found.");
     return res.json({ rcode: 200, assessment: present(doc) });
   } catch (error) {
     return fail(res, 500, "The assessment could not be saved.");
   }
 }
 
+async function discardAssessment(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return fail(res, 400, "Select a valid assessment.");
+    const facility = await resolveFacility(req.user);
+    if (!facility) return fail(res, 403, "No facility is assigned to this account.");
+    const ownedReview = {
+      _id: id,
+      facilityId: facility._id,
+      submittedBy: req.user._id,
+      sportId: { $ne: null },
+    };
+    const result = await FacilityAssessment.deleteOne({ ...ownedReview, status: "Analysed" });
+    if (!result.deletedCount && await FacilityAssessment.exists({ ...ownedReview, status: "Submitted" })) {
+      return fail(res, 409, "This assessment has already been saved.");
+    }
+    return res.status(204).end();
+  } catch (error) {
+    return fail(res, 500, "The assessment could not be discarded.");
+  }
+}
+
 async function list(req, res) {
   const facility = await resolveFacility(req.user);
   if (!facility) return fail(res, 403, "No facility is assigned to this account.");
-  const rows = await FacilityAssessment.find({ facilityId: facility._id })
-    .sort({ createdAt: -1 })
-    .limit(50)
+  const { before, status } = req.query;
+  if (before !== undefined && (typeof before !== "string" || !mongoose.isObjectIdOrHexString(before))) {
+    return fail(res, 400, "Invalid assessment history cursor.");
+  }
+  const filter = status === "Analysed"
+    ? { status: "Analysed", submittedBy: req.user._id, sportId: { $ne: null } }
+    : savedRecords;
+  const pageSize = 50;
+  const rows = await FacilityAssessment.find({
+    ...filter,
+    facilityId: facility._id,
+    ...(before ? { _id: { $lt: before } } : {}),
+  })
+    .sort({ _id: -1 })
+    .limit(pageSize + 1)
     .lean();
-  return res.json({ rcode: 200, assessments: rows.map(present) });
+  return res.json({
+    rcode: 200,
+    assessments: rows.slice(0, pageSize).map(present),
+    nextCursor: rows.length > pageSize ? String(rows[pageSize - 1]._id) : null,
+  });
 }
 
 async function getOne(req, res) {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return fail(res, 404, "Assessment was not found.");
   }
-  const doc = await FacilityAssessment.findById(req.params.id).lean();
+  const doc = await FacilityAssessment.findOne({ _id: req.params.id, ...savedRecords }).lean();
   if (!doc) return fail(res, 404, "Assessment was not found.");
   if (!(await managerOwns(req.user, doc.facilityId))) {
     return fail(res, 403, "That assessment belongs to another facility.");
@@ -376,8 +367,9 @@ async function getOne(req, res) {
   return res.json({ rcode: 200, assessment: present(doc) });
 }
 
-async function adminList(req, res) {
-  const rows = await FacilityAssessment.find({})
+async function scopedList(req, res) {
+  const scope = await complexFilter(req.user, "facilityId");
+  const rows = await FacilityAssessment.find({ ...savedRecords, ...scope })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
@@ -391,7 +383,8 @@ module.exports = {
   updateAssignedFacility,
   analyse,
   createAssessment,
+  discardAssessment,
   list,
   getOne,
-  adminList,
+  scopedList,
 };

@@ -1,338 +1,411 @@
-import AppScreenScroll from "../../components/common/AppScreenScroll";
-import AppHeader from "../../components/common/AppHeader";
-import { Text, TextInput } from "../../components/AppText";
-import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Image, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
+import AppHeader from "../../components/common/AppHeader";
+import AppScreenScroll from "../../components/common/AppScreenScroll";
+import { Text } from "../../components/AppText";
+import { managerService } from "../../services/manager/managerService";
 import { colors } from "../../theme/colors";
-export const FacilityAuditScreen = ({
-  onBack,
-  onAuditComplete
-}) => {
-  const [turfScore, setTurfScore] = useState(90);
-  const [floodlightLux, setFloodlightLux] = useState("850");
-  const [sanitationScore, setSanitationScore] = useState(88);
-  const [accessibilityScore, setAccessibilityScore] = useState(95);
-  const [photoUri, setPhotoUri] = useState(null);
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [inspectorNotes, setInspectorNotes] = useState("Court 1 & 2 synthetic mats show minimal seam wear. Floodlight lux verified at 850 across all 4 quadrants.");
-  const calculatedFci = Math.round(turfScore * 0.35 + Math.min(100, (parseInt(floodlightLux) || 0) / 10) * 0.25 + sanitationScore * 0.20 + accessibilityScore * 0.20);
-  const handleCapturePhoto = async () => {
-    const {
-      status
-    } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access is required for AI Vision infrastructure audit.");
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8
+import { formatDate } from "../../utils/manager/managerUtils";
+
+const MAX_PHOTOS = 6;
+
+function Action({ label, onPress, disabled, primary, destructive }) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.action, primary && styles.primary, destructive && styles.destructive, disabled && styles.disabled]}
+    >
+      <Text style={[styles.actionLabel, primary && styles.primaryLabel]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function assessmentScore(assessment) {
+  return assessment.ai?.status === "completed"
+    ? assessment.ai.visualConditionIndex
+    : assessment.score;
+}
+
+function AssessmentReport({ assessment, saved = false }) {
+  const analysed = assessment.ai?.status === "completed";
+  const score = assessmentScore(assessment);
+  const summary = analysed ? assessment.ai.overallSummary : assessment.summary;
+
+  return (
+    <View style={styles.card}>
+      <Text accessibilityRole="header" style={styles.heading}>
+        {assessment.sportName ? `${assessment.sportName} assessment` : "Facility assessment"}
+      </Text>
+      {saved && !!assessment.date && <Text style={styles.body}>{formatDate(assessment.date)}</Text>}
+      <View style={styles.scorePanel}>
+        <Text style={styles.scoreLabel}>{analysed ? "Visual condition score" : "Recorded score"}</Text>
+        {score == null ? (
+          <Text style={styles.scoreUnavailable}>Not scored</Text>
+        ) : (
+          <Text style={styles.score}>{score}<Text style={styles.scoreLabel}> / 100</Text></Text>
+        )}
+      </View>
+      <Text accessibilityRole="header" style={styles.heading}>Summary</Text>
+      <Text style={styles.body}>{summary || "No summary recorded."}</Text>
+    </View>
+  );
+}
+
+export function FacilityAuditScreen({ onBack }) {
+  const [facility, setFacility] = useState(null);
+  const [pending, setPending] = useState([]);
+  const [sportId, setSportId] = useState("");
+  const [photos, setPhotos] = useState([]);
+  const [review, setReview] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [reload, setReload] = useState(0);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [history, setHistory] = useState(null);
+  const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyRequest, setHistoryRequest] = useState({});
+  const [savedRecord, setSavedRecord] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setBusy("Loading assessments");
+    setError("");
+    Promise.all([
+      managerService.getAssignedFacility(),
+      managerService.listPendingAssessments(),
+    ]).then(([assigned, drafts]) => {
+      if (active) {
+        setFacility(assigned);
+        setPending(drafts);
+      }
+    }).catch((failure) => {
+      if (active) setError(failure.message);
+    }).finally(() => {
+      if (active) setBusy("");
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  };
-  const handleSubmitAudit = () => {
-    setIsAuditing(true);
-    setTimeout(() => {
-      setIsAuditing(false);
-      Alert.alert("FCI Audit Logged", `Facility Condition Index calculated at ${calculatedFci} / 100 (Grade A). Dispatched to District Sports Officer & State SAG Quality Cell.`);
-      if (onAuditComplete) onAuditComplete(calculatedFci);else if (onBack) onBack();
-    }, 1500);
-  };
-  return <View style={styles.container}>
+    return () => { active = false; };
+  }, [reload]);
 
+  useEffect(() => {
+    if (showForm) return;
+    let active = true;
+    const { before } = historyRequest;
+    setHistoryLoading(true);
+    setHistoryError("");
+    managerService.listAssessments(before).then((page) => {
+      if (active) {
+        setHistory((current) => before ? {
+          ...page,
+          assessments: [...current.assessments, ...page.assessments],
+        } : page);
+      }
+    }).catch((failure) => {
+      if (active) setHistoryError(failure.message);
+    }).finally(() => {
+      if (active) setHistoryLoading(false);
+    });
+    return () => { active = false; };
+  }, [showForm, historyRequest]);
 
-      <AppScreenScroll contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} header={<AppHeader title="FCI Condition Audit" subtitle="SAG Infrastructure Quality Framework" onBack={onBack} />}>
-        {/* Dynamic FCI Score Banner */}
-        <View style={styles.scoreBanner}>
-          <View>
-            <Text style={styles.scoreBannerTitle}>Live Calculated FCI</Text>
-            <Text style={styles.scoreBannerSub}>Weighted composite quality index</Text>
-          </View>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreNum}>{calculatedFci}</Text>
-            <Text style={styles.scoreGrade}>
-              {calculatedFci >= 85 ? "Grade A" : calculatedFci >= 70 ? "Grade B" : "Grade C"}
-            </Text>
-          </View>
-        </View>
-
-        {/* 1. Turf & Court Wear */}
-        <View style={styles.auditCard}>
-          <View style={styles.auditHeader}>
-            <Text style={styles.auditTitle}>1. Turf & Surface Condition (35%)</Text>
-            <Text style={styles.auditVal}>{turfScore}%</Text>
-          </View>
-          <Text style={styles.auditSub}>Checks for seam tears, shock-pad resilience, grip coefficient</Text>
-          <View style={styles.stepperRow}>
-            {[70, 80, 85, 90, 95].map(score => <TouchableOpacity key={score} style={[styles.chip, turfScore === score && styles.chipActive]} onPress={() => setTurfScore(score)}>
-                <Text style={[styles.chipText, turfScore === score && styles.chipTextActive]}>
-                  {score}%
-                </Text>
-              </TouchableOpacity>)}
-          </View>
-        </View>
-
-        {/* 2. Floodlight Lux Measurement */}
-        <View style={styles.auditCard}>
-          <View style={styles.auditHeader}>
-            <Text style={styles.auditTitle}>2. Floodlight Illumination (25%)</Text>
-            <Text style={styles.auditVal}>{floodlightLux} Lux</Text>
-          </View>
-          <Text style={styles.auditSub}>National standard for indoor badminton: 750 - 1000 Lux</Text>
-          <TextInput style={styles.textInput} value={floodlightLux} onChangeText={setFloodlightLux} keyboardType="number-pad" placeholder="Enter measured lux" />
-        </View>
-
-        {/* 3. Sanitation & Water */}
-        <View style={styles.auditCard}>
-          <View style={styles.auditHeader}>
-            <Text style={styles.auditTitle}>3. Sanitation & Hygiene (20%)</Text>
-            <Text style={styles.auditVal}>{sanitationScore}%</Text>
-          </View>
-          <Text style={styles.auditSub}>Cleanliness of washrooms, RO water TDS, locker hygiene</Text>
-          <View style={styles.stepperRow}>
-            {[65, 75, 85, 90, 95].map(score => <TouchableOpacity key={score} style={[styles.chip, sanitationScore === score && styles.chipActive]} onPress={() => setSanitationScore(score)}>
-                <Text style={[styles.chipText, sanitationScore === score && styles.chipTextActive]}>
-                  {score}%
-                </Text>
-              </TouchableOpacity>)}
-          </View>
-        </View>
-
-        {/* 4. Divyangjan Accessibility */}
-        <View style={styles.auditCard}>
-          <View style={styles.auditHeader}>
-            <Text style={styles.auditTitle}>4. Divyangjan Barrier-Free Access (20%)</Text>
-            <Text style={styles.auditVal}>{accessibilityScore}%</Text>
-          </View>
-          <Text style={styles.auditSub}>Ramp gradient (1:12), tactile indicators, wheelchair access</Text>
-          <View style={styles.stepperRow}>
-            {[70, 80, 90, 95, 100].map(score => <TouchableOpacity key={score} style={[styles.chip, accessibilityScore === score && styles.chipActive]} onPress={() => setAccessibilityScore(score)}>
-                <Text style={[styles.chipText, accessibilityScore === score && styles.chipTextActive]}>
-                  {score}%
-                </Text>
-              </TouchableOpacity>)}
-          </View>
-        </View>
-
-        {/* Camera Snapshot for AI Vision Audit */}
-        <View style={styles.auditCard}>
-          <Text style={styles.auditTitle}>PHOTO AUDIT EVIDENCE (AI VISION)</Text>
-          <Text style={styles.auditSub}>Capture high-resolution ground photo for computer vision evaluation</Text>
-
-          {photoUri ? <View style={styles.photoContainer}>
-              <Image source={{
-            uri: photoUri
-          }} style={styles.previewImage} />
-              <TouchableOpacity onPress={() => setPhotoUri(null)} style={styles.retakeBtn}>
-                <Ionicons name="camera" size={14} color="#ffffff" style={{
-              marginRight: 4
-            }} />
-                <Text style={styles.retakeText}>Retake Photo</Text>
-              </TouchableOpacity>
-            </View> : <TouchableOpacity style={styles.captureBtn} onPress={handleCapturePhoto}>
-              <Ionicons name="camera" size={22} color={colors.gov.primary} style={{
-            marginRight: 8
-          }} />
-              <Text style={styles.captureBtnText}>Capture Audit Photo Evidence</Text>
-            </TouchableOpacity>}
-        </View>
-
-        {/* Audit Inspector Notes */}
-        <View style={styles.auditCard}>
-          <Text style={styles.auditTitle}>OFFICIAL AUDIT OBSERVATIONS</Text>
-          <TextInput style={styles.notesInput} value={inspectorNotes} onChangeText={setInspectorNotes} multiline numberOfLines={3} />
-        </View>
-
-        {/* Submit Action */}
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitAudit} disabled={isAuditing}>
-          {isAuditing ? <ActivityIndicator color="#ffffff" /> : <>
-              <Text style={styles.submitBtnText}>Submit Official FCI Audit Report</Text>
-              <Ionicons name="shield-checkmark" size={18} color="#ffffff" style={{
-            marginLeft: 6
-          }} />
-            </>}
-        </TouchableOpacity>
-      </AppScreenScroll>
-    </View>;
-};
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.slate[50]
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40
-  },
-  scoreBanner: {
-    backgroundColor: colors.brand.dark,
-    borderRadius: 16,
-    padding: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16
-  },
-  scoreBannerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#ffffff"
-  },
-  scoreBannerSub: {
-    fontSize: 11,
-    color: colors.brand.light,
-    marginTop: 2
-  },
-  scoreBox: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    alignItems: "center"
-  },
-  scoreNum: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.gov.primary
-  },
-  scoreGrade: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.slate[600],
-    textTransform: "uppercase"
-  },
-  auditCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    marginBottom: 12
-  },
-  auditHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  auditTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.slate[900]
-  },
-  auditVal: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: colors.gov.primary
-  },
-  auditSub: {
-    fontSize: 11,
-    color: colors.slate[500],
-    marginTop: 2,
-    marginBottom: 10
-  },
-  stepperRow: {
-    flexDirection: "row",
-    gap: 8
-  },
-  chip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: colors.slate[100],
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.slate[200]
-  },
-  chipActive: {
-    backgroundColor: colors.brand.dark,
-    borderColor: colors.brand.dark
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.slate[700]
-  },
-  chipTextActive: {
-    color: "#ffffff"
-  },
-  textInput: {
-    backgroundColor: colors.slate[50],
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 40,
-    fontSize: 14,
-    color: colors.slate[900]
-  },
-  captureBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.brand.soft,
-    borderRadius: 10,
-    paddingVertical: 14,
-    marginTop: 4
-  },
-  captureBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.gov.primary
-  },
-  photoContainer: {
-    position: "relative",
-    borderRadius: 12,
-    overflow: "hidden",
-    marginTop: 6
-  },
-  previewImage: {
-    width: "100%",
-    height: 140
-  },
-  retakeBtn: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6
-  },
-  retakeText: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "700"
-  },
-  notesInput: {
-    backgroundColor: colors.slate[50],
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 12,
-    color: colors.slate[800],
-    height: 70,
-    textAlignVertical: "top"
-  },
-  submitBtn: {
-    backgroundColor: colors.gov.primary,
-    borderRadius: 12,
-    height: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8
-  },
-  submitBtnText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700"
+  function returnToRecords() {
+    setReview(null);
+    setConfirmDiscard(false);
+    setError("");
+    setHistoryRequest({});
+    setShowForm(false);
   }
+
+  function openAssessment(draft = null) {
+    setSportId("");
+    setPhotos([]);
+    setReview(draft);
+    setError("");
+    setNotice("");
+    setShowForm(true);
+  }
+
+  async function addPhotos(camera) {
+    const remaining = MAX_PHOTOS - photos.length;
+    if (remaining <= 0) return;
+    setError("");
+    try {
+      if (camera) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setError("Allow camera access to take an assessment photo.");
+          return;
+        }
+      }
+      const options = { mediaTypes: ["images"], quality: 0.7 };
+      const result = camera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync({
+            ...options,
+            allowsMultipleSelection: remaining > 1,
+            selectionLimit: remaining,
+          });
+      if (result.canceled || !result.assets?.length) return;
+      const selected = result.assets.filter((photo) => {
+        const mime = photo.file?.type || photo.mimeType;
+        return !mime || ["image/jpeg", "image/png", "image/webp"].includes(mime);
+      });
+      if (selected.length < result.assets.length) {
+        setError("Only JPEG, PNG and WebP photos were added.");
+      } else if (selected.length > remaining) {
+        setError(`Only ${MAX_PHOTOS} photos can be added per assessment.`);
+      }
+      setPhotos((current) => [...current, ...selected].slice(0, MAX_PHOTOS));
+    } catch (failure) {
+      setError(failure.message);
+    }
+  }
+
+  async function analyse() {
+    setBusy("Analysing with Gemini");
+    setError("");
+    setNotice("");
+    try {
+      const assessment = await managerService.analyseSportPhotos(sportId, photos);
+      setPending((current) => [assessment, ...current]);
+      setReview(assessment);
+      setPhotos([]);
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function save() {
+    setBusy("Saving assessment");
+    setError("");
+    try {
+      await managerService.saveAssessment(review.id);
+      setPending((current) => current.filter(({ id }) => id !== review.id));
+      setNotice(`${review.sportName} assessment saved.`);
+      returnToRecords();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function discard() {
+    setBusy("Discarding assessment");
+    setError("");
+    try {
+      await managerService.discardAssessment(review.id);
+      setPending((current) => current.filter(({ id }) => id !== review.id));
+      setNotice("Assessment discarded.");
+      returnToRecords();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function goBack() {
+    if (savedRecord) setSavedRecord(null);
+    else if (showForm) returnToRecords();
+    else onBack?.();
+  }
+
+  function refreshAssessments() {
+    if (historyLoading || busy) return;
+    setReload((current) => current + 1);
+    setHistoryRequest({});
+  }
+
+  const findings = review?.ai;
+  const sports = facility?.sports || [];
+  const showingRecords = !showForm && !savedRecord;
+
+  return (
+    <AppScreenScroll
+      contentContainerStyle={styles.content}
+      refreshControl={showingRecords ? (
+        <RefreshControl
+          refreshing={!!history && !historyRequest.before && (historyLoading || !!busy)}
+          onRefresh={refreshAssessments}
+          tintColor={colors.gov.primary}
+          colors={[colors.gov.primary]}
+        />
+      ) : undefined}
+      header={<AppHeader
+        title={savedRecord ? "Assessment record" : showForm ? "New assessment" : "Condition Assessment"}
+        subtitle={facility?.name || "Sport assessments"}
+        onBack={goBack}
+        actions={showingRecords ? [{
+          label: "Refresh assessments",
+          icon: "refresh-outline",
+          onPress: refreshAssessments,
+          disabled: historyLoading || !!busy,
+        }] : []}
+      />}
+    >
+      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+      {!savedRecord && !!notice && <Text accessibilityRole="alert" style={styles.success}>{notice}</Text>}
+      {showForm && !!busy && (
+        <View style={styles.row}>
+          <ActivityIndicator color={colors.gov.primary} />
+          <Text style={styles.body}>{busy}</Text>
+        </View>
+      )}
+
+      {!showForm ? (
+        savedRecord ? (
+          <AssessmentReport assessment={savedRecord} saved />
+        ) : (
+          <>
+            <Action label="New assessment" onPress={() => openAssessment()} primary />
+            {!!pending.length && (
+              <View style={styles.card}>
+                <Text accessibilityRole="header" style={styles.heading}>Pending reviews</Text>
+                {pending.map((assessment) => (
+                  <Action
+                    key={assessment.id}
+                    label={`Review ${assessment.sportName}${assessment.date ? ` · ${formatDate(assessment.date)}` : ""}`}
+                    onPress={() => openAssessment(assessment)}
+                  />
+                ))}
+              </View>
+            )}
+            <Text accessibilityRole="header" style={styles.heading}>Saved assessments</Text>
+            {history?.assessments.map((assessment) => {
+              const score = assessmentScore(assessment);
+              return (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  key={assessment.id}
+                  style={styles.card}
+                  onPress={() => setSavedRecord(assessment)}
+                >
+                  <Text style={styles.heading}>{assessment.sportName || "Facility assessment"}</Text>
+                  <View style={styles.recordDetails}>
+                    <Text style={styles.body}>{assessment.date ? formatDate(assessment.date) : "Date unavailable"}</Text>
+                    <Text style={styles.scoreLabel}>{score == null ? "Not scored" : `${score} / 100`}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            {history && history.assessments.length === 0 && (
+              <Text style={styles.body}>No saved assessments yet.</Text>
+            )}
+            {historyLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator color={colors.gov.primary} />
+                <Text style={styles.body}>Loading assessment history</Text>
+              </View>
+            ) : historyError ? (
+              <View style={styles.card}>
+                <Text accessibilityRole="alert" style={styles.error}>{historyError}</Text>
+                <Action label="Retry" onPress={() => setHistoryRequest({ ...historyRequest })} />
+              </View>
+            ) : history?.nextCursor && (
+              <Action
+                label="Load older assessments"
+                onPress={() => setHistoryRequest({ before: history.nextCursor })}
+              />
+            )}
+          </>
+        )
+      ) : review && findings ? (
+        <>
+          <AssessmentReport assessment={review} />
+          {confirmDiscard ? (
+            <View style={styles.card}>
+              <Text accessibilityRole="header" style={styles.heading}>Discard this assessment?</Text>
+              <Text style={styles.body}>This will permanently remove the pending review.</Text>
+              <Action label="Confirm discard" onPress={discard} disabled={!!busy} destructive />
+              <Action label="Cancel" onPress={() => { setConfirmDiscard(false); setError(""); }} disabled={!!busy} />
+            </View>
+          ) : (
+            <>
+              <Action label="Save assessment" onPress={save} disabled={!!busy} primary />
+              <Action label="Discard assessment" onPress={() => { setConfirmDiscard(true); setError(""); }} disabled={!!busy} destructive />
+              <Action label="Back to sport selection" onPress={() => { setReview(null); setError(""); }} disabled={!!busy} />
+            </>
+          )}
+        </>
+      ) : facility ? (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.heading}>Select a sport</Text>
+            {sports.length ? (
+              <Picker
+                accessibilityLabel="Sport"
+                selectedValue={sportId}
+                enabled={!busy}
+                onValueChange={(id) => {
+                  if (id === sportId) return;
+                  setSportId(id);
+                  setPhotos([]);
+                  setError("");
+                }}
+              >
+                <Picker.Item label="Choose a sport" value="" />
+                {sports.map((sport) => <Picker.Item key={sport.id} label={sport.name} value={sport.id} />)}
+              </Picker>
+            ) : <Text style={styles.body}>No sports are listed for this facility.</Text>}
+          </View>
+
+          {!!sportId && (
+            <View style={styles.card}>
+              <Text style={styles.heading}>Sport photos</Text>
+              <Text style={styles.body}>Add up to {MAX_PHOTOS} photos of the selected sport's playing area and equipment. Analysis sends the photos to Gemini.</Text>
+              <View style={styles.row}>
+                <Action label="Use camera" onPress={() => addPhotos(true)} disabled={!!busy || photos.length >= MAX_PHOTOS} />
+                <Action label="Choose photos" onPress={() => addPhotos(false)} disabled={!!busy || photos.length >= MAX_PHOTOS} />
+              </View>
+              {!!photos.length && (
+                <View style={styles.row}>
+                  {photos.map((photo, index) => (
+                    <View key={`${photo.uri}-${index}`}>
+                      <Image source={{ uri: photo.uri }} style={styles.photo} accessibilityLabel={`Sport photo ${index + 1}`} />
+                      <Action label={`Remove ${index + 1}`} disabled={!!busy} onPress={() => setPhotos(photos.filter((_, i) => i !== index))} />
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Action label="Analyse photos" onPress={analyse} disabled={!!busy || !photos.length} primary />
+            </View>
+          )}
+
+        </>
+      ) : !busy && <Action label="Retry" onPress={() => setReload(reload + 1)} />}
+    </AppScreenScroll>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: 16, paddingBottom: 40, gap: 12 },
+  card: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.slate[200], backgroundColor: colors.surface.card, gap: 8 },
+  heading: { fontSize: 16, fontWeight: "800", color: colors.brand.dark },
+  body: { fontSize: 13, lineHeight: 20, color: colors.slate[700] },
+  scorePanel: { borderRadius: 12, padding: 16, backgroundColor: colors.brand.soft, gap: 4 },
+  scoreLabel: { fontSize: 13, fontWeight: "700", color: colors.brand.dark },
+  score: { fontSize: 42, fontWeight: "800", color: colors.brand.dark },
+  scoreUnavailable: { fontSize: 20, fontWeight: "800", color: colors.brand.dark },
+  row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
+  recordDetails: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
+  action: { paddingHorizontal: 12, paddingVertical: 11, borderRadius: 10, alignItems: "center", backgroundColor: colors.brand.soft },
+  actionLabel: { fontSize: 13, fontWeight: "700", color: colors.brand.dark },
+  primary: { backgroundColor: colors.gov.primary },
+  primaryLabel: { color: colors.text.inverse },
+  destructive: { backgroundColor: colors.surface.card, borderWidth: 1, borderColor: colors.status.danger },
+  disabled: { opacity: 0.5 },
+  error: { color: colors.status.danger, fontWeight: "700" },
+  success: { color: colors.brand.dark, fontWeight: "700" },
+  photo: { width: 94, height: 72, borderRadius: 8, marginBottom: 4 },
 });
+
 export default FacilityAuditScreen;

@@ -65,7 +65,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return [
           { key: "home", label: "Overview", icon: "speedometer" },
           { key: "staff", label: "Gate staff", icon: "people-outline" },
-          { key: "audit", label: "FCI Audit", icon: "camera-outline" },
+          { key: "audit", label: "Assessment", icon: "camera-outline" },
           { key: "grants", label: "Grants", icon: "cloud-upload-outline" },
           { key: "complaints", label: "Grievances", icon: "warning-outline" },
         ];
@@ -167,7 +167,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
     if (role === 3) {
       if (activeTab === "staff") return <GateOperatorsScreen onBack={() => setActiveTab("home")} />;
       if (activeTab === "audit") {
-        return <FacilityAuditScreen onBack={() => setActiveTab("home")} onAuditComplete={() => setActiveTab("home")} />;
+        return <FacilityAuditScreen onBack={() => setActiveTab("home")} />;
       }
       if (activeTab === "grants") {
         return <GrantProofUploadScreen onBack={() => setActiveTab("home")} onSubmitted={() => setActiveTab("home")} />;

@@ -1,19 +1,17 @@
 import AppScreenScroll from "../../components/common/AppScreenScroll";
 import AppHeader from "../../components/common/AppHeader";
 import { Text } from "../../components/AppText";
-import React, { useState } from "react";
+import React from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import { StatCard } from "../../components/common/StatCard";
-import { FciGauge } from "../../components/common/FciGauge";
 import { StatusBadge } from "../../components/common/StatusBadge";
 export const ManagerDashboardScreen = ({
   user,
   onLogout,
   onNavigateTab
 }) => {
-  const [fciScore, setFciScore] = useState(91);
   return <View style={styles.container}>
 
 
@@ -24,9 +22,6 @@ export const ManagerDashboardScreen = ({
           <StatCard label="SLOT UTILISATION" value="84%" subvalue="Peak evening capacity" trend="High" trendType="up" icon={<Ionicons name="stats-chart" size={18} color={colors.gov.accent} />} />
         </View>
 
-        {/* Facility Condition Index (FCI) Card */}
-        <FciGauge score={fciScore} showDetails={true} />
-
         {/* Quick Manager Action Cards */}
         <Text style={styles.sectionHeading}>INFRASTRUCTURE & GRANT MANAGEMENT</Text>
         <View style={styles.actionsGrid}>
@@ -36,8 +31,8 @@ export const ManagerDashboardScreen = ({
           }]}>
               <Ionicons name="camera" size={22} color="#15803d" />
             </View>
-            <Text style={styles.actionTitle}>Run FCI Audit</Text>
-            <Text style={styles.actionDesc}>Capture turf & lux photos</Text>
+            <Text style={styles.actionTitle}>Condition Assessment</Text>
+            <Text style={styles.actionDesc}>Analyse photos by sport</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionCard} onPress={() => onNavigateTab && onNavigateTab("grants")}>

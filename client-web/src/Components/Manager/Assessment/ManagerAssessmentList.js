@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Building2,
@@ -17,7 +17,6 @@ import {
   ErrorState,
   Field,
   KpiCard,
-  Notice,
   PageHeader,
   PageShell,
   Pagination,
@@ -27,12 +26,11 @@ import {
   selectClass,
 } from "../Common/ManagerUI";
 
-const EMPTY_FILTERS = { search: "", status: "", from: "", to: "" };
+const EMPTY_FILTERS = { search: "", from: "", to: "" };
 
 function initialFilters(params) {
   return {
     ...EMPTY_FILTERS,
-    status: params.get("status") || "",
     from: params.get("from") || "",
     to: params.get("to") || "",
   };
@@ -41,25 +39,18 @@ function initialFilters(params) {
 export default function ManagerAssessmentList() {
   const [params, setParams] = useSearchParams();
   const [filters, setFilters] = useState(() => initialFilters(params));
-  const [rows, setRows] = useState([]);
-  const [notice, setNotice] = useState(null);
 
   const { data, loading, error, reload } = useAdminQuery(
     () => managerService.listAssessments(),
     []
   );
 
-  useEffect(() => {
-    if (data) setRows(data);
-  }, [data]);
-
-  const visibleRows = rows.filter(
+  const visibleRows = (data || []).filter(
     (row) =>
-      (!filters.status || row.status === filters.status) &&
       (!filters.from || (row.date && row.date >= filters.from)) &&
       (!filters.to || (row.date && row.date <= filters.to)) &&
       (!filters.search ||
-        `${row.id} ${row.facilityName} ${row.inspector}`
+        `${row.facilityName || ""} ${row.sportName || ""} ${row.inspector || ""}`
           .toLowerCase()
           .includes(filters.search.toLowerCase()))
   );
@@ -70,14 +61,10 @@ export default function ManagerAssessmentList() {
     sortDir: "desc",
   });
 
-  const draftCount = visibleRows.filter((row) => row.status === "Draft").length;
-  const verifiedCount = visibleRows.filter((row) => row.status === "Verified").length;
+  const analysedCount = visibleRows.filter((row) => row.ai?.status === "completed").length;
   const latestScored = visibleRows
-    .filter((row) => row.score != null && row.date)
-    .reduce(
-      (latest, row) => (!latest || row.date > latest.date ? row : latest),
-      null
-    );
+    .filter((row) => row.ai?.visualConditionIndex != null && row.date)
+    .reduce((latest, row) => (!latest || row.date > latest.date ? row : latest), null);
 
   function update(patch) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -86,7 +73,6 @@ export default function ManagerAssessmentList() {
   function reset() {
     setFilters(EMPTY_FILTERS);
     setParams({}, { replace: true });
-    setNotice(null);
   }
 
   return (
@@ -94,26 +80,15 @@ export default function ManagerAssessmentList() {
       <PageHeader
         eyebrow="Facility Manager · Condition Assessment"
         title="Assessment history"
-        description="Condition assessments for this facility. Draft assessments are local only until submitted."
+        description="View condition assessments saved for this facility."
         actions={
-          <>
-            <Button as={Link} to="/manager/assessment/new">
-              <ShieldCheck className="h-4 w-4" /> New assessment
-            </Button>
-            <Button variant="ghost" onClick={reset}>
-              <RotateCcw className="h-4 w-4" /> Reset filters
-            </Button>
-          </>
+          <Button variant="ghost" onClick={reset}>
+            <RotateCcw className="h-4 w-4" /> Reset filters
+          </Button>
         }
       />
 
-      {notice ? (
-        <Notice tone="info" title="Notice" onDismiss={() => setNotice(null)}>
-          {notice}
-        </Notice>
-      ) : null}
-
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard
           label="Total assessments"
           value={formatNumber(visibleRows.length)}
@@ -122,27 +97,16 @@ export default function ManagerAssessmentList() {
           tone="slate"
         />
         <KpiCard
-          label="Verified"
-          value={formatNumber(verifiedCount)}
-          caption="Score recorded"
-          icon={ShieldCheck}
+          label="AI analyses"
+          value={formatNumber(analysedCount)}
+          caption="Photo analysis completed"
+          icon={Clock3}
           tone="green"
         />
         <KpiCard
-          label="Drafts"
-          value={formatNumber(draftCount)}
-          caption="Not yet submitted"
-          icon={Clock3}
-          tone="amber"
-        />
-        <KpiCard
-          label="Latest score"
-          value={
-            latestScored?.score == null
-              ? "—"
-              : `${latestScored.score} / 100`
-          }
-          caption={latestScored?.grade || "No assessment yet"}
+          label="Latest visual index"
+          value={latestScored ? `${latestScored.ai.visualConditionIndex} / 100` : "?"}
+          caption={latestScored?.sportName || "Visual condition"}
           icon={Building2}
           tone="green"
         />
@@ -161,25 +125,10 @@ export default function ManagerAssessmentList() {
                 type="search"
                 value={filters.search}
                 onChange={(event) => update({ search: event.target.value })}
-                placeholder="Assessment ID, facility or inspector"
+                placeholder="Sport, facility or inspector"
                 className={`${inputClass} pl-9`}
               />
             </div>
-          </Field>
-
-          <Field label="Status" htmlFor="asmt-status">
-            <select
-              id="asmt-status"
-              className={selectClass}
-              value={filters.status}
-              onChange={(event) => update({ status: event.target.value })}
-            >
-              <option value="">All statuses</option>
-              <option value="Draft">Draft</option>
-              <option value="Analysed">Analysed</option>
-              <option value="Submitted">Submitted</option>
-              <option value="Verified">Verified</option>
-            </select>
           </Field>
 
           <Field label="From" htmlFor="asmt-from">
@@ -224,7 +173,7 @@ export default function ManagerAssessmentList() {
                   <tr>
                     <th scope="col" className="px-4 py-2.5 font-bold">Assessment</th>
                     <th scope="col" className="px-4 py-2.5 font-bold">Date</th>
-                    <th scope="col" className="px-4 py-2.5 text-right font-bold">Score</th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-bold">Visual index</th>
                     <th scope="col" className="px-4 py-2.5 font-bold">Status</th>
                     <th scope="col" className="px-4 py-2.5 text-right font-bold">Action</th>
                   </tr>
@@ -233,21 +182,16 @@ export default function ManagerAssessmentList() {
                   {table.pageRows.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5">
-                        <p className="font-mono text-[11px] font-bold text-slate-700">{row.id}</p>
+                        <p className="font-bold text-slate-800">{row.sportName || "Facility assessment"}</p>
                         <p className="text-[11px] text-slate-500">{row.facilityName}</p>
                       </td>
                       <td className="px-4 py-2.5 text-[11px] text-slate-600">
                         {formatDate(row.date)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className={`font-mono text-[11px] font-bold ${
-                          row.score == null ? "text-slate-500" : "text-brand-dark"
-                        }`}>
-                          {row.score == null ? "—" : `${row.score} / 100`}
+                        <span className="font-mono text-[11px] font-bold text-brand-dark">
+                          {row.ai?.visualConditionIndex == null ? "?" : `${row.ai.visualConditionIndex} / 100`}
                         </span>
-                        {row.ai && row.ai.status === "completed" && row.ai.visualConditionIndex != null ? (
-                          <p className="text-[10px] text-slate-500">Visual {row.ai.visualConditionIndex}</p>
-                        ) : null}
                       </td>
                       <td className="px-4 py-2.5">
                         <StatusPill status={row.status} />
