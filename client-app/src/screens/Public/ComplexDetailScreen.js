@@ -5,6 +5,7 @@ import { View, Image, TouchableOpacity, StyleSheet, Linking, Share, ActivityIndi
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "../../components/AppText";
 import { Button, StateMessage, ui, GREEN } from "../../components/FacilityUI";
+import { colors } from "../../theme/colors";
 import { loadFacilities, imageUrl, timingLabel, startingPrice, AMENITIES } from "../../services/facilityService";
 import BookingCheckoutScreen from "./BookingCheckoutScreen";
 import CitizenRatingModal from "../../components/citizen/CitizenRatingModal";
