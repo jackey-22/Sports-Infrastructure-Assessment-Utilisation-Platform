@@ -212,33 +212,19 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
           ) : null}
         </div>
 
-        <div className="grid gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 text-xs text-slate-600 sm:grid-cols-3">
           <div>
             <span className="font-bold uppercase tracking-wider text-slate-400">Email</span>
             <p className="mt-0.5 truncate font-semibold text-slate-800">{user.email || "—"}</p>
           </div>
           <div>
-            <span className="font-bold uppercase tracking-wider text-slate-400">Contact</span>
+            <span className="font-bold uppercase tracking-wider text-slate-400">Contact Number</span>
             <p className="mt-0.5 font-semibold text-slate-800 tabular-nums">{user.phone || "—"}</p>
           </div>
           <div>
-            <span className="font-bold uppercase tracking-wider text-slate-400">Physical Profile</span>
-            <p className="mt-0.5 font-semibold text-slate-800">
-              {athlete?.height || athlete?.weight || athlete?.bloodGroup
-                ? [
-                    athlete.height ? `Ht ${athlete.height}` : null,
-                    athlete.weight ? `Wt ${athlete.weight} kg` : null,
-                    athlete.bloodGroup ? `Blood ${athlete.bloodGroup}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")
-                : "Standard civic registration"}
-            </p>
-          </div>
-          <div>
-            <span className="font-bold uppercase tracking-wider text-slate-400">Training Attendance</span>
+            <span className="font-bold uppercase tracking-wider text-slate-400">Completed Sessions</span>
             <p className="mt-0.5 font-semibold text-slate-800 tabular-nums">
-              {summary.attendedSessionsCount} attended / {summary.confirmedBookingsCount} confirmed bookings
+              {summary.attendedSessionsCount} of {summary.confirmedBookingsCount} confirmed
             </p>
           </div>
         </div>
@@ -248,8 +234,8 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
         <Card className="p-8">
           <EmptyState
             icon={UserRound}
-            title="Athlete training portfolio not activated yet"
-            description="Your citizen account is active. Book a coaching session or join a SAG sports complex squad to receive official coach evaluations, skill parameter ratings, and leaderboard rankings."
+            title="Athlete portfolio not activated yet"
+            description="Your citizen account is active. Book a coaching session to receive coach evaluations, parameter scores, and leaderboard rankings."
             action={
               isSelf ? (
                 <Button as={Link} to="/citizen/explore">
@@ -263,25 +249,25 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Statewide Rank"
+          label="State Rank"
           value={summary.stateRank ? `#${summary.stateRank}` : "—"}
-          caption={summary.totalRankedAthletes ? `Out of ${summary.totalRankedAthletes} active athletes` : "Awaiting evaluations"}
+          caption={summary.totalRankedAthletes ? `Out of ${summary.totalRankedAthletes} ranked athletes` : "Awaiting evaluations"}
           icon={Medal}
           tone="amber"
         />
         <KpiCard
-          label="Composite Points"
+          label="Total Points"
           value={summary.compositePoints}
-          caption="Evaluation score + verified achievement bonus"
+          caption="Average score + verified achievement points"
           icon={Sparkles}
           tone="green"
         />
         <KpiCard
-          label="Evaluation Average"
+          label="Average Score"
           value={`${summary.avgEvaluationScore} / 100`}
           caption={
             summary.evaluationsCount
-              ? `Peak score ${summary.bestEvaluationScore}/100 (${summary.evaluationsCount} evals)`
+              ? `Best: ${summary.bestEvaluationScore}/100 · ${summary.evaluationsCount} evaluations`
               : "No coach evaluations yet"
           }
           icon={Award}
@@ -300,8 +286,8 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
         <div className="space-y-5 lg:col-span-7">
           {sportBreakdown.length ? (
             <ChartCard
-              title="Sport-wise Performance Scores"
-              description="Latest vs average published template score across evaluated sports (out of 100)."
+              title="Sport Performance"
+              description="Latest vs average evaluation score across sports (out of 100)."
             >
               <BarChart
                 categories={chartCategories}
@@ -316,15 +302,15 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
               <EmptyState
                 icon={Award}
                 title="No sport evaluation chart yet"
-                description="Once a coach submits a published template evaluation, sport comparison scores will appear here."
+                description="Sport comparison scores will appear here after your first coach evaluation."
               />
             </Card>
           )}
 
           <Card>
             <SectionHeader
-              title="Skill Parameter Mastery"
-              description="Latest parameter-by-parameter evaluation breakdown."
+              title="Parameter Scores"
+              description="Score breakdown from the latest evaluation."
               action={
                 sportBreakdown.length > 1 ? (
                   <select
@@ -388,8 +374,8 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
         <div className="space-y-5 lg:col-span-5">
           <Card>
             <SectionHeader
-              title="Verified Trophy Cabinet"
-              description={`${verifiedAchievements.length} verified · ${summary.pendingAchievementsCount} awaiting review`}
+              title="Achievements & Medals"
+              description={`${verifiedAchievements.length} verified · ${summary.pendingAchievementsCount} pending review`}
             />
             <div className="p-5">
               {achievements.length ? (
@@ -434,7 +420,7 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
           </Card>
 
           <Card>
-            <SectionHeader title="Recent Coach Evaluations" description="Official evaluation log and remarks." />
+            <SectionHeader title="Evaluation History" description="Scores and coach feedback." />
             <div className="divide-y divide-slate-100">
               {evaluations.length ? (
                 evaluations.slice(0, 5).map((ev) => (

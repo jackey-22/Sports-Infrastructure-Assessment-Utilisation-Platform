@@ -87,29 +87,18 @@ export default function AchievementsWorkspace({
       setAchievements(achievementsRes.data || []);
       setSports(sportsRes.data || []);
 
-      // Load athletes list for the dropdown if adding achievements is possible and athlete is not fixed
-      if (!athleteId) {
+      // Load athletes list for the dropdown only for roles permitted to add achievements
+      if (!athleteId && role !== "coach") {
         try {
-          if (role === "coach") {
-            const res = await api.get("/api/coach/rateable-athletes");
-            const list = (res.data?.athletes || []).map((item) => ({
-              _id: item.athleteId,
-              name: item.name,
-              email: item.email,
-              sports: item.sports?.map((s) => s.name).join(", "),
-            }));
-            setAthletes(list);
-          } else {
-            // Manager / Admin: /getAthletes returns scoped athletes
-            const res = await api.get("/getAthletes");
-            const list = (res.data || []).map((item) => ({
-              _id: item._id,
-              name: item.userId?.Name || "Athlete",
-              email: item.userId?.Email || "",
-              phone: item.userId?.ContactNum || "",
-            }));
-            setAthletes(list);
-          }
+          // Manager / Admin: /getAthletes returns scoped athletes
+          const res = await api.get("/getAthletes");
+          const list = (res.data || []).map((item) => ({
+            _id: item._id,
+            name: item.userId?.Name || "Athlete",
+            email: item.userId?.Email || "",
+            phone: item.userId?.ContactNum || "",
+          }));
+          setAthletes(list);
         } catch (athleteErr) {
           console.warn("Could not load athletes list:", athleteErr.message);
         }
@@ -272,14 +261,16 @@ export default function AchievementsWorkspace({
             Refresh
           </button>
 
-          <button
-            type="button"
-            onClick={() => setAddModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            Add achievement
-          </button>
+          {role !== "coach" ? (
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Add achievement
+            </button>
+          ) : null}
 
           {onClose && (
             <button
@@ -525,13 +516,15 @@ export default function AchievementsWorkspace({
           <p className="mt-1 text-sm text-slate-500">
             {search || sportFilter || statusFilter !== "All"
               ? "No achievements match your filters. Try clearing or expanding your search."
-              : "No achievements have been recorded yet. Click '+ Add achievement' to record one."}
+              : role === "coach"
+                ? "Submitted athlete achievements will appear here for review and verification."
+                : "No achievements have been recorded yet. Click '+ Add achievement' to record one."}
           </p>
         </div>
       )}
 
       {/* Add Achievement Modal */}
-      {addModalOpen && (
+      {role !== "coach" && addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">

@@ -123,9 +123,9 @@ export default function Leaderboard() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Sports Authority of Gujarat · Standings Registry"
-        title="Athlete Standings & Leaderboard"
-        description="Official sport-wise rankings computed from evaluated coaching sessions and verified competition achievements."
+        eyebrow="Sports Authority of Gujarat · Leaderboard"
+        title="Sports Leaderboard"
+        description="Rankings calculated from coach evaluation scores and verified athlete achievements."
         actions={
           <>
             <Button variant="secondary" size="sm" onClick={loadLeaderboard} disabled={loading}>
@@ -149,8 +149,8 @@ export default function Leaderboard() {
       <Card className="mb-5 overflow-hidden">
         <div className="grid grid-cols-2 divide-y divide-slate-200/80 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
           <StatCell label="Ranked Athletes" value={summary?.totalAthletes ?? filteredRows.length} />
-          <StatCell label="Evaluated Profiles" value={summary?.evaluatedAthletes ?? 0} />
-          <StatCell label="Mean Score" value={`${summary?.avgPoints ?? 0} pts`} />
+          <StatCell label="Evaluated Athletes" value={summary?.evaluatedAthletes ?? 0} />
+          <StatCell label="Average Points" value={`${summary?.avgPoints ?? 0} pts`} />
           <StatCell label="Verified Awards" value={summary?.totalVerifiedAwards ?? 0} />
         </div>
       </Card>
@@ -234,11 +234,11 @@ export default function Leaderboard() {
                     <th className="w-20 px-5 py-3.5">Rank</th>
                     <th className="px-5 py-3.5">Athlete</th>
                     <th className="px-5 py-3.5">Complex &amp; District</th>
-                    <th className="px-5 py-3.5">Discipline</th>
-                    <th className="px-5 py-3.5 text-right">Evaluation</th>
+                    <th className="px-5 py-3.5">Sport</th>
+                    <th className="px-5 py-3.5 text-right">Eval Score</th>
                     <th className="px-5 py-3.5 text-right">Awards</th>
-                    <th className="px-5 py-3.5 text-right">Points</th>
-                    <th className="px-5 py-3.5 text-right">Record</th>
+                    <th className="px-5 py-3.5 text-right">Total Points</th>
+                    <th className="px-5 py-3.5 text-right">Portfolio</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -341,8 +341,8 @@ export default function Leaderboard() {
               </table>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-[11px] text-slate-500">
-              <span>Showing {filteredRows.length} ranked athletes with recorded evaluations or verified awards.</span>
-              <span>Points = Average Evaluation (0–100) + Verified Achievement Weight.</span>
+              <span>Showing {filteredRows.length} ranked athletes with evaluations or verified awards.</span>
+              <span>Points = Average Score (0–100) + Verified Achievement Points.</span>
             </div>
           </>
         ) : (

@@ -945,7 +945,7 @@ app.get(
 );
 app.post("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.createAchievement);
 app.get("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.listAchievements);
-app.post("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.createAchievement);
+app.post("/api/achievements", requireRole(ROLE.ADMIN, ROLE.MANAGER), PerformanceController.createAchievement);
 app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.listAchievements);
 app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.verifyAchievement);
 

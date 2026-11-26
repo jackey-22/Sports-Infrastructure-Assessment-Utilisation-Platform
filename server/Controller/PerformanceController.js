@@ -5,6 +5,7 @@ const Instructor = require("../Model/instructorModel");
 const Template = require("../Model/EvaluationTemplateModel");
 const Evaluation = require("../Model/PerformanceEvaluationModel");
 const Guest = require("../Model/GuestModel");
+const Attendance = require("../Model/BookingAttendanceModel");
 const Achievement = require("../Model/AthleteAchievementModel");
 const AthleteRating = require("../Model/athleteRatingModel");
 const Users = require("../Model/UsersModel");
@@ -333,11 +334,11 @@ async function createAchievement(req, res) {
     if (req.user.Role === ROLE.ATHLETE) {
       targetAthlete = await Athlete.findOne({ userId: req.user._id }).lean();
       if (!targetAthlete) return fail(res, 404, "Athlete profile not found");
-    } else if ([ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role)) {
+    } else if ([ROLE.ADMIN, ROLE.MANAGER].includes(req.user.Role)) {
       if (!validId(bodyAthleteId)) return fail(res, 400, "Valid athleteId is required");
       targetAthlete = await Athlete.findById(bodyAthleteId).lean();
       if (!targetAthlete || !await canAccessPerformanceAthlete(req, targetAthlete)) {
-        return fail(res, 403, "Athlete is outside your management or coaching scope");
+        return fail(res, 403, "Athlete is outside your management scope");
       }
     } else {
       return fail(res, 403, "Permission denied");
@@ -352,7 +353,7 @@ async function createAchievement(req, res) {
       ? supportingDocuments.filter((item) => item && typeof item.url === "string" && item.url.length <= 2048)
       : [];
 
-    const isStaff = [ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role);
+    const isStaff = [ROLE.ADMIN, ROLE.MANAGER].includes(req.user.Role);
     const finalStatus = isStaff ? (verificationStatus || "Verified") : "Pending";
     const finalVerifiedBy = isStaff ? req.user._id : null;
     const finalRemarks = isStaff ? (verificationRemarks || "Recorded by staff") : "";
@@ -775,7 +776,7 @@ async function buildAthletePortfolio(athlete, userDoc) {
       .lean(),
     uid
       ? Guest.find({ citizenUser: uid, bookingStatus: "Confirmed" })
-          .select("attended attendedAt checkInStatus sport SportComplexId Startdate")
+          .select("sport SportComplexId Startdate isEvaluated evaluationScore paymentStatus")
           .populate({
             path: "SportComplexId",
             select: "name location district",
@@ -786,6 +787,13 @@ async function buildAthletePortfolio(athlete, userDoc) {
       : [],
     computeLeaderboardEntries({}),
   ]);
+
+  const bookingIds = (bookings || []).map((b) => b._id);
+  const attendances = bookingIds.length
+    ? await Attendance.find({ booking: { $in: bookingIds } }).select("booking entryAt exitAt").lean()
+    : [];
+  const attendanceByBooking = new Set(attendances.map((a) => String(a.booking)));
+  const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const rankRow = ranked.find((r) => r.athleteId === aid) || null;
   const fallbackBookingComplex = (bookings || []).find((b) => b.SportComplexId)?.SportComplexId || null;
@@ -874,14 +882,9 @@ async function buildAthletePortfolio(athlete, userDoc) {
       complexName: effectiveComplex?.name || "Unassigned",
       complexLocation: effectiveComplex?.location || "",
       districtName: effectiveComplex?.district?.District || rankRow?.districtName || "",
-      bloodGroup: athlete.bloodGroup || "",
-      height: athlete.height || "",
-      weight: athlete.weight || "",
-      address: athlete.address || "",
       baseUrl: athlete.baseUrl || "",
       isApproved: athlete.isApproved,
       joinedAt: athlete.createdAt,
-      goals: athlete.goals || [],
     },
     summary: {
       stateRank: rankRow?.rank || null,
@@ -894,7 +897,12 @@ async function buildAthletePortfolio(athlete, userDoc) {
       pendingAchievementsCount: achievements.filter((a) => a.verificationStatus === "Pending").length,
       medals,
       confirmedBookingsCount: bookings.length,
-      attendedSessionsCount: bookings.filter((b) => b.attended || b.checkInStatus === "Checked In" || b.checkInStatus === "Checked Out").length,
+      attendedSessionsCount: bookings.filter(
+        (b) =>
+          attendanceByBooking.has(String(b._id)) ||
+          b.isEvaluated ||
+          (b.paymentStatus === "Paid" && String(b.Startdate || "") <= todayStr)
+      ).length,
     },
     sportBreakdown,
     evaluations,

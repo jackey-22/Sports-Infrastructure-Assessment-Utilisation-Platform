@@ -66,27 +66,15 @@ export default function AchievementsScreen({
       setAchievements(achRows);
       setSports(sportRows);
 
-      if (!fixedAthleteId) {
+      if (!fixedAthleteId && role !== "coach") {
         try {
-          if (role === "coach") {
-            const roster = await performanceService.coachRoster();
-            const list = (roster?.athletes || [])
-              .filter((a) => a.athleteId)
-              .map((a) => ({
-                _id: String(a.athleteId),
-                name: a.name,
-                contact: a.email || a.phone || "",
-              }));
-            setAthletes(list);
-          } else {
-            const scoped = await performanceService.scopedAthletes();
-            const list = (scoped || []).map((a) => ({
-              _id: String(a._id),
-              name: a.userId?.Name || "Athlete",
-              contact: a.userId?.Email || a.userId?.ContactNum || "",
-            }));
-            setAthletes(list);
-          }
+          const scoped = await performanceService.scopedAthletes();
+          const list = (scoped || []).map((a) => ({
+            _id: String(a._id),
+            name: a.userId?.Name || "Athlete",
+            contact: a.userId?.Email || a.userId?.ContactNum || "",
+          }));
+          setAthletes(list);
         } catch {
           setAthletes([]);
         }
@@ -205,7 +193,7 @@ export default function AchievementsScreen({
                 ? "State-wide athlete achievements & verification"
                 : role === "manager"
                 ? "Facility athlete achievements & awards"
-                : "Review, verify, and record athlete awards"
+                : "Review & verify athlete achievements"
             }
             onBack={onBack}
             onLogout={!onBack ? onLogout : undefined}
@@ -235,22 +223,24 @@ export default function AchievementsScreen({
         {!!notice && <Text style={s.notice}>{notice}</Text>}
         {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
 
-        {/* Add Achievement Header */}
+        {/* Add Achievement Header (Admin/Manager only; Coach can view & verify only) */}
         <View style={s.row}>
-          <Action
-            secondary={showAddForm}
-            onPress={() => {
-              setError("");
-              setShowAddForm((v) => !v);
-            }}
-          >
-            {showAddForm ? "Cancel Form" : "+ Add Achievement"}
-          </Action>
+          {role !== "coach" ? (
+            <Action
+              secondary={showAddForm}
+              onPress={() => {
+                setError("");
+                setShowAddForm((v) => !v);
+              }}
+            >
+              {showAddForm ? "Cancel Form" : "+ Add Achievement"}
+            </Action>
+          ) : null}
           <Action secondary onPress={load}>Refresh</Action>
         </View>
 
         {/* Collapsible Add Achievement Form */}
-        {showAddForm && (
+        {role !== "coach" && showAddForm && (
           <View style={[s.card, localStyles.formCard]}>
             <Text style={s.title}>Record Athlete Achievement</Text>
             {!fixedAthleteId ? (
