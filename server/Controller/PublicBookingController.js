@@ -6,7 +6,9 @@ const SportsComplex = require("../Model/SportsComplexModel");
 const Guest = require("../Model/GuestModel");
 const BookingPayment = require("../Model/BookingPaymentModel");
 const Review = require("../Model/ReviewModel");
+const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const InstitutionBooking = require("../Model/InstitutionEventBookingModel");
+const Instructor = require("../Model/instructorModel");
 const { ROLE } = require("../Utils/roles");
 const {
   checkoutKeyId,
@@ -17,6 +19,15 @@ const {
 
 const fail = (res, status, message) =>
   res.status(status).json({ data: "", msg: message, rcode: -9 });
+
+function conditionGrade(score) {
+  if (score === null || score === undefined || score === "" || !Number.isFinite(Number(score))) return "Not assessed";
+  const value = Number(score);
+  if (value >= 85) return "Excellent";
+  if (value >= 70) return "Good";
+  if (value >= 50) return "Fair";
+  return "Needs attention";
+}
 
 function effectivePolicy(config, slot) {
   if (slot && slot.purpose === "coaching") {
@@ -126,6 +137,28 @@ async function listFacilities(req, res) {
       facility: { $in: facilityIds },
       targetType: { $in: ["facility", "sport"] },
     }).select("facility sport targetType rating").lean();
+    const assessments = await FacilityAssessment.find({
+      facilityId: { $in: facilityIds },
+      status: "Submitted",
+    }).sort({ assessmentDate: -1, createdAt: -1 }).lean();
+    const latestSportAssessment = new Map();
+    assessments.forEach((assessment) => {
+      if (!assessment.sportId || assessment.ai?.status !== "completed") return;
+      const key = `${assessment.facilityId}:${assessment.sportId}`;
+      if (!latestSportAssessment.has(key)) latestSportAssessment.set(key, assessment);
+    });
+    const sportCondition = (facilityId, sportId) => {
+      const assessment = latestSportAssessment.get(`${facilityId}:${sportId}`);
+      const score = Number(assessment?.ai?.visualConditionIndex);
+      if (!assessment || !Number.isFinite(score)) return null;
+      return {
+        score,
+        grade: conditionGrade(score),
+        assessedAt: assessment.assessmentDate || assessment.ai?.analysedAt || assessment.createdAt,
+        summary: assessment.ai?.overallSummary || "",
+        priority: assessment.ai?.priority || "unknown",
+      };
+    };
     const ratingStats = new Map();
     reviews.forEach((review) => {
       const key = review.targetType === "facility"
@@ -162,6 +195,7 @@ async function listFacilities(req, res) {
             price: config.price,
             surface: config.notes || "Details available at facility",
             rating: ratingFor(`sport:${facility._id}:${config.sport?._id}`)?.average,
+            condition: sportCondition(facility._id, config.sport?._id),
             }))
         : (facility.sports || [])
             .filter((entry) => entry.sport && entry.sport.status !== "Inactive")
@@ -179,7 +213,13 @@ async function listFacilities(req, res) {
               feePerHour: entry.fees ? `₹${entry.fees}` : "Contact facility",
               surface: "Details available at facility",
               rating: ratingFor(`sport:${facility._id}:${entry.sport._id}`)?.average,
+              condition: sportCondition(facility._id, entry.sport._id),
             }));
+      const assessedSports = sports.map((sport) => sport.condition).filter(Boolean);
+      const latestCondition = [...assessedSports].sort((a, b) => String(b.assessedAt).localeCompare(String(a.assessedAt)))[0];
+      const overallConditionScore = assessedSports.length
+        ? Math.round(assessedSports.reduce((sum, item) => sum + item.score, 0) / assessedSports.length)
+        : null;
       return {
         id: facility._id,
         bookingAvailable: configured.length > 0,
@@ -203,12 +243,13 @@ async function listFacilities(req, res) {
         amenities: facility.amenities,
         status: facility.status || "Active",
         condition: {
-          grade: facility.conditionGrade,
-          score: facility.conditionScore,
-          lastInspectionDate: facility.lastInspectionDate,
-          inspector: facility.inspector,
-          maintenanceUrgency: facility.maintenanceUrgency,
-          notes: facility.inspectionNotes,
+          grade: conditionGrade(overallConditionScore),
+          score: overallConditionScore,
+          lastInspectionDate: latestCondition?.assessedAt || null,
+          maintenanceUrgency: assessedSports.some((item) => item.priority === "urgent") ? "Urgent" : latestCondition?.priority || "unknown",
+          notes: latestCondition?.summary || "No submitted sport condition assessment yet.",
+          assessedSports: assessedSports.length,
+          totalSports: sports.length,
         },
         utilisation: {
           capacityDaily: facility.capacityDaily,
@@ -234,6 +275,7 @@ async function listFacilities(req, res) {
       : result.data;
     return res.json({ ...result, data: visibleData, rcode: 200 });
   } catch (error) {
+    console.error("Public facility listing failed:", error);
     return fail(res, 500, "Could not load facilities");
   }
 }
@@ -480,6 +522,25 @@ async function createBooking(req, res) {
         sport: config.sport.SportName,
       },
     });
+    // Ensure a coach is bound to the booking so they can guide and evaluate the athlete
+    let assignedCoach = slot.coach || null;
+    if (!assignedCoach) {
+      const availableCoach = await Instructor.findOne({
+        SportComplexId: config.facility,
+        "sports.sport": config.sport._id,
+        status: "Active",
+      }).select("_id");
+      if (availableCoach) {
+        assignedCoach = availableCoach._id;
+      } else {
+        const fallbackCoach = await Instructor.findOne({
+          SportComplexId: config.facility,
+          status: "Active",
+        }).select("_id");
+        if (fallbackCoach) assignedCoach = fallbackCoach._id;
+      }
+    }
+
     const booking = await Guest.create({
       Name: bookerName,
       Email: bookerEmail,
@@ -495,7 +556,7 @@ async function createBooking(req, res) {
       Enddate: date,
       facilitySportConfig: config._id,
       slotId: slot._id,
-      coach: slot.coach || null,
+      coach: assignedCoach,
       memberCount,
       reservedUnits: 1,
       totalAmount: price.total,
@@ -515,7 +576,7 @@ async function createBooking(req, res) {
       bookingReference: reference,
       facility: config.facility,
       sport: config.sport._id,
-      coach: slot.coach || null,
+      coach: assignedCoach,
       amount: price.total,
       currency: "INR",
       status: "Created",

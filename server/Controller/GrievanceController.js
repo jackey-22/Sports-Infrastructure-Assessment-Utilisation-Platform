@@ -52,49 +52,55 @@ async function notify(item, title, message, handler = false) {
   }
 }
 async function normalizeLegacy() {
-  // A version marker makes normalization idempotent across scheduler instances.
-  await Complaint.updateMany({
-    workflowVersion: {
-      $ne: 1
-    }
-  }, [{
-    $set: {
-      workflowVersion: 1,
-      revision: {
-        $ifNull: ["$revision", 0]
-      },
-      level: {
-        $cond: [{
-          $in: ["$level", [0, 1, 2, 3]]
-        }, "$level", 0]
-      },
-      status: {
-        $cond: [{
-          $or: [{
-            $eq: ["$status", 1]
-          }, {
-            $eq: ["$workflowStatus", "Resolved"]
-          }]
-        }, 1, 0]
-      },
-      workflowStatus: {
-        $cond: [{
-          $or: [{
-            $eq: ["$status", 1]
-          }, {
-            $eq: ["$workflowStatus", "Resolved"]
-          }]
-        }, "Resolved", {
-          $ifNull: ["$workflowStatus", "Open"]
-        }]
-      },
-      dueAt: {
-        $ifNull: ["$dueAt", nextDeadline()]
+  if (mongoose.connection.readyState !== 1 && !Object.hasOwn(Complaint, "updateMany")) return;
+  try {
+    // A version marker makes normalization idempotent across scheduler instances.
+    await Complaint.updateMany({
+      workflowVersion: {
+        $ne: 1
       }
-    }
-  }]);
+    }, [{
+      $set: {
+        workflowVersion: 1,
+        revision: {
+          $ifNull: ["$revision", 0]
+        },
+        level: {
+          $cond: [{
+            $in: ["$level", [0, 1, 2, 3]]
+          }, "$level", 0]
+        },
+        status: {
+          $cond: [{
+            $or: [{
+              $eq: ["$status", 1]
+            }, {
+              $eq: ["$workflowStatus", "Resolved"]
+            }]
+          }, 1, 0]
+        },
+        workflowStatus: {
+          $cond: [{
+            $or: [{
+              $eq: ["$status", 1]
+            }, {
+              $eq: ["$workflowStatus", "Resolved"]
+            }]
+          }, "Resolved", {
+            $ifNull: ["$workflowStatus", "Open"]
+          }]
+        },
+        dueAt: {
+          $ifNull: ["$dueAt", nextDeadline()]
+        }
+      }
+    }]);
+  } catch (err) {
+    // Database operation bypassed when unavailable
+  }
 }
 async function escalateOverdueComplaints() {
+  if (mongoose.connection.readyState !== 1 && !Object.hasOwn(Complaint, "find")) return;
   await normalizeLegacy();
   const rows = await Complaint.find({
     status: 0,

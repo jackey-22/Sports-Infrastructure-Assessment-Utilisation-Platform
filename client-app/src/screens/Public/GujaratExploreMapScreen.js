@@ -9,9 +9,11 @@ import FacilityMap from "../../components/FacilityMap";
 import { Chip, Button, StateMessage, ui, GREEN } from "../../components/FacilityUI";
 import { loadFacilities, imageUrl, timingLabel, AMENITIES } from "../../services/facilityService";
 import ComplexDetailScreen from "./ComplexDetailScreen";
+import CitizenRatingModal from "../../components/citizen/CitizenRatingModal";
 export default function GujaratExploreMapScreen({
   onSelectFacility,
-  onBack
+  onBack,
+  canRate = false
 }) {
   const [q, setQ] = useState("");
   const [district, setDistrict] = useState("");
@@ -33,6 +35,7 @@ export default function GujaratExploreMapScreen({
   const [favorites, setFavorites] = useState([]);
   const [favoritesReady, setFavoritesReady] = useState(false);
   const [savedOnly, setSavedOnly] = useState(false);
+  const [ratingFacility, setRatingFacility] = useState(null);
   useEffect(() => {
     let alive = true;
     AsyncStorage.getItem("facilityFavorites").then(value => {
@@ -97,7 +100,7 @@ export default function GujaratExploreMapScreen({
   const select = facility => onSelectFacility ? onSelectFacility(facility) : setPreview(facility);
   const visible = savedOnly ? rows.filter(f => favorites.includes(String(f.id))) : rows;
   const activeCount = Number(!!district) + Number(!!sport) + Number(!!grade) + amenities.length + Number(savedOnly);
-  if (preview) return <ComplexDetailScreen facility={preview} onBack={() => setPreview(null)} />;
+  if (preview) return <ComplexDetailScreen facility={preview} canRate={canRate} onBack={() => setPreview(null)} />;
   const options = (values, current, setter, all) => <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}><Chip active={!current} onPress={() => setter("")}>{all}</Chip>{values.map(value => <Chip key={value} active={current === value} onPress={() => setter(current === value ? "" : value)}>{value}</Chip>)}</ScrollView>;
   return <View style={ui.safe}><View style={ui.screen}>
     <AppScreenScroll keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={loading && revision > 0} onRefresh={() => setRevision(v => v + 1)} tintColor={GREEN} />} header={<AppHeader title="KhelGujarat GIS Explore" subtitle="Discover sports infrastructure across Gujarat" onBack={onBack} />}>
@@ -124,7 +127,7 @@ export default function GujaratExploreMapScreen({
                   flex: 1
                 }]}><Ionicons name="time-outline" size={15} color={GREEN} /><Text style={[ui.muted, {
                     flex: 1
-                  }]}>{timingLabel(f)}</Text></View><Button onPress={() => select(f)}>View & book →</Button></View></View>
+                  }]}>{timingLabel(f)}</Text></View>{canRate ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Rate ${f.name}`} onPress={() => setRatingFacility(f)} style={s.rateButton}><Ionicons name="star-outline" size={18} color="#B45309" /><Text style={s.rateButtonText}>Rate</Text></TouchableOpacity> : null}<Button onPress={() => select(f)}>View & book →</Button></View></View>
         </View>)}
       </View>}
     </AppScreenScroll>
@@ -137,6 +140,7 @@ export default function GujaratExploreMapScreen({
                 setPanel(null);
               }}>{label}</Chip>) : <><Text style={ui.label}>District</Text><View style={ui.wrap}><Chip active={!district} onPress={() => setDistrict("")}>All districts</Chip>{meta.districts.map(value => <Chip key={value} active={district === value} onPress={() => setDistrict(district === value ? "" : value)}>{value}</Chip>)}</View><Text style={ui.label}>Discipline</Text><View style={ui.wrap}><Chip active={!sport} onPress={() => setSport("")}>All sports</Chip>{meta.sports.map(value => <Chip key={value} active={sport === value} onPress={() => setSport(sport === value ? "" : value)}>{value}</Chip>)}</View><Text style={ui.label}>Condition grade</Text><View style={ui.wrap}>{["", "a", "b", "c", "d"].map(value => <Chip key={value} active={grade === value} onPress={() => setGrade(value)}>{value ? `Grade ${value.toUpperCase()}` : "Any grade"}</Chip>)}</View><Text style={ui.label}>Required amenities</Text><View style={ui.wrap}>{AMENITIES.map(a => <Chip key={a.key} active={amenities.includes(a.key)} onPress={() => setAmenities(previous => previous.includes(a.key) ? previous.filter(v => v !== a.key) : [...previous, a.key])}>{a.label}</Chip>)}</View><Chip active={savedOnly} onPress={() => setSavedOnly(v => !v)}>Saved facilities only</Chip><Button secondary onPress={reset}>Reset all filters</Button></>}
     </ScrollView><Button onPress={() => setPanel(null)}>Show results</Button></View></View></Modal>
+    <CitizenRatingModal visible={!!ratingFacility} facility={ratingFacility} onClose={() => setRatingFacility(null)} onSaved={() => setRevision(value => value + 1)} />
   </View></View>;
 }
 const s = StyleSheet.create({
@@ -301,6 +305,20 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10
+  },
+  rateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 11,
+    backgroundColor: "#FFF7E6"
+  },
+  rateButtonText: {
+    color: "#92400E",
+    fontSize: 11,
+    fontWeight: "800"
   },
   backdrop: {
     flex: 1,

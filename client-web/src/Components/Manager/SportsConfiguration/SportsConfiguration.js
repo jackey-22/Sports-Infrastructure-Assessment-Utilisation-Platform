@@ -19,6 +19,25 @@ const blankConfig = () => ({
   notes: "",
 });
 
+function slotConflictError(slots) {
+  for (let firstIndex = 0; firstIndex < slots.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < slots.length; secondIndex += 1) {
+      const first = slots[firstIndex];
+      const second = slots[secondIndex];
+      if (!first.startTime || !first.endTime || !second.startTime || !second.endTime) continue;
+      const firstDays = first.days || [];
+      const secondDays = second.days || [];
+      const sharedDays = firstDays.length && secondDays.length
+        ? firstDays.filter((day) => secondDays.includes(day))
+        : firstDays.length ? firstDays : secondDays.length ? secondDays : ["every day"];
+      if (sharedDays.length && first.startTime < second.endTime && second.startTime < first.endTime) {
+        return `Slots “${first.label || firstIndex + 1}” and “${second.label || secondIndex + 1}” overlap on ${sharedDays.join(", ")}.`;
+      }
+    }
+  }
+  return "";
+}
+
 function normalize(row) {
   return {
     ...row,
@@ -132,6 +151,8 @@ function ConfigModal({ value: initial, catalog, onClose, onSave }) {
   };
   const submit = async (event) => {
     event.preventDefault(); setSaving(true); setError("");
+    const conflict = slotConflictError(value.slots || []);
+    if (conflict) { setError(conflict); setSaving(false); return; }
     try { await onSave(value); } catch (saveError) { setError(saveError.message); } finally { setSaving(false); }
   };
   return <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-900/60 p-4"><div className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white shadow-2xl">

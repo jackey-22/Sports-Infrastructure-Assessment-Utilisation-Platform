@@ -17,6 +17,8 @@ const schema = new mongoose.Schema(
     athlete: { type: mongoose.SchemaTypes.ObjectId, ref: "athletes", required: true },
     sport: { type: mongoose.SchemaTypes.ObjectId, ref: "sports", required: true },
     coach: { type: mongoose.SchemaTypes.ObjectId, ref: "users", required: true },
+    booking: { type: mongoose.SchemaTypes.ObjectId, ref: "Guest", default: null, index: true },
+    sessionDate: { type: String, default: "" },
     template: { type: mongoose.SchemaTypes.ObjectId, ref: "evaluationtemplates", required: true },
     templateVersion: { type: Number, required: true },
     totalScore: { type: Number, required: true, min: 0, max: 100 },

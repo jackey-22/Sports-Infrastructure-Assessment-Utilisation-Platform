@@ -99,7 +99,6 @@ export const managerService = {
   async analyseSportPhotos(sportId, photos) {
     const body = new FormData();
     body.append("sportId", sportId);
-    body.append("photoMetadata", JSON.stringify(photos.map(({ geo }) => geo)));
     for (const { file, uri } of photos) {
       const photo = file || new File(uri);
       if (!file && !photo.exists) {

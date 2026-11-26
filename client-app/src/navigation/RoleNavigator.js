@@ -78,7 +78,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
           { key: "home", label: "Squad", icon: "people" },
           { key: "rate", label: "Evaluate", icon: "star-outline" },
           { key: "achievements", label: "Awards", icon: "trophy-outline" },
-          { key: "explore", label: "Facilities", icon: "compass-outline" },
+          { key: "explore", label: "Facilities", icon: "business-outline" },
           { key: "complaints", label: "Issues", icon: "warning-outline" },
         ];
       case 1: // Supervisor
@@ -121,6 +121,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       return (
         <ComplexDetailScreen
           facility={targetFacility}
+          canRate={role === 0}
           onBack={() => setTargetFacility(null)}
           onBookSlot={(fac) => {
             setTargetFacility(null);
@@ -254,7 +255,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       return <AthletePerformanceScreen onBack={() => setActiveTab("home")} onProfile={() => setActiveTab("profile")} />;
     }
     if (activeTab === "explore" || activeTab === "events") {
-      return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
+      return <GujaratExploreMapScreen canRate onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
     }
 
     return (

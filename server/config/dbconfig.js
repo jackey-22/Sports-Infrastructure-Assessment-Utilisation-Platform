@@ -1,13 +1,22 @@
 const mongoose = require("mongoose");
 const path = require("path");
+const dns = require("dns");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+// Use public DNS servers for SRV lookups to prevent local querySrv ECONNREFUSED issues
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (e) {
+  // silent
+}
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/sfic";
 
 module.exports.getDbConnetion = function () {
   mongoose
     .connect(MONGO_URI, {
-      serverSelectionTimeoutMS: 2500,
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 5000,
     })
     .then(async () => {
       console.log("MongoDB connected successfully at " + MONGO_URI);

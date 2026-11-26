@@ -1,6 +1,7 @@
 import { Text } from "../../components/AppText";
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, SafeAreaView, Modal, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Modal, Alert, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
 import { SagHeader } from "../../components/common/SagHeader";

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Modal, SafeAreaView } from "react-native";
+import { Modal } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { Button } from "./FacilityUI";
 export default function FacilityPayment({ payment, onPaid, onClose, onError }) {

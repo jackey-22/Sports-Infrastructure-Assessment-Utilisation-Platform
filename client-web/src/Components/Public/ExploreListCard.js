@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Heart, MapPin, Star, Ticket } from "lucide-react";
+import { Activity, Heart, MapPin, Star, Ticket } from "lucide-react";
 import { getAverageRating } from "./exploreUtils";
 import { applyPublicImageFallback } from "../../services/public/publicFacilityService";
 
@@ -125,6 +125,9 @@ export default function ExploreListCard({
               <span className="text-slate-400 font-medium">({count})</span>
             </span>
           ) : <span className="text-xs font-semibold text-slate-400">No ratings yet</span>}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${facility.condition?.score == null ? "bg-slate-100 text-slate-500" : facility.condition.score >= 70 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+            <Activity className="h-3 w-3" />{facility.condition?.score == null ? "Not assessed" : `${facility.condition.score}/100 · ${facility.condition.grade}`}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-1 mt-0.5">

@@ -37,7 +37,7 @@ function evaluationPreview(template, scores) {
 function preferredSport(row) {
   return String(row?.nextBooking?.sportId || row?.latestBooking?.sportId || row?.sports?.[0]?.id || "");
 }
-function evaluationPayload(row, sportId, template, scores, remarks) {
+function evaluationPayload(row, sportId, template, scores, remarks, bookingId) {
   if (!row?.canRate || !row?.athleteId) throw new Error("This athlete is not eligible for evaluation yet.");
   if (!sportId || !template) throw new Error("Select a sport with a published template.");
   const preview = evaluationPreview(template, scores);
@@ -45,6 +45,7 @@ function evaluationPayload(row, sportId, template, scores, remarks) {
   return {
     athleteId: row.athleteId,
     sportId,
+    bookingId: bookingId || row?.selectedBookingId || row?.bookingId || row?.latestBooking?.id || undefined,
     details: preview.details.map(detail => ({
       parameterId: detail.parameterId,
       actualValue: Number(detail.actualValue)

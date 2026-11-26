@@ -3,6 +3,7 @@ const path = require("path");
 const multer = require("multer");
 const ejs = require("ejs");
 const cron = require("node-cron");
+const mongoose = require("mongoose");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const {
@@ -829,21 +830,25 @@ async function averageRating(userId, sportId) {
 }
 
 async function sendDueReminders() {
-  console.log("run");
-  let today = new Date();
-  let reminder = await Reminder.find({
-    issent: 0,
-    date: { $lt: today },
-  }).populate({ path: "userIds", select: { notificationtoken: 1 } });
-  for (let index = 0; index < reminder.length; index++) {
-    const element = reminder[index];
-    await sendPushNotification(
-      element.userIds.map((ele) => ele.notificationtoken),
-      element.title,
-      element.message
-    );
-    element.issent = 1;
-    element.save();
+  if (mongoose.connection.readyState !== 1) return;
+  try {
+    let today = new Date();
+    let reminder = await Reminder.find({
+      issent: 0,
+      date: { $lt: today },
+    }).populate({ path: "userIds", select: { notificationtoken: 1 } });
+    for (let index = 0; index < reminder.length; index++) {
+      const element = reminder[index];
+      await sendPushNotification(
+        element.userIds.map((ele) => ele.notificationtoken),
+        element.title,
+        element.message
+      );
+      element.issent = 1;
+      await element.save();
+    }
+  } catch (err) {
+    // Silent handling when DB is unavailable or busy
   }
 }
 
@@ -851,7 +856,10 @@ async function sendDueReminders() {
 // the app (for tests or tooling) must not leave a timer running.
 if (require.main === module) {
   cron.schedule("*/1 * * * *", sendDueReminders);
-  cron.schedule("*/5 * * * *", () => WorkflowController.escalateOverdueComplaints().catch(console.error));
+  cron.schedule("*/5 * * * *", () => {
+    if (mongoose.connection.readyState !== 1) return;
+    WorkflowController.escalateOverdueComplaints().catch(() => {});
+  });
 }
 
 //Guest route

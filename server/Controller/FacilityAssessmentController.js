@@ -174,7 +174,13 @@ function parsePhotoMetadata(value, expectedCount) {
   } catch (error) {
     return { error: "Photo location details are invalid. Choose the photos again." };
   }
-  if (!Array.isArray(rows) || rows.length !== expectedCount) {
+  if (!Array.isArray(rows)) {
+    return { error: "Photo location details are invalid. Choose the photos again." };
+  }
+  if (rows.length === 0) {
+    return { metadata: [] };
+  }
+  if (rows.length !== expectedCount) {
     return { error: "Every assessment photo must include its location." };
   }
   const metadata = [];
@@ -213,6 +219,7 @@ function distanceMeters(a, b) {
 }
 
 function validatePhotoLocations(metadata, facility) {
+  if (metadata.length === 0) return { metadata: [] };
   const latitude = Number(facility.latitude);
   const longitude = Number(facility.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -387,7 +394,7 @@ async function analyse(req, res) {
       sha256: image.sha256,
       retained: true,
       ...uploaded[index],
-      ...located.metadata[index],
+      ...(located.metadata[index] || {}),
     }));
     let doc;
     try {
@@ -526,6 +533,8 @@ async function scopedList(req, res) {
 module.exports = {
   analysisRateLimiter,
   receiveAssessmentPhotos,
+  parsePhotoMetadata,
+  validatePhotoLocations,
   assignedFacility,
   updateAssignedFacility,
   analyse,

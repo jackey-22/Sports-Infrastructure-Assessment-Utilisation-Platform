@@ -7,12 +7,14 @@ import { Text } from "../../components/AppText";
 import { Button, StateMessage, ui, GREEN } from "../../components/FacilityUI";
 import { loadFacilities, imageUrl, timingLabel, startingPrice, AMENITIES } from "../../services/facilityService";
 import BookingCheckoutScreen from "./BookingCheckoutScreen";
+import CitizenRatingModal from "../../components/citizen/CitizenRatingModal";
 export default function ComplexDetailScreen({
   route,
   navigation,
   facility: supplied,
   onBookSlot,
-  onBack
+  onBack,
+  canRate = false
 }) {
   const selected = supplied || route?.params?.facility;
   const [facility, setFacility] = useState(selected);
@@ -21,6 +23,7 @@ export default function ComplexDetailScreen({
   const [revision, setRevision] = useState(0);
   const [photo, setPhoto] = useState(0);
   const [booking, setBooking] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
   const back = onBack || (typeof navigation?.goBack === "function" ? () => navigation.goBack() : undefined);
   useEffect(() => {
     let alive = true;
@@ -101,7 +104,8 @@ export default function ComplexDetailScreen({
         <View style={ui.card}><Text style={ui.sectionTitle}>Infrastructure amenities</Text><View style={s.amenities}>{amenities.map(a => <View style={s.amenity} key={a.key}><Ionicons name={a.icon} size={27} color={GREEN} /><Text style={s.amenityLabel}>{a.label}</Text></View>)}</View>{!amenities.length && <Text style={ui.muted}>No amenities recorded.</Text>}</View>
         <View style={ui.card}><Text style={ui.sectionTitle}>Sports & booking rates</Text>{facility.sports?.map((sport, index) => <View style={s.sport} key={`${sport.id}-${index}`}><View style={{
                 flex: 1
-              }}><Text style={s.metricValue}>{sport.name}</Text><Text style={ui.muted}>{sport.bookable ? "Online slots available" : "Contact facility for availability"}</Text></View><Text style={s.rate}>{sport.price ? `₹${sport.price.amount}/${sport.price.unit || "slot"}` : "Contact facility"}</Text></View>)}{!facility.sports?.length && <Text style={ui.muted}>No sports configured.</Text>}</View>
+              }}><Text style={s.metricValue}>{sport.name}</Text><Text style={ui.muted}>{sport.bookable ? "Online slots available" : "Contact facility for availability"}</Text><Text style={[ui.muted, { color: sport.condition ? GREEN : colors.slate[400], marginTop: 3 }]}>{sport.condition ? `${sport.condition.grade} · ${sport.condition.score}/100 condition` : "Condition not assessed"}</Text></View><Text style={s.rate}>{sport.price ? `₹${sport.price.amount}/${sport.price.unit || "slot"}` : "Contact facility"}</Text></View>)}{!facility.sports?.length && <Text style={ui.muted}>No sports configured.</Text>}</View>
+        {canRate ? <TouchableOpacity accessibilityRole="button" onPress={() => setRatingOpen(true)} style={s.ratingAction}><Ionicons name="star" size={22} color="#F59E0B" /><View style={{ flex: 1 }}><Text style={s.ratingTitle}>Rate facility, sport or coach</Text><Text style={ui.muted}>Share a star rating or update your previous review.</Text></View><Ionicons name="chevron-forward" size={20} color={GREEN} /></TouchableOpacity> : null}
         <View style={ui.card}><Text style={ui.sectionTitle}>Administration & contact</Text><View style={[ui.row, {
               marginTop: 14
             }]}><Ionicons name="person-circle-outline" size={36} color={GREEN} /><View style={{
@@ -109,6 +113,7 @@ export default function ComplexDetailScreen({
               }}><Text style={s.metricValue}>{facility.contactPerson || "Facility administration"}</Text><Text style={ui.muted}>{timingLabel(facility)}</Text></View></View>{contact(facility.contactPhone, "tel")}{contact(facility.contactEmail, "email")}{Number.isFinite(facility.latitude) && Number.isFinite(facility.longitude) && <Button secondary onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${facility.latitude},${facility.longitude}`)}>Get directions ↗</Button>}</View>
       </View>
     </AppScreenScroll>
+    <CitizenRatingModal visible={ratingOpen} facility={facility} onClose={() => setRatingOpen(false)} />
     <View style={s.bottom}><View style={{
           flex: 1
         }}><Text style={ui.muted}>Pay & play - from</Text><Text style={s.price}>{price != null ? `₹${price}` : "Contact facility"}</Text></View><Button disabled={!bookable || loading || !!error} onPress={() => onBookSlot ? onBookSlot(facility) : setBooking(true)}>{bookable ? "Book a slot →" : "No online slots"}</Button></View>
@@ -226,5 +231,21 @@ const s = StyleSheet.create({
     fontSize: 21,
     fontWeight: "800",
     color: "#173C28"
+  },
+  ratingAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    backgroundColor: "#FFFBEB"
+  },
+  ratingTitle: {
+    color: "#78350F",
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 3
   }
 });
