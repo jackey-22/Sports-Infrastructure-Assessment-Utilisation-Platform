@@ -1,6 +1,7 @@
 import { Text } from "../AppText";
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Modal, TouchableOpacity, SafeAreaView, Platform } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, StyleSheet, Modal, TouchableOpacity, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme/colors";
@@ -12,12 +13,22 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [session, setSession] = useState(0);
+  const [modernFallback, setModernFallback] = useState(false);
+  const scanHandled = useRef(false);
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  const useModernScanner = Platform.OS === "android" && CameraView.isModernBarcodeScannerAvailable;
+
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (visible) {
       setScanned(false);
       setCameraReady(false);
       setCameraError("");
+      setModernFallback(false);
+      scanHandled.current = false;
       setSession((value) => value + 1);
     }
   }, [visible]);
@@ -28,8 +39,33 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
     }
   }, [visible, permission, requestPermission]);
 
+  useEffect(() => {
+    if (!visible || !permission?.granted || !useModernScanner || modernFallback) return undefined;
+    let active = true;
+    const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
+      if (!active || scanHandled.current) return;
+      scanHandled.current = true;
+      onScanRef.current?.(data);
+    });
+    CameraView.launchScanner({ barcodeTypes: ["qr"] }).catch((error) => {
+      if (!active) return;
+      const message = String(error?.message || error || "");
+      if (/cancel/i.test(message)) {
+        onCloseRef.current?.();
+      } else {
+        setCameraError("The system scanner is unavailable. Using the in-app camera instead.");
+        setModernFallback(true);
+      }
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [visible, permission?.granted, useModernScanner, modernFallback]);
+
   const handleBarcodeScanned = ({ data }) => {
-    if (scanned) return;
+    if (scanned || scanHandled.current) return;
+    scanHandled.current = true;
     setScanned(true);
     if (onScan) {
       onScan(data);
@@ -37,6 +73,7 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
   };
 
   if (!visible) return null;
+  if (useModernScanner && permission?.granted && !modernFallback) return null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" hardwareAccelerated onRequestClose={onClose}>
@@ -66,11 +103,11 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
           </View>
         ) : (
           <View style={styles.cameraWrapper}>
+            <View style={styles.cameraStage}>
             <CameraView
               key={`gate-camera-${session}`}
-              style={styles.camera}
+                style={styles.camera}
               facing="back"
-              active={visible}
               enableTorch={torch}
               barcodeScannerSettings={{
                 barcodeTypes: ["qr"],
@@ -88,12 +125,11 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
                 <View style={[styles.corner, styles.bl]} />
                 <View style={[styles.corner, styles.br]} />
               </View>
-              <Text style={styles.instruction}>
-                Align the citizen or athlete QR pass inside the frame
-              </Text>
             </View>
             {!cameraReady && !cameraError ? <View pointerEvents="none" style={styles.cameraStatus}><Text style={styles.msgText}>Starting camera…</Text></View> : null}
             {!!cameraError ? <View style={styles.cameraStatus}><Text style={styles.msgText}>{cameraError}</Text><TouchableOpacity onPress={() => { setCameraError(""); setCameraReady(false); setSession((value) => value + 1); }} style={styles.grantBtn}><Text style={styles.grantBtnText}>Retry camera</Text></TouchableOpacity></View> : null}
+            </View>
+            <Text style={styles.instruction}>Align the citizen or athlete QR pass inside the frame</Text>
           </View>
         )}
       </SafeAreaView>
@@ -149,10 +185,22 @@ const styles = StyleSheet.create({
   },
   cameraWrapper: {
     flex: 1,
-    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
   },
-  camera: { flex: 1, width: "100%", backgroundColor: "#111111" },
+  cameraStage: {
+    width: "100%",
+    aspectRatio: 1,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#111111",
+  },
+  camera: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
@@ -204,11 +252,13 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "600",
-    marginTop: 24,
     backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
+    textAlign: "center",
+    marginTop: 24,
+    marginHorizontal: 20,
   },
 });
 

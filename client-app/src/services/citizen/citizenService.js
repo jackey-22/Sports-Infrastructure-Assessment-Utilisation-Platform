@@ -12,10 +12,12 @@
 //   GET  /getAllComplaints            -> own complaints (server-scoped to the caller)
 //   GET  /getComplaintType            -> complaint categories
 //   GET  /getSports                   -> sports list (for rating a sport)
+//   GET  /api/citizen/rating-catalog  -> rateable facilities, sports and coaches
+//   GET  /api/citizen/reviews         -> caller's submitted rating history
+//   POST /api/citizen/reviews         -> create or update a platform review
 //
-// No backend contract exists for: sport feedback, coach feedback, QR camera
-// scanning on web, or a per-user rating history (GET /getAllRatings is public
-// and unscoped). Those stay demo-only.
+// Facility, sport and coach feedback uses the authenticated platform review
+// endpoints, including a per-user rating history.
 import { api } from "../../api/client";
 import { grievanceService, mapGrievance } from "../grievanceService";
 import {
@@ -393,10 +395,30 @@ export const citizenService = {
     }
   },
 
-  // Feedback history: no per-user, scoped backend contract exists, so this
-  // stays demo-only and is labelled in the UI.
-  listFeedback() {
-    return Promise.resolve(demoFeedbackRows());
+  async ratingCatalog() {
+    const result = await api.get("/api/citizen/rating-catalog");
+    return result.data || { facilities: [], coaches: [] };
+  },
+
+  async listReviews() {
+    const result = await api.get("/api/citizen/reviews");
+    return result.data || [];
+  },
+
+  async submitReview(input) {
+    const result = await api.post("/api/citizen/reviews", {
+      targetType: input.targetType,
+      facility: input.facility,
+      sport: input.targetType === "sport" ? input.sport : null,
+      coach: input.targetType === "coach" ? input.coach : null,
+      rating: Number(input.rating),
+      remarks: String(input.remarks || "").trim(),
+    });
+    return result.data;
+  },
+
+  async listFeedback() {
+    return this.listReviews();
   },
 
   // POST /addRating — athlete-to-sport-in-facility rating (real contract).

@@ -86,16 +86,26 @@ export const CitizenDashboardScreen = ({
       active = false;
     };
   }, []);
+  const today = new Date().toISOString().slice(0, 10);
+  const eligibleVisits = bookings.filter((booking) => booking.bookingStatus === "Confirmed" && booking.date <= today);
+  const completedVisits = eligibleVisits.filter((booking) => booking.attendanceStatus === "Completed").length;
+  const activityScore = eligibleVisits.length ? Math.round((completedVisits / eligibleVisits.length) * 100) : null;
+  const evaluations = performance.data || [];
+  const scoredEvaluations = evaluations.filter((item) => Number.isFinite(Number(item.totalScore)));
+  const overallPerformance = scoredEvaluations.length
+    ? Math.round((scoredEvaluations.reduce((sum, item) => sum + Number(item.totalScore), 0) / scoredEvaluations.length) * 10) / 10
+    : null;
+  const primarySport = evaluations[0]?.sport?.SportName || bookings[0]?.sport || "Not available";
   const athleteData = {
     name: identity?.user?.Name || user?.Name || "Athlete",
     dob: identity?.user?.DOB || "Not provided",
     gender: "Not provided",
     mobile: identity?.user?.ContactNum || user?.ContactNum || "Not provided",
-    primarySport: "Badminton",
+    primarySport,
     regDate: identity?.athlete?.createdAt ? new Date(identity.athlete.createdAt).toLocaleDateString() : "Not provided",
     athleteId: identity?.athleteId || "Not linked",
-    activityScore: "89%",
-    overallPerf: "4.6 / 5"
+    activityScore: activityScore == null ? "—" : `${activityScore}%`,
+    overallPerf: overallPerformance == null ? "—" : `${overallPerformance} / 100`
   };
   const handleShareId = async () => {
     try {
@@ -142,7 +152,7 @@ export const CitizenDashboardScreen = ({
             </View>
             <Text style={styles.metricValue}>{athleteData.activityScore}</Text>
             <View style={styles.trendPill}>
-              <Text style={styles.trendPillText}>↑ +5% vs. last month</Text>
+              <Text style={styles.trendPillText}>{eligibleVisits.length ? `${completedVisits} of ${eligibleVisits.length} eligible visits completed` : "No completed booking history yet"}</Text>
             </View>
           </View>
 
@@ -157,7 +167,7 @@ export const CitizenDashboardScreen = ({
             </View>
             <Text style={styles.metricValue}>{athleteData.overallPerf}</Text>
             <View style={styles.trendPill}>
-              <Text style={styles.trendPillText} numberOfLines={1}>↑ +0.2 from recent</Text>
+              <Text style={styles.trendPillText}>{scoredEvaluations.length ? `Average of ${scoredEvaluations.length} coach evaluation${scoredEvaluations.length === 1 ? "" : "s"}` : "No coach evaluations yet"}</Text>
             </View>
           </View>
         </View>
@@ -435,12 +445,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
-    alignSelf: "flex-start"
+    alignSelf: "stretch"
   },
   trendPillText: {
     fontSize: 10,
+    lineHeight: 14,
     fontWeight: "700",
-    color: "#15803d"
+    color: "#15803d",
+    flexShrink: 1
   },
   // 4. Section Container
   sectionContainer: {
