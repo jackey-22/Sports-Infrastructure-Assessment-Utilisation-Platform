@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, CheckCircle, ChevronLeft, ChevronRight, Clock, Download, Layers, Loader2, Lock, MapPin, Plus, ShieldCheck, Sparkles, Trash2, Users, X } from "lucide-react";
+import { CalendarDays, Check, CheckCircle, ChevronLeft, ChevronRight, Clock, Download, Layers, Loader2, Lock, MapPin, Minus, Plus, ShieldCheck, Sparkles, Trash2, Users, X } from "lucide-react";
 import { useSelector } from "react-redux";
 import { api } from "../../API/client";
 import { downloadBookingInvoice } from "../../utils/bookingInvoice";
@@ -592,11 +592,12 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
+                                  aria-label={`Decrease members for ${item.slotLabel}`}
                                   disabled={(item.memberCount || 1) <= (item.minMembers || 1)}
                                   onClick={() => updateBulkMemberCount(item.key, (item.memberCount || 1) - 1)}
-                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 bg-slate-50 font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-slate-50 p-0 text-slate-700 hover:bg-slate-100 disabled:opacity-40"
                                 >
-                                  −
+                                  <Minus className="h-3.5 w-3.5" />
                                 </button>
                                 <input
                                   type="number"
@@ -605,15 +606,16 @@ export default function CitizenBookingModal({ facility, onClose = () => {}, onCo
                                   max={item.maxMembers || 1}
                                   value={item.memberCount}
                                   onChange={(e) => updateBulkMemberCount(item.key, e.target.value)}
-                                  className="h-6 w-12 rounded-md border border-slate-300 text-center font-bold text-slate-800 outline-none focus:border-emerald-600"
+                                  className="h-7 w-12 rounded-md border border-slate-300 text-center text-xs font-bold text-slate-800 outline-none focus:border-emerald-600"
                                 />
                                 <button
                                   type="button"
+                                  aria-label={`Increase members for ${item.slotLabel}`}
                                   disabled={(item.memberCount || 1) >= (item.maxMembers || 1)}
                                   onClick={() => updateBulkMemberCount(item.key, (item.memberCount || 1) + 1)}
-                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 bg-slate-50 font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-slate-50 p-0 text-slate-700 hover:bg-slate-100 disabled:opacity-40"
                                 >
-                                  +
+                                  <Plus className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>

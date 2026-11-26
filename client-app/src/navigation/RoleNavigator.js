@@ -271,7 +271,8 @@ export const RoleNavigator = ({ user, onLogout }) => {
                 <Text
                   style={[styles.tabText, isActive && styles.tabTextActive]}
                   numberOfLines={1}
-                  ellipsizeMode="tail"
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {tab.label}
                 </Text>

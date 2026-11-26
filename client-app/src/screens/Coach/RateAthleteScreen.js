@@ -329,10 +329,10 @@ export default function RateAthleteScreen({ athlete, onBack, onSaved }) {
                   <Ionicons name="person-outline" size={20} color="#007D40" />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.pickName} numberOfLines={1}>
+                  <Text style={styles.pickName}>
                     {ath.name}
                   </Text>
-                  <Text style={styles.pickSport} numberOfLines={1}>
+                  <Text style={styles.pickSport}>
                     {(ath.sports || []).map((s) => s.name).join(", ") || "Sport"} ·{" "}
                     {(ath.sessions || []).filter((s) => s.canRate).length} playable
                     sessions
@@ -351,7 +351,7 @@ export default function RateAthleteScreen({ athlete, onBack, onSaved }) {
                 <Ionicons name="person-outline" size={22} color="#007D40" />
               </View>
               <View style={styles.athleteInfoCol}>
-                <Text style={styles.athleteName} numberOfLines={1}>
+                <Text style={styles.athleteName}>
                   {athleteName}
                 </Text>
                 <Text style={styles.athleteSportText}>{sportLabel}</Text>

@@ -92,14 +92,11 @@ export const CitizenDashboardScreen = ({
     };
   }, []);
   const today = new Date().toISOString().slice(0, 10);
-  const eligibleVisits = bookings.filter((booking) => booking.bookingStatus === "Confirmed" && booking.date <= today);
-  const completedVisits = eligibleVisits.filter((booking) => booking.attendanceStatus === "Completed").length;
-  const activityScore = eligibleVisits.length ? Math.round((completedVisits / eligibleVisits.length) * 100) : null;
+  const completedVisits = bookings.filter((booking) => booking.attendanceStatus === "Completed").length;
+  const activeUpcomingCount = bookings.filter(
+    (booking) => (booking.endDate || booking.date) >= today && booking.attendanceStatus !== "Completed"
+  ).length;
   const evaluations = performance.data || [];
-  const scoredEvaluations = evaluations.filter((item) => Number.isFinite(Number(item.totalScore)));
-  const overallPerformance = scoredEvaluations.length
-    ? Math.round((scoredEvaluations.reduce((sum, item) => sum + Number(item.totalScore), 0) / scoredEvaluations.length) * 10) / 10
-    : null;
   const primarySport = evaluations[0]?.sport?.SportName || bookings[0]?.sport || "Not available";
   const athleteData = {
     name: identity?.user?.Name || user?.Name || "Athlete",
@@ -109,8 +106,6 @@ export const CitizenDashboardScreen = ({
     primarySport,
     regDate: identity?.athlete?.createdAt ? new Date(identity.athlete.createdAt).toLocaleDateString() : "Not provided",
     athleteId: identity?.athleteId || "Not linked",
-    activityScore: activityScore == null ? "—" : `${activityScore}%`,
-    overallPerf: overallPerformance == null ? "—" : `${overallPerformance} / 100`
   };
   const handleShareId = async () => {
     try {
@@ -131,9 +126,9 @@ export const CitizenDashboardScreen = ({
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeLeft}>
             <Text style={styles.welcomeGreet}>Welcome back,</Text>
-            <Text style={styles.welcomeName} numberOfLines={1}>{athleteData.name}</Text>
+            <Text style={styles.welcomeName}>{athleteData.name}</Text>
             <Text style={styles.welcomeDesc}>
-              Track your activity, book facilities{"\n"}and grow your sports profile.
+              Track your bookings, gate passes and grow your sports profile.
             </Text>
           </View>
 
@@ -144,37 +139,45 @@ export const CitizenDashboardScreen = ({
           </View>
         </View>
 
-        {/* 3. TWO METRIC CARDS (Side by side) */}
+        {/* 3. BOOKING COUNT CARDS */}
         <View style={styles.metricCardsRow}>
-          {/* Card 1: Activity Score */}
-          <View style={styles.metricCard}>
+          <TouchableOpacity
+            style={styles.metricCard}
+            activeOpacity={0.8}
+            onPress={() => onNavigateTab && onNavigateTab("attendance")}
+          >
             <View style={styles.metricCardHeader}>
               <View style={styles.metricIconBox}>
-                <Ionicons name="bar-chart" size={16} color="#007D40" />
+                <Ionicons name="calendar-outline" size={16} color="#007D40" />
               </View>
-              <Text style={styles.metricCardTitle} numberOfLines={1}>Activity Score</Text>
-              <Ionicons name="information-circle-outline" size={13} color="#94a3b8" />
+              <Text style={styles.metricCardTitle}>My Bookings</Text>
             </View>
-            <Text style={styles.metricValue}>{athleteData.activityScore}</Text>
+            <Text style={styles.metricValue}>{bookings.length}</Text>
             <View style={styles.trendPill}>
-              <Text style={styles.trendPillText}>{eligibleVisits.length ? `${completedVisits} of ${eligibleVisits.length} eligible visits completed` : "No completed booking history yet"}</Text>
+              <Text style={styles.trendPillText}>
+                {bookings.length ? `${completedVisits} completed visit${completedVisits === 1 ? "" : "s"}` : "No confirmed bookings yet"}
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
-          {/* Card 2: Overall Performance */}
-          <View style={styles.metricCard}>
+          <TouchableOpacity
+            style={styles.metricCard}
+            activeOpacity={0.8}
+            onPress={() => onNavigateTab && onNavigateTab("attendance")}
+          >
             <View style={styles.metricCardHeader}>
-              <View style={styles.metricIconBox}>
-                <Ionicons name="star-outline" size={16} color="#007D40" />
+              <View style={[styles.metricIconBox, { backgroundColor: "#e0f2fe" }]}>
+                <Ionicons name="qr-code-outline" size={16} color="#0284c7" />
               </View>
-              <Text style={styles.metricCardTitle} numberOfLines={1}>Overall Performance</Text>
-              <Ionicons name="information-circle-outline" size={13} color="#94a3b8" />
+              <Text style={styles.metricCardTitle}>Active Passes</Text>
             </View>
-            <Text style={styles.metricValue}>{athleteData.overallPerf}</Text>
-            <View style={styles.trendPill}>
-              <Text style={styles.trendPillText}>{scoredEvaluations.length ? `Average of ${scoredEvaluations.length} coach evaluation${scoredEvaluations.length === 1 ? "" : "s"}` : "No coach evaluations yet"}</Text>
+            <Text style={styles.metricValue}>{activeUpcomingCount}</Text>
+            <View style={[styles.trendPill, { backgroundColor: "#e0f2fe" }]}>
+              <Text style={[styles.trendPillText, { color: "#0369a1" }]}>
+                {activeUpcomingCount ? "Tap to view check-ins & QR" : "Book a slot for gate QR"}
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionContainer}>
@@ -233,60 +236,56 @@ export const CitizenDashboardScreen = ({
           <Text style={styles.sectionHeaderTitle}>QUICK ACTIONS</Text>
 
           <View style={styles.quickActionsGrid}>
-            {/* Action 1: Book a Facility */}
             <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("explore")} activeOpacity={0.7}>
               <View style={[styles.actionIconBox, {
               backgroundColor: "#e0f2fe"
             }]}>
-                <Ionicons name="calendar" size={18} color="#0284c7" />
+                <Ionicons name="calendar" size={17} color="#0284c7" />
               </View>
               <View style={styles.actionTextBox}>
-                <Text style={styles.actionTitle} numberOfLines={1}>Book a Facility</Text>
-                <Text style={styles.actionDesc} numberOfLines={2}>Reserve grounds, courts and other assets</Text>
+                <Text style={styles.actionTitle}>Book Facility</Text>
+                <Text style={styles.actionDesc}>Courts, slots & passes</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
             </TouchableOpacity>
 
-            {/* Action 2: Register for Event */}
-            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("events")} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("performance")} activeOpacity={0.7}>
               <View style={[styles.actionIconBox, {
               backgroundColor: "#ffedd5"
             }]}>
-                <Ionicons name="trophy" size={18} color="#ea580c" />
+                <Ionicons name="ribbon" size={17} color="#ea580c" />
               </View>
               <View style={styles.actionTextBox}>
-                <Text style={styles.actionTitle} numberOfLines={1}>Register for Event</Text>
-                <Text style={styles.actionDesc} numberOfLines={2}>Join tournaments and sports events</Text>
+                <Text style={styles.actionTitle}>Skills & Awards</Text>
+                <Text style={styles.actionDesc}>Scores, insights & medals</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
             </TouchableOpacity>
 
-            {/* Action 3: Find a Coach */}
-            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("performance")} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("attendance")} activeOpacity={0.7}>
               <View style={[styles.actionIconBox, {
               backgroundColor: "#f3e8ff"
             }]}>
-                <Ionicons name="person" size={18} color="#9333ea" />
+                <Ionicons name="qr-code" size={17} color="#9333ea" />
               </View>
               <View style={styles.actionTextBox}>
-                <Text style={styles.actionTitle} numberOfLines={1}>Find a Coach</Text>
-                <Text style={styles.actionDesc} numberOfLines={2}>Discover verified coaches across Gujarat</Text>
+                <Text style={styles.actionTitle}>Check-ins & QR</Text>
+                <Text style={styles.actionDesc}>Gate passes & logs</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
             </TouchableOpacity>
 
-            {/* Action 4: Report an Issue */}
             <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("complaints")} activeOpacity={0.7}>
               <View style={[styles.actionIconBox, {
               backgroundColor: "#dcfce7"
             }]}>
-                <Ionicons name="shield-outline" size={18} color="#15803d" />
+                <Ionicons name="shield-outline" size={17} color="#15803d" />
               </View>
               <View style={styles.actionTextBox}>
-                <Text style={styles.actionTitle} numberOfLines={1}>Report an Issue</Text>
-                <Text style={styles.actionDesc} numberOfLines={2}>Raise maintenance or facility concerns</Text>
+                <Text style={styles.actionTitle}>Raise Grievance</Text>
+                <Text style={styles.actionDesc}>Report facility concerns</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
             </TouchableOpacity>
           </View>
         </View>
@@ -556,20 +555,19 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: (width - 42) / 2,
-    // perfectly balanced 2 columns without clipping
     backgroundColor: "#ffffff",
     borderRadius: 16,
-    padding: 12,
+    padding: 11,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 64
+    minHeight: 68
   },
   actionIconBox: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -580,14 +578,15 @@ const styles = StyleSheet.create({
     minWidth: 0
   },
   actionTitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: "700",
-    color: "#0f172a"
+    color: "#0f172a",
+    lineHeight: 16
   },
   actionDesc: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: "#64748b",
-    lineHeight: 13,
+    lineHeight: 14,
     marginTop: 2
   },
   // Recent Performance & Activity

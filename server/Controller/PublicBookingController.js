@@ -308,16 +308,16 @@ async function listFacilities(req, res) {
         sports,
       };
     });
+    const sourceData = req.query.bookableOnly === "true"
+      ? data.filter((facility) => facility.bookingAvailable)
+      : data;
     let result;
     try {
-      result = exploreFacilities(data, req.query);
+      result = exploreFacilities(sourceData, req.query);
     } catch (error) {
       return fail(res, 400, error.message);
     }
-    const visibleData = req.query.bookableOnly === "true"
-      ? result.data.filter((facility) => facility.bookingAvailable)
-      : result.data;
-    return res.json({ ...result, data: visibleData, rcode: 200 });
+    return res.json({ ...result, rcode: 200 });
   } catch (error) {
     console.error("Public facility listing failed:", error);
     return fail(res, 500, "Could not load facilities");

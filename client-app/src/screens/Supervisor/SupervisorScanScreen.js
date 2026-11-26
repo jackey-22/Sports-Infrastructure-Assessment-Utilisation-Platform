@@ -105,8 +105,8 @@ export const SupervisorScanScreen = ({ user, onLogout }) => {
             <View style={styles.scanLeft}>
               <View style={styles.verifiedDot} />
               <View style={{ flex: 1, marginRight: 6 }}>
-                <Text style={styles.athleteName} numberOfLines={1} ellipsizeMode="tail">{scan.name}</Text>
-                <Text style={styles.scanMeta} numberOfLines={1} ellipsizeMode="tail">{scan.sport} • {scan.passId}</Text>
+                <Text style={styles.athleteName}>{scan.name}</Text>
+                <Text style={styles.scanMeta}>{scan.sport} • {scan.passId}</Text>
               </View>
             </View>
 

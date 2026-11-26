@@ -409,21 +409,21 @@ export default function BookingCheckoutScreen({
                       {item.isGroup && (
                         <View style={[ui.row, { justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#E2E8F0", paddingTop: 8 }]}>
                           <Text style={[ui.muted, { fontWeight: "700" }]}>Members ({item.minMembers}–{item.maxMembers})</Text>
-                          <View style={[ui.row, { gap: 10 }]}>
+                          <View style={[ui.row, { gap: 10, alignItems: "center" }]}>
                             <TouchableOpacity
                               disabled={(item.memberCount || 1) <= (item.minMembers || 1)}
                               onPress={() => updateBulkMemberCount(item.key, -1)}
-                              style={{ borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", borderRadius: 8, width: 28, height: 28, alignItems: "center", justifyContent: "center", opacity: (item.memberCount || 1) <= (item.minMembers || 1) ? 0.4 : 1 }}
+                              style={{ borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", borderRadius: 8, width: 30, height: 30, alignItems: "center", justifyContent: "center", opacity: (item.memberCount || 1) <= (item.minMembers || 1) ? 0.4 : 1 }}
                             >
-                              <Text style={{ fontWeight: "800", color: "#0f172a" }}>-</Text>
+                              <Ionicons name="remove" size={16} color="#0f172a" />
                             </TouchableOpacity>
-                            <Text style={{ fontWeight: "800", color: "#0f172a", minWidth: 20, textAlign: "center" }}>{item.memberCount}</Text>
+                            <Text style={{ fontWeight: "800", color: "#0f172a", minWidth: 22, textAlign: "center", includeFontPadding: false }}>{item.memberCount}</Text>
                             <TouchableOpacity
                               disabled={(item.memberCount || 1) >= (item.maxMembers || 1)}
                               onPress={() => updateBulkMemberCount(item.key, 1)}
-                              style={{ borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", borderRadius: 8, width: 28, height: 28, alignItems: "center", justifyContent: "center", opacity: (item.memberCount || 1) >= (item.maxMembers || 1) ? 0.4 : 1 }}
+                              style={{ borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", borderRadius: 8, width: 30, height: 30, alignItems: "center", justifyContent: "center", opacity: (item.memberCount || 1) >= (item.maxMembers || 1) ? 0.4 : 1 }}
                             >
-                              <Text style={{ fontWeight: "800", color: "#0f172a" }}>+</Text>
+                              <Ionicons name="add" size={16} color="#0f172a" />
                             </TouchableOpacity>
                           </View>
                         </View>

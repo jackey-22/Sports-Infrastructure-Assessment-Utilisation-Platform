@@ -109,8 +109,8 @@ export const AdminCommandDeskScreen = ({
 
         {STATE_DISTRICT_METRICS.map(row => <View key={row.district} style={styles.districtRowCard}>
             <View style={styles.districtLeft}>
-              <Text style={styles.districtName} numberOfLines={1} ellipsizeMode="tail">{row.district}</Text>
-              <Text style={styles.districtMeta} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={styles.districtName}>{row.district}</Text>
+              <Text style={styles.districtMeta}>
                 {row.complexes} Complexes • {row.utilization}
               </Text>
             </View>

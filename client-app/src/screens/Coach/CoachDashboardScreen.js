@@ -246,10 +246,10 @@ export default function CoachDashboardScreen({
                 </View>
                 <Text style={styles.kpiValue}>{card.value}</Text>
               </View>
-              <Text style={styles.kpiLabel} numberOfLines={1}>
+              <Text style={styles.kpiLabel}>
                 {card.label}
               </Text>
-              <Text style={styles.kpiCaption} numberOfLines={1}>
+              <Text style={styles.kpiCaption}>
                 {card.caption}
               </Text>
             </TouchableOpacity>
@@ -702,14 +702,14 @@ export default function CoachDashboardScreen({
                         />
                       </View>
                       <View style={styles.cardAthleteInfo}>
-                        <Text style={styles.athleteName} numberOfLines={1}>
+                        <Text style={styles.athleteName}>
                           {athlete.name}
                         </Text>
-                        <Text style={styles.athleteContact} numberOfLines={1}>
+                        <Text style={styles.athleteContact}>
                           {[athlete.email, athlete.phone].filter(Boolean).join(" · ") ||
                             "Contact unavailable"}
                         </Text>
-                        <Text style={styles.athleteSport} numberOfLines={1}>
+                        <Text style={styles.athleteSport}>
                           {athlete.sport}
                         </Text>
                       </View>
@@ -747,7 +747,7 @@ export default function CoachDashboardScreen({
                         {sessions.map((sess) => (
                           <View key={sess.id} style={styles.sessionItemRow}>
                             <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                              <Text style={styles.sessionDateText} numberOfLines={1}>
+                              <Text style={styles.sessionDateText}>
                                 {sess.sport || "Session"} · {formatDate(sess.date)}
                                 {sess.time?.from ? ` · ${sess.time.from}` : ""}
                               </Text>
@@ -760,7 +760,6 @@ export default function CoachDashboardScreen({
                                       ? styles.sessionStatusReady
                                       : styles.sessionStatusPending,
                                 ]}
-                                numberOfLines={1}
                               >
                                 {sess.statusText}
                               </Text>

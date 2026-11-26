@@ -20,8 +20,6 @@ export const StatCard = ({
       <View style={styles.topRow}>
         <Text
           style={[styles.label, dark ? styles.labelDark : styles.labelLight]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
         >
           {label}
         </Text>
@@ -31,7 +29,8 @@ export const StatCard = ({
       <Text
         style={[styles.value, dark ? styles.valueDark : styles.valueLight]}
         numberOfLines={1}
-        ellipsizeMode="tail"
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
       >
         {value}
       </Text>
@@ -53,7 +52,6 @@ export const StatCard = ({
                 isDown && styles.trendTextDown,
                 !isUp && !isDown && styles.trendTextNeutral,
               ]}
-              numberOfLines={1}
             >
               {trend}
             </Text>
@@ -62,8 +60,6 @@ export const StatCard = ({
         {subvalue ? (
           <Text
             style={[styles.subvalue, dark ? styles.subvalueDark : styles.subvalueLight]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
           >
             {subvalue}
           </Text>
