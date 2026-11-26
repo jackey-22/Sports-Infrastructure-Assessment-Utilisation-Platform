@@ -7,17 +7,20 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1e293b;
+    color: #0f172a;
     background-color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer utilities {
-  .hero-landmark-silhouette {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 200' fill='%23007D40' opacity='0.08'%3E%3Cpath d='M80 180 L100 140 L120 180 Z M200 180 V100 H220 V180 Z M280 180 L320 60 L360 180 Z M400 180 V120 H480 V180 Z M520 180 L560 40 L600 180 Z M640 180 V90 H700 V180 Z M760 180 L800 70 L840 180 Z M900 180 V110 H980 V180 Z M1040 180 L1080 50 L1120 180 Z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: bottom center;
-    background-size: 100% auto;
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .bg-subtle-grid {
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 }
 
@@ -80,21 +83,21 @@
 
 /* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(148, 163, 184, 0.45);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(100, 116, 139, 0.7);
 }
 
 /* Leaflet Popup & Marker Glassmorphism */
@@ -124,38 +127,13 @@
   z-index: 1000 !important;
 }
 
-/* Login is painted with real colours so labels stay readable even if a utility is missing. */
-.login-screen {
-  background: #f3faf6;
-  color: #0b3d2e;
-}
-.login-screen h1,
-.login-screen h2,
-.login-screen label {
-  color: #0b3d2e;
-}
-.login-screen p,
-.login-screen span,
-.login-screen a {
-  color: #1e293b;
-}
-.login-screen a {
-  color: #007d40;
-}
-.login-screen input {
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
-}
-.login-screen input::placeholder {
-  color: #64748b;
-}
-.login-screen button[type="submit"] {
-  background: #007d40;
-  color: #ffffff;
+/* Hide duplicate native browser password reveal icon so custom toggle is clean. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
 }
 
-/* Saved-password fill stays dark text on the light login fields. */
+/* Saved-password fill stays dark text on light auth inputs. */
 .login-field:-webkit-autofill,
 .login-field:-webkit-autofill:hover,
 .login-field:-webkit-autofill:focus {

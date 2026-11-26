@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ClipboardCheck, Clock3, Loader2, Search, Star, Users } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Clock3, Loader2, Search, Star, Trophy, UserRound, Users } from "lucide-react";
 import { api } from "../../../API/client";
 import { Card, EmptyState, ErrorState, KpiCard, PageHeader, PageShell, TableSkeleton } from "../Common/CoachUI";
+import AchievementsWorkspace from "../../Common/AchievementsWorkspace";
+import { AthletePortfolioModal } from "../../Common/AthletePortfolioView";
 
 const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10";
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -21,6 +23,8 @@ export default function CoachAthletes() {
   const [forms, setForms] = useState({});
   const [saving, setSaving] = useState(null);
   const [notice, setNotice] = useState("");
+  const [achievementsAthlete, setAchievementsAthlete] = useState(null);
+  const [portfolioAthleteId, setPortfolioAthleteId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -117,12 +121,72 @@ export default function CoachAthletes() {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-extrabold text-slate-900">{row.name}</h2>{row.confirmedBookings > 0 ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">CONFIRMED</span> : <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">PAYMENT PENDING</span>}</div><p className="mt-1 text-xs text-slate-500">{row.email || "No email"}{row.phone ? ` · ${row.phone}` : ""}</p><p className="mt-2 text-sm font-semibold text-slate-700">{row.sports.map((sport) => sport.name).join(", ") || "Sport unavailable"}</p></div>
             <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 xl:min-w-[520px]"><Metric label="Bookings" value={`${row.confirmedBookings}/${row.bookings} confirmed`} /><Metric label="Paid" value={`${row.paidBookings} · ${money.format(row.totalPaid)}`} /><Metric label="Next session" value={row.nextBooking ? `${date(row.nextBooking.date)} · ${row.nextBooking.time?.from || ""}` : "None scheduled"} /><Metric label="Latest score" value={row.latestEvaluation ? `${row.latestEvaluation.totalScore} / 100` : "Not evaluated"} /></div>
-            <div className="xl:w-40">{row.canRate ? <button type="button" onClick={() => { if (evaluationOpen === row.id) setEvaluationOpen(null); else openEvaluation(row); }} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-extrabold text-slate-900"><ClipboardCheck className="h-4 w-4" />{row.latestEvaluation ? "Evaluate again" : "Evaluate athlete"}</button> : <p className="text-center text-xs font-semibold text-slate-400">{row.evaluationUnavailableReason || (row.athleteId && !row.eligibleRatingBookings ? "Available after confirmation and payment" : "Athlete profile unavailable")}</p>}</div>
+            <div className="flex flex-col gap-2 xl:w-44">
+              {row.canRate ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (evaluationOpen === row.id) setEvaluationOpen(null);
+                    else openEvaluation(row);
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-extrabold text-slate-900"
+                >
+                  <ClipboardCheck className="h-3.5 w-3.5" />
+                  {row.latestEvaluation ? "Evaluate again" : "Evaluate athlete"}
+                </button>
+              ) : (
+                <p className="text-center text-xs font-semibold text-slate-400">
+                  {row.evaluationUnavailableReason ||
+                    (row.athleteId && !row.eligibleRatingBookings
+                      ? "Available after confirmation and payment"
+                      : "Athlete profile unavailable")}
+                </p>
+              )}
+              {row.athleteId ? (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAchievementsAthlete(row)}
+                    className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition"
+                  >
+                    <Trophy className="h-3.5 w-3.5 text-emerald-600" />
+                    Awards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPortfolioAthleteId(row.athleteId)}
+                    className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 hover:border-brand-primary hover:text-brand-primary transition"
+                  >
+                    <UserRound className="h-3.5 w-3.5" />
+                    Portfolio
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
           {expanded ? <EvaluationForm rowId={row.id} template={templates[row.id]} form={form} updateForm={updateForm} saving={saving === row.id} onSubmit={() => submitEvaluation(row)} /> : null}
         </article>;
       })}</div> : <EmptyState title="No booked athletes yet" description="An assigned slot is only a schedule. Athletes will appear here after someone starts a booking for that coaching slot." />}
     </Card>
+
+    {achievementsAthlete && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+          <AchievementsWorkspace
+            role="coach"
+            athleteId={achievementsAthlete.athleteId}
+            athleteName={achievementsAthlete.name}
+            embedded
+            onClose={() => setAchievementsAthlete(null)}
+          />
+        </div>
+      </div>
+    )}
+
+    <AthletePortfolioModal
+      athleteId={portfolioAthleteId}
+      onClose={() => setPortfolioAthleteId("")}
+    />
   </PageShell>;
 }
 

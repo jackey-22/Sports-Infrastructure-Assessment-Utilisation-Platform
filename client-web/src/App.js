@@ -79,6 +79,8 @@ import GateScanner from "./Components/Gate/GateScanner";
 import InstitutionLayout from "./Components/Institution/Layout";
 import InstitutionEvents from "./Components/Institution/InstitutionEvents";
 import InstitutionEventManagement from "./Components/Institution/InstitutionEventManagement";
+import AchievementsWorkspace from "./Components/Common/AchievementsWorkspace";
+import AthletePortfolioView from "./Components/Common/AthletePortfolioView";
 
 const routes = createBrowserRouter([
   { path: "/gate/grievances", element: <GrievanceWorkspace role="gate" />, loader: () => Verify(6), errorElement: <ErrorPage /> },
@@ -125,6 +127,8 @@ const routes = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <AdminDashboard /> },
+      { path: "leaderboard", element: <Leaderboard /> },
+      { path: "achievements", element: <AchievementsWorkspace role="admin" /> },
       { path: "grievances", element: <GrievanceWorkspace role="admin" /> },
       { path: "bookings", element: <BookingPaymentReport role="admin" /> },
       { path: "grants", element: <GrantWorkspace role="admin" /> },
@@ -257,6 +261,8 @@ const routes = createBrowserRouter([
         element: <ManagerAssessmentDetail />,
         errorElement: <ErrorPage />,
       },
+      { path: "achievements", element: <AchievementsWorkspace role="manager" />, errorElement: <ErrorPage /> },
+      { path: "leaderboard", element: <Leaderboard />, errorElement: <ErrorPage /> },
       { path: "institution-events", element: <InstitutionEventManagement />, errorElement: <ErrorPage /> },
     ],
   },
@@ -280,6 +286,16 @@ const routes = createBrowserRouter([
         errorElement: <ErrorPage />,
       },
       {
+        path: "achievements",
+        element: <AchievementsWorkspace role="coach" />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "leaderboard",
+        element: <Leaderboard />,
+        errorElement: <ErrorPage />,
+      },
+      {
         path: "bookings",
         element: <BookingPaymentReport role="coach" />,
         errorElement: <ErrorPage />,
@@ -297,6 +313,16 @@ const routes = createBrowserRouter([
       {
         path: "dashboard",
         element: <CitizenDashboard />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "explore",
+        element: <PublicExplore embedded />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "book/:facilityId",
+        element: <CitizenBookingPage embedded />,
         errorElement: <ErrorPage />,
       },
       {
@@ -319,6 +345,16 @@ const routes = createBrowserRouter([
         element: <AthletePerformance />,
         errorElement: <ErrorPage />,
       },
+      {
+        path: "portfolio",
+        element: <AthletePortfolioView />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "leaderboard",
+        element: <Leaderboard />,
+        errorElement: <ErrorPage />,
+      },
     ],
   },
   {
@@ -329,6 +365,7 @@ const routes = createBrowserRouter([
     children: [
       { index: true, element: <InstitutionEvents /> },
       { path: "new", element: <InstitutionEvents createMode /> },
+      { path: "explore", element: <PublicExplore embedded /> },
     ],
   },
 ]);

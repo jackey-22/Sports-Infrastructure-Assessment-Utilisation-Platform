@@ -1,11 +1,9 @@
 import { api } from "../api/client";
+
 export const performanceService = {
   async coachRoster() {
     const result = await api.get("/api/coach/rateable-athletes");
-    return result.data || {
-      athletes: [],
-      summary: {}
-    };
+    return result.data || { athletes: [], summary: {} };
   },
   async template(sportId) {
     const result = await api.get(`/api/evaluation-templates/${encodeURIComponent(sportId)}`);
@@ -30,5 +28,22 @@ export const performanceService = {
   async submitAchievement(payload) {
     const result = await api.post("/api/athlete/achievements", payload);
     return result.data;
-  }
+  },
+  async staffAchievements(athleteId = "") {
+    const query = athleteId ? `?athleteId=${encodeURIComponent(athleteId)}` : "";
+    const result = await api.get(`/api/achievements${query}`);
+    return result.data || [];
+  },
+  async createStaffAchievement(payload) {
+    const result = await api.post("/api/achievements", payload);
+    return result.data;
+  },
+  async verifyAchievement(id, payload) {
+    const result = await api.patch(`/api/achievements/${encodeURIComponent(id)}/verification`, payload);
+    return result.data;
+  },
+  async scopedAthletes() {
+    const result = await api.get("/getAthletes");
+    return result.data || [];
+  },
 };

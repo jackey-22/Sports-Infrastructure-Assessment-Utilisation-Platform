@@ -26,8 +26,8 @@ export default function InstitutionSignup() {
     finally { setSaving(false); }
   };
 
-  return <div className="min-h-screen bg-brand-mint px-4 py-6 text-slate-800">
-    <div className="mx-auto mb-5 flex max-w-5xl items-center justify-between"><Link to="/" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-brand-primary"><ArrowLeft className="h-4 w-4" />Back home</Link><Link to="/login" className="text-sm font-bold text-brand-primary">Already registered? Sign in</Link></div>
+  return <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-800">
+    <div className="mx-auto mb-5 flex max-w-5xl items-center justify-between"><Link to="/" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4 text-brand-primary" />Back to Portal</Link><Link to="/login" className="text-sm font-bold text-brand-primary hover:underline">Already registered? Sign in</Link></div>
     <div className="mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl md:grid-cols-[0.75fr_1.25fr]">
       <aside className="hidden bg-brand-dark p-10 text-white md:block"><Building2 className="h-12 w-12 rounded-2xl bg-white/10 p-3" /><h1 className="mt-8 text-3xl font-extrabold">Institution event bookings</h1><p className="mt-4 text-sm leading-6 text-emerald-100">Request sports facilities for student tournaments, annual sports meets, trials and training camps. Facility management reviews availability and provides the final quotation before payment.</p></aside>
       <form onSubmit={submit} className="space-y-4 p-6 sm:p-10">

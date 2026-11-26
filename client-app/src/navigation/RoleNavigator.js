@@ -36,11 +36,13 @@ import AssessmentRecordsScreen from "../screens/Admin/AssessmentRecordsScreen";
 import GujaratExploreMapScreen from "../screens/Public/GujaratExploreMapScreen";
 import ComplexDetailScreen from "../screens/Public/ComplexDetailScreen";
 import BookingCheckoutScreen from "../screens/Public/BookingCheckoutScreen";
+import AchievementsScreen from "../screens/Common/AchievementsScreen";
 
 export const RoleNavigator = ({ user, onLogout }) => {
   const role = user?.Role !== undefined ? Number(user.Role) : 0;
   const [activeTab, setActiveTab] = useState("home");
   const [targetAthlete, setTargetAthlete] = useState(null);
+  const [achievementTarget, setAchievementTarget] = useState(null);
   const [targetFacility, setTargetFacility] = useState(null);
   const [bookingFacility, setBookingFacility] = useState(null);
 
@@ -75,6 +77,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return [
           { key: "home", label: "Squad", icon: "people" },
           { key: "rate", label: "Evaluate", icon: "star-outline" },
+          { key: "achievements", label: "Awards", icon: "trophy-outline" },
           { key: "explore", label: "Facilities", icon: "compass-outline" },
           { key: "complaints", label: "Issues", icon: "warning-outline" },
         ];
@@ -136,12 +139,25 @@ export const RoleNavigator = ({ user, onLogout }) => {
       );
     }
 
+    if (achievementTarget) {
+      return (
+        <AchievementsScreen
+          role="coach"
+          athlete={achievementTarget}
+          onBack={() => setAchievementTarget(null)}
+        />
+      );
+    }
+
     if (activeTab === "complaints" || activeTab === "grievance") return <ComplaintsScreen user={user} onBack={() => setActiveTab("home")} />;
 
     if (role === 6) return <SupervisorScanScreen user={user} onLogout={onLogout} />;
 
     // Role 5: State SAG Admin
     if (role === 5) {
+      if (activeTab === "achievements") {
+        return <AchievementsScreen role="admin" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
+      }
       if (activeTab === "allocate") {
         return <GrantAllocationScreen onBack={() => setActiveTab("home")} onAllocated={() => setActiveTab("home")} />;
       }
@@ -170,6 +186,9 @@ export const RoleNavigator = ({ user, onLogout }) => {
 
     // Role 3: Complex Manager
     if (role === 3) {
+      if (activeTab === "achievements") {
+        return <AchievementsScreen role="manager" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
+      }
       if (activeTab === "staff") return <GateOperatorsScreen onBack={() => setActiveTab("home")} />;
       if (activeTab === "audit") {
         return <FacilityAuditScreen onBack={() => setActiveTab("home")} />;
@@ -185,6 +204,9 @@ export const RoleNavigator = ({ user, onLogout }) => {
 
     // Role 2: Coach / Instructor
     if (role === 2) {
+      if (activeTab === "achievements") {
+        return <AchievementsScreen role="coach" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
+      }
       if (activeTab === "rate") {
         return <RateAthleteScreen athlete={null} onBack={() => setActiveTab("home")} />;
       }
@@ -199,6 +221,10 @@ export const RoleNavigator = ({ user, onLogout }) => {
           user={user}
           onLogout={onLogout}
           onRateAthlete={(ath) => setTargetAthlete(ath)}
+          onViewAchievements={(ath) => {
+            if (ath) setAchievementTarget(ath);
+            else setActiveTab("achievements");
+          }}
         />
       );
     }
@@ -250,7 +276,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       <View style={styles.screenWrapper}>{renderScreen()}</View>
 
       {/* Styled Bottom Navigation Bar (No horizontal overflow) */}
-      {!targetFacility && !bookingFacility && !targetAthlete && (
+      {!targetFacility && !bookingFacility && !targetAthlete && !achievementTarget && (
         <View style={styles.bottomBar}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;

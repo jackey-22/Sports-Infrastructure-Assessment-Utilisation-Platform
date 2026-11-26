@@ -924,10 +924,22 @@ app.get("/api/coach/performance-athletes", requireRole(ROLE.COACH), PerformanceC
 app.post("/api/coach/evaluations", requireRole(ROLE.COACH), PerformanceController.createEvaluation);
 app.get("/api/coach/evaluations", requireRole(ROLE.COACH), PerformanceController.listEvaluations);
 app.get("/api/athlete/evaluations", requireRole(ROLE.ATHLETE), PerformanceController.ownEvaluations);
+app.get("/api/athlete/portfolio", requireRole(ROLE.ATHLETE), PerformanceController.ownPortfolio);
+app.get(
+  "/api/athlete-portfolio/:athleteId",
+  requireRole(ROLE.ADMIN, ROLE.AUTHORITY, ROLE.MANAGER, ROLE.COACH, ROLE.ATHLETE),
+  PerformanceController.athletePortfolio
+);
+app.get(
+  "/api/leaderboard",
+  requireRole(ROLE.ADMIN, ROLE.AUTHORITY, ROLE.MANAGER, ROLE.COACH, ROLE.ATHLETE),
+  PerformanceController.leaderboard
+);
 app.post("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.createAchievement);
 app.get("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceController.listAchievements);
-app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.listAchievements);
-app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.verifyAchievement);
+app.post("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.createAchievement);
+app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.listAchievements);
+app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.verifyAchievement);
 
 app.get("/api/grievances", requireRole(...SERVICE_ROLES), WorkflowController.grievanceList);
 app.get("/api/grievances/facilities", requireRole(...SERVICE_ROLES), require("./Controller/GrievanceController").facilities);

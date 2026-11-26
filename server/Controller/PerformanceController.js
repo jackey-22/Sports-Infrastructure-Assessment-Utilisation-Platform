@@ -6,8 +6,21 @@ const Template = require("../Model/EvaluationTemplateModel");
 const Evaluation = require("../Model/PerformanceEvaluationModel");
 const Guest = require("../Model/GuestModel");
 const Achievement = require("../Model/AthleteAchievementModel");
+const AthleteRating = require("../Model/athleteRatingModel");
+const Users = require("../Model/UsersModel");
 const { ROLE } = require("../Utils/roles");
-const { canAccessAthlete } = require("../Utils/scope");
+const { canAccessAthlete, districtComplexIds } = require("../Utils/scope");
+
+const ACHIEVEMENT_WEIGHTS = {
+  "Gold Medal": 15,
+  Championship: 15,
+  "Competition Winner": 12,
+  "Silver Medal": 10,
+  "Bronze Medal": 7,
+  "Personal Record": 6,
+  "Tournament Participation": 4,
+  Other: 4,
+};
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const validId = (value) => mongoose.isValidObjectId(value);
@@ -77,6 +90,13 @@ async function ensureCoachCanEvaluate(req, athlete, sportId) {
   }));
 }
 async function canAccessPerformanceAthlete(req, athlete) {
+  if (req.user.Role === ROLE.ADMIN) return true;
+  if (req.user.Role === ROLE.ATHLETE) {
+    return String(athlete.userId?._id || athlete.userId) === String(req.user._id);
+  }
+  if (req.user.Role === ROLE.AUTHORITY || req.user.Role === ROLE.MANAGER) {
+    return canAccessAthlete(req.user, athlete);
+  }
   return req.user.Role === ROLE.COACH
     ? ensureCoachCanEvaluate(req, athlete, validId(req.query?.sportId) ? req.query.sportId : undefined)
     : canAccessAthlete(req.user, athlete);
@@ -244,13 +264,78 @@ async function ownEvaluations(req, res) {
 
 async function createAchievement(req, res) {
   try {
-    const athlete = await Athlete.findOne({ userId: req.user._id }).lean();
-    const { sportId, title, description, category, eventName, achievementDate, rank, supportingDocuments } = req.body || {};
-    if (!athlete || !validId(sportId) || !title || !category || !achievementDate) return fail(res, 400, "Complete the achievement details");
+    const {
+      sportId,
+      title,
+      description,
+      category,
+      eventName,
+      achievementDate,
+      rank,
+      supportingDocuments,
+      athleteId: bodyAthleteId,
+      verificationStatus,
+      verificationRemarks,
+    } = req.body || {};
+
+    let targetAthlete = null;
+
+    if (req.user.Role === ROLE.ATHLETE) {
+      targetAthlete = await Athlete.findOne({ userId: req.user._id }).lean();
+      if (!targetAthlete) return fail(res, 404, "Athlete profile not found");
+    } else if ([ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role)) {
+      if (!validId(bodyAthleteId)) return fail(res, 400, "Valid athleteId is required");
+      targetAthlete = await Athlete.findById(bodyAthleteId).lean();
+      if (!targetAthlete || !await canAccessPerformanceAthlete(req, targetAthlete)) {
+        return fail(res, 403, "Athlete is outside your management or coaching scope");
+      }
+    } else {
+      return fail(res, 403, "Permission denied");
+    }
+
+    if (!validId(sportId) || !title || !category || !achievementDate) {
+      return fail(res, 400, "Complete the achievement details (sport, category, title, achievement date)");
+    }
     if (!await Sport.exists({ _id: sportId })) return fail(res, 404, "Sport not found");
-    const documents = Array.isArray(supportingDocuments) ? supportingDocuments.filter((item) => item && typeof item.url === "string" && item.url.length <= 2048) : [];
-    const data = await Achievement.create({ athlete: athlete._id, sport: sportId, title, description, category, eventName, achievementDate, rank, supportingDocuments: documents });
-    return res.status(201).json({ data, rcode: 200 });
+
+    const documents = Array.isArray(supportingDocuments)
+      ? supportingDocuments.filter((item) => item && typeof item.url === "string" && item.url.length <= 2048)
+      : [];
+
+    const isStaff = [ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER].includes(req.user.Role);
+    const finalStatus = isStaff ? (verificationStatus || "Verified") : "Pending";
+    const finalVerifiedBy = isStaff ? req.user._id : null;
+    const finalRemarks = isStaff ? (verificationRemarks || "Recorded by staff") : "";
+
+    const created = await Achievement.create({
+      athlete: targetAthlete._id,
+      sport: sportId,
+      title: String(title).trim(),
+      description: String(description || "").trim(),
+      category,
+      eventName: String(eventName || "").trim(),
+      achievementDate,
+      rank: String(rank || "").trim(),
+      supportingDocuments: documents,
+      verificationStatus: finalStatus,
+      verifiedBy: finalVerifiedBy,
+      verificationRemarks: finalRemarks,
+    });
+
+    const populated = await Achievement.findById(created._id)
+      .populate("sport", "SportName")
+      .populate("verifiedBy", "Name Email")
+      .populate({
+        path: "athlete",
+        select: "userId SportComplexId",
+        populate: [
+          { path: "userId", select: "Name Email ContactNum" },
+          { path: "SportComplexId", select: "name location" },
+        ],
+      })
+      .lean();
+
+    return res.status(201).json({ data: populated, rcode: 200 });
   } catch (error) {
     console.error("Could not submit achievement:", error.message);
     return fail(res, 500, "Could not submit achievement");
@@ -262,14 +347,57 @@ async function listAchievements(req, res) {
     let athleteId = req.query.athleteId;
     if (req.user.Role === ROLE.ATHLETE) {
       const athlete = await Athlete.findOne({ userId: req.user._id }).select("_id").lean();
-      athleteId = athlete?._id;
+      if (!athlete) return res.json({ data: [], rcode: 200 });
+      athleteId = athlete._id;
     }
-    if (!validId(athleteId)) return fail(res, 400, "athleteId is required");
-    const athlete = await Athlete.findById(athleteId).lean();
-    if (!athlete || !await canAccessPerformanceAthlete(req, athlete)) return fail(res, 403, "Athlete is outside your scope");
-    const query = { athlete: athleteId };
+
+    const query = {};
+
+    if (validId(athleteId)) {
+      const athlete = await Athlete.findById(athleteId).lean();
+      if (!athlete || !await canAccessPerformanceAthlete(req, athlete)) {
+        return fail(res, 403, "Athlete is outside your scope");
+      }
+      query.athlete = athleteId;
+    } else {
+      if (req.user.Role === ROLE.ADMIN) {
+        // Statewide: all achievements
+      } else if (req.user.Role === ROLE.MANAGER) {
+        const athletes = await Athlete.find({ SportComplexId: req.user.SportComplexId }).select("_id").lean();
+        query.athlete = { $in: athletes.map((a) => a._id) };
+      } else if (req.user.Role === ROLE.COACH) {
+        const coach = await Instructor.findOne({ userId: req.user._id }).select("_id SportComplexId sports").lean();
+        const complexAthletes = coach?.SportComplexId ? await Athlete.find({ SportComplexId: coach.SportComplexId }).select("_id").lean() : [];
+        const guestUsers = coach ? await Guest.find({ coach: coach._id, bookingStatus: "Confirmed" }).distinct("citizenUser") : [];
+        const guestAthletes = guestUsers.length ? await Athlete.find({ userId: { $in: guestUsers } }).select("_id").lean() : [];
+        const athleteIds = [...new Set([...complexAthletes.map((a) => String(a._id)), ...guestAthletes.map((a) => String(a._id))])];
+        query.athlete = { $in: athleteIds };
+      } else if (req.user.Role === ROLE.AUTHORITY) {
+        const cIds = await districtComplexIds(req.user.DistrictId);
+        const athletes = await Athlete.find({ SportComplexId: { $in: cIds } }).select("_id").lean();
+        query.athlete = { $in: athletes.map((a) => a._id) };
+      }
+    }
+
     if (validId(req.query.sportId)) query.sport = req.query.sportId;
-    const data = await Achievement.find(query).populate("sport", "SportName").populate("verifiedBy", "Name").sort({ achievementDate: -1 }).lean();
+    if (req.query.verificationStatus && ["Pending", "Verified", "Rejected"].includes(req.query.verificationStatus)) {
+      query.verificationStatus = req.query.verificationStatus;
+    }
+
+    const data = await Achievement.find(query)
+      .populate("sport", "SportName")
+      .populate("verifiedBy", "Name Email")
+      .populate({
+        path: "athlete",
+        select: "userId SportComplexId",
+        populate: [
+          { path: "userId", select: "Name Email ContactNum" },
+          { path: "SportComplexId", select: "name location" },
+        ],
+      })
+      .sort({ achievementDate: -1, createdAt: -1 })
+      .lean();
+
     return res.json({ data, rcode: 200 });
   } catch (error) {
     console.error("Could not load achievements:", error.message);
@@ -279,18 +407,462 @@ async function listAchievements(req, res) {
 
 async function verifyAchievement(req, res) {
   try {
+    if (!validId(req.params.id)) return fail(res, 400, "Invalid achievement ID");
     const achievement = await Achievement.findById(req.params.id).populate("athlete");
     if (!achievement) return fail(res, 404, "Achievement not found");
-    if (req.user.Role !== ROLE.ADMIN && !await ensureCoachCanEvaluate(req, achievement.athlete, achievement.sport)) return fail(res, 403, "Achievement is outside your coaching scope");
-    if (!["Verified", "Rejected"].includes(req.body?.verificationStatus)) return fail(res, 400, "Verification status must be Verified or Rejected");
+
+    const isAllowed =
+      req.user.Role === ROLE.ADMIN ||
+      (req.user.Role === ROLE.MANAGER && await canAccessAthlete(req.user, achievement.athlete)) ||
+      (req.user.Role === ROLE.COACH && await ensureCoachCanEvaluate(req, achievement.athlete, achievement.sport));
+
+    if (!isAllowed) {
+      return fail(res, 403, "Achievement is outside your management or coaching scope");
+    }
+
+    if (!["Pending", "Verified", "Rejected"].includes(req.body?.verificationStatus)) {
+      return fail(res, 400, "Verification status must be Pending, Verified, or Rejected");
+    }
+
     achievement.verificationStatus = req.body.verificationStatus;
     achievement.verificationRemarks = String(req.body.verificationRemarks || "");
     achievement.verifiedBy = req.user._id;
     await achievement.save();
-    return res.json({ data: achievement, rcode: 200 });
+
+    const populated = await Achievement.findById(achievement._id)
+      .populate("sport", "SportName")
+      .populate("verifiedBy", "Name Email")
+      .populate({
+        path: "athlete",
+        select: "userId SportComplexId",
+        populate: [
+          { path: "userId", select: "Name Email ContactNum" },
+          { path: "SportComplexId", select: "name location" },
+        ],
+      })
+      .lean();
+
+    return res.json({ data: populated, rcode: 200 });
   } catch (error) {
     console.error("Could not verify achievement:", error.message);
     return fail(res, 500, "Could not verify achievement");
+  }
+}
+
+async function computeLeaderboardEntries({ sportId = "", districtId = "" } = {}) {
+  const athleteFilter = { isActive: { $ne: 0 } };
+  const athletes = await Athlete.find(athleteFilter)
+    .populate("userId", "Name Email ContactNum DOB")
+    .populate({
+      path: "SportComplexId",
+      select: "name location district",
+      populate: { path: "district", select: "District" },
+    })
+    .lean();
+
+  const evalFilter = validId(sportId) ? { sport: sportId } : {};
+  const achFilter = { verificationStatus: "Verified", ...(validId(sportId) ? { sport: sportId } : {}) };
+  const legacyFilter = { isEvaluated: 1, ...(validId(sportId) ? { sport: sportId } : {}) };
+
+  const [evaluations, achievements, legacyRatings] = await Promise.all([
+    Evaluation.find(evalFilter).populate("sport", "SportName").sort({ evaluationDate: -1 }).lean(),
+    Achievement.find(achFilter).populate("sport", "SportName").lean(),
+    AthleteRating.find(legacyFilter).populate("sport", "SportName").lean(),
+  ]);
+
+  const evalsByAthlete = new Map();
+  for (const ev of evaluations) {
+    const k = String(ev.athlete);
+    if (!evalsByAthlete.has(k)) evalsByAthlete.set(k, []);
+    evalsByAthlete.get(k).push(ev);
+  }
+
+  const achsByAthlete = new Map();
+  for (const ach of achievements) {
+    const k = String(ach.athlete);
+    if (!achsByAthlete.has(k)) achsByAthlete.set(k, []);
+    achsByAthlete.get(k).push(ach);
+  }
+
+  const legacyByAthlete = new Map();
+  for (const lr of legacyRatings) {
+    const k = String(lr.athleteId);
+    if (!legacyByAthlete.has(k)) legacyByAthlete.set(k, []);
+    legacyByAthlete.get(k).push(lr);
+  }
+
+  const rows = [];
+  for (const athlete of athletes) {
+    if (!athlete.userId) continue;
+    const aid = String(athlete._id);
+    const complex = athlete.SportComplexId;
+    const distId = complex?.district?._id ? String(complex.district._id) : "";
+    const distName = complex?.district?.District || "";
+
+    if (validId(districtId) && distId !== String(districtId)) continue;
+
+    const evals = evalsByAthlete.get(aid) || [];
+    const achs = achsByAthlete.get(aid) || [];
+    const leg = legacyByAthlete.get(aid) || [];
+
+    if (validId(sportId) && !evals.length && !achs.length && !leg.length) continue;
+
+    const avgEvalScore = evals.length
+      ? Math.round((evals.reduce((s, e) => s + Number(e.totalScore || 0), 0) / evals.length) * 10) / 10
+      : 0;
+    const bestEvalScore = evals.length
+      ? Math.round(Math.max(...evals.map((e) => Number(e.totalScore || 0))) * 10) / 10
+      : 0;
+
+    const medals = { gold: 0, silver: 0, bronze: 0, awards: 0 };
+    let achievementBonus = 0;
+    for (const ach of achs) {
+      if (ach.category === "Gold Medal" || ach.category === "Championship") medals.gold += 1;
+      else if (ach.category === "Silver Medal") medals.silver += 1;
+      else if (ach.category === "Bronze Medal") medals.bronze += 1;
+      else medals.awards += 1;
+      achievementBonus += ACHIEVEMENT_WEIGHTS[ach.category] || 4;
+    }
+
+    const legacyAvg = leg.length
+      ? Math.round((leg.reduce((s, r) => s + Number(r.rating || 0), 0) / leg.length) * 10) / 10
+      : 0;
+    const baseScore = evals.length ? avgEvalScore : Math.min(100, legacyAvg);
+    const compositePoints = Math.round((baseScore + Math.min(60, achievementBonus)) * 10) / 10;
+
+    const sportSet = new Map();
+    for (const ev of evals) {
+      if (ev.sport?._id) sportSet.set(String(ev.sport._id), ev.sport.SportName);
+    }
+    for (const ach of achs) {
+      if (ach.sport?._id) sportSet.set(String(ach.sport._id), ach.sport.SportName);
+    }
+    for (const lr of leg) {
+      if (lr.sport?._id) sportSet.set(String(lr.sport._id), lr.sport.SportName);
+    }
+
+    const latestEval = evals[0] || null;
+    rows.push({
+      athleteId: aid,
+      userId: String(athlete.userId._id),
+      name: athlete.userId.Name || "Athlete",
+      complexId: complex?._id ? String(complex._id) : "",
+      complexName: complex?.name || "Independent / Unassigned",
+      districtId: distId,
+      districtName: distName || "Gujarat",
+      sports: [...sportSet.entries()].map(([id, name]) => ({ id, name })),
+      avgEvaluationScore: avgEvalScore,
+      bestEvaluationScore: bestEvalScore,
+      evaluationsCount: evals.length,
+      verifiedAchievementsCount: achs.length,
+      medals,
+      achievementBonus,
+      compositePoints,
+      recognitionLabel: latestEval?.recognition?.label || "",
+      latestEvaluationDate: latestEval?.evaluationDate || null,
+      _athleteDoc: athlete,
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (b.compositePoints !== a.compositePoints) return b.compositePoints - a.compositePoints;
+    if (b.avgEvaluationScore !== a.avgEvaluationScore) return b.avgEvaluationScore - a.avgEvaluationScore;
+    if (b.verifiedAchievementsCount !== a.verifiedAchievementsCount) {
+      return b.verifiedAchievementsCount - a.verifiedAchievementsCount;
+    }
+    return String(a.name).localeCompare(String(b.name));
+  });
+
+  rows.forEach((row, index) => {
+    row.rank = index + 1;
+  });
+
+  return rows;
+}
+
+async function resolveScopeAccess(req, athleteDoc) {
+  if (req.user.Role === ROLE.ADMIN) return true;
+  if (req.user.Role === ROLE.ATHLETE) {
+    return String(athleteDoc.userId?._id || athleteDoc.userId) === String(req.user._id);
+  }
+  return canAccessPerformanceAthlete(req, athleteDoc);
+}
+
+async function leaderboard(req, res) {
+  try {
+    const sportId = validId(req.query.sportId) ? req.query.sportId : "";
+    const districtId = validId(req.query.districtId) ? req.query.districtId : "";
+    const scopeOnly = req.query.scope === "my";
+
+    const ranked = await computeLeaderboardEntries({ sportId, districtId });
+
+    let coachAllowedSet = null;
+    if (req.user.Role === ROLE.COACH) {
+      const coach = await Instructor.findOne({ userId: req.user._id }).select("_id SportComplexId").lean();
+      const guestUsers = coach ? await Guest.find({ coach: coach._id, bookingStatus: "Confirmed", paymentStatus: "Paid" }).distinct("citizenUser") : [];
+      coachAllowedSet = { complexId: coach?.SportComplexId ? String(coach.SportComplexId) : "", guestUsers: new Set(guestUsers.map(String)) };
+    }
+
+    let authorityComplexSet = null;
+    if (req.user.Role === ROLE.AUTHORITY) {
+      const cIds = await districtComplexIds(req.user.DistrictId);
+      authorityComplexSet = new Set(cIds.map(String));
+    }
+
+    const canQuickAccess = (athleteDoc) => {
+      if (req.user.Role === ROLE.ADMIN) return true;
+      if (req.user.Role === ROLE.ATHLETE) return String(athleteDoc.userId?._id) === String(req.user._id);
+      if (req.user.Role === ROLE.MANAGER) return Boolean(req.user.SportComplexId) && String(athleteDoc.SportComplexId?._id || athleteDoc.SportComplexId) === String(req.user.SportComplexId);
+      if (req.user.Role === ROLE.AUTHORITY) return authorityComplexSet.has(String(athleteDoc.SportComplexId?._id || athleteDoc.SportComplexId));
+      if (req.user.Role === ROLE.COACH && coachAllowedSet) {
+        if (coachAllowedSet.complexId && String(athleteDoc.SportComplexId?._id || athleteDoc.SportComplexId) === coachAllowedSet.complexId) return true;
+        return !athleteDoc.SportComplexId && coachAllowedSet.guestUsers.has(String(athleteDoc.userId?._id));
+      }
+      return false;
+    };
+
+    const output = [];
+    for (const entry of ranked) {
+      const isMe = String(entry.userId) === String(req.user._id);
+      const canViewPortfolio = canQuickAccess(entry._athleteDoc);
+      if (scopeOnly && !canViewPortfolio) continue;
+
+      const { _athleteDoc, userId, ...publicFields } = entry;
+      output.push({
+        ...publicFields,
+        isMe,
+        canViewPortfolio,
+      });
+    }
+
+    const totalAthletes = output.length;
+    const avgPoints = totalAthletes
+      ? Math.round((output.reduce((s, r) => s + r.compositePoints, 0) / totalAthletes) * 10) / 10
+      : 0;
+    const totalVerifiedAwards = output.reduce((s, r) => s + r.verifiedAchievementsCount, 0);
+    const evaluatedAthletes = output.filter((r) => r.evaluationsCount > 0).length;
+
+    return res.json({
+      data: output,
+      summary: {
+        totalAthletes,
+        evaluatedAthletes,
+        avgPoints,
+        totalVerifiedAwards,
+      },
+      rcode: 200,
+    });
+  } catch (error) {
+    console.error("Could not load leaderboard:", error.message);
+    return fail(res, 500, "Could not load leaderboard");
+  }
+}
+
+async function buildAthletePortfolio(athlete, userDoc) {
+  if (!athlete) {
+    const u = userDoc || {};
+    return {
+      exists: false,
+      user: {
+        id: String(u._id || ""),
+        name: u.Name || "Citizen Athlete",
+        email: u.Email || "",
+        phone: u.ContactNum || "",
+        dob: u.DOB || "",
+      },
+      athlete: null,
+      summary: {
+        stateRank: null,
+        totalRankedAthletes: 0,
+        compositePoints: 0,
+        avgEvaluationScore: 0,
+        bestEvaluationScore: 0,
+        evaluationsCount: 0,
+        verifiedAchievementsCount: 0,
+        pendingAchievementsCount: 0,
+        medals: { gold: 0, silver: 0, bronze: 0, awards: 0 },
+        confirmedBookingsCount: 0,
+        attendedSessionsCount: 0,
+      },
+      sportBreakdown: [],
+      evaluations: [],
+      achievements: [],
+    };
+  }
+
+  const aid = String(athlete._id);
+  const uid = athlete.userId?._id || athlete.userId;
+
+  const [evaluations, achievements, bookings, ranked] = await Promise.all([
+    Evaluation.find({ athlete: aid })
+      .populate("sport", "SportName Category")
+      .populate("coach", "Name Email")
+      .sort({ evaluationDate: -1 })
+      .lean(),
+    Achievement.find({ athlete: aid })
+      .populate("sport", "SportName")
+      .populate("verifiedBy", "Name")
+      .sort({ achievementDate: -1, createdAt: -1 })
+      .lean(),
+    uid ? Guest.find({ citizenUser: uid, bookingStatus: "Confirmed" }).select("attended attendedAt checkInStatus sport").lean() : [],
+    computeLeaderboardEntries({}),
+  ]);
+
+  const rankRow = ranked.find((r) => r.athleteId === aid) || null;
+
+  // Build per-sport performance summaries
+  const sportMap = new Map();
+  for (const ev of evaluations) {
+    const sid = String(ev.sport?._id || ev.sport);
+    const sName = ev.sport?.SportName || "Sport";
+    if (!sportMap.has(sid)) {
+      sportMap.set(sid, {
+        sportId: sid,
+        sportName: sName,
+        evaluations: [],
+        verifiedAchievements: 0,
+      });
+    }
+    sportMap.get(sid).evaluations.push(ev);
+  }
+  for (const ach of achievements) {
+    if (ach.verificationStatus !== "Verified") continue;
+    const sid = String(ach.sport?._id || ach.sport);
+    const sName = ach.sport?.SportName || "Sport";
+    if (!sportMap.has(sid)) {
+      sportMap.set(sid, {
+        sportId: sid,
+        sportName: sName,
+        evaluations: [],
+        verifiedAchievements: 0,
+      });
+    }
+    sportMap.get(sid).verifiedAchievements += 1;
+  }
+
+  const sportBreakdown = [];
+  for (const entry of sportMap.values()) {
+    const scores = entry.evaluations.map((e) => Number(e.totalScore || 0));
+    const latest = entry.evaluations[0] || null;
+    const avgScore = scores.length ? Math.round((scores.reduce((s, n) => s + n, 0) / scores.length) * 10) / 10 : 0;
+    const bestScore = scores.length ? Math.round(Math.max(...scores) * 10) / 10 : 0;
+    sportBreakdown.push({
+      sportId: entry.sportId,
+      sportName: entry.sportName,
+      evaluationsCount: entry.evaluations.length,
+      avgScore,
+      bestScore,
+      latestScore: latest ? latest.totalScore : 0,
+      latestRecognition: latest?.recognition?.label || "",
+      latestParameters: (latest?.details || []).map((d) => ({
+        name: d.parameterName,
+        normalizedScore: d.normalizedScore,
+        weightedScore: d.weightedScore,
+      })),
+      verifiedAchievements: entry.verifiedAchievements,
+    });
+  }
+  sportBreakdown.sort((a, b) => b.latestScore - a.latestScore || b.verifiedAchievements - a.verifiedAchievements);
+
+  const verifiedAchs = achievements.filter((a) => a.verificationStatus === "Verified");
+  const medals = rankRow?.medals || {
+    gold: verifiedAchs.filter((a) => a.category === "Gold Medal" || a.category === "Championship").length,
+    silver: verifiedAchs.filter((a) => a.category === "Silver Medal").length,
+    bronze: verifiedAchs.filter((a) => a.category === "Bronze Medal").length,
+    awards: verifiedAchs.filter((a) => !["Gold Medal", "Championship", "Silver Medal", "Bronze Medal"].includes(a.category)).length,
+  };
+
+  const avgEval = evaluations.length
+    ? Math.round((evaluations.reduce((s, e) => s + Number(e.totalScore || 0), 0) / evaluations.length) * 10) / 10
+    : 0;
+  const bestEval = evaluations.length
+    ? Math.round(Math.max(...evaluations.map((e) => Number(e.totalScore || 0))) * 10) / 10
+    : 0;
+
+  return {
+    exists: true,
+    user: {
+      id: String(athlete.userId?._id || uid || ""),
+      name: athlete.userId?.Name || userDoc?.Name || "Athlete",
+      email: athlete.userId?.Email || userDoc?.Email || "",
+      phone: athlete.userId?.ContactNum || userDoc?.ContactNum || "",
+      dob: athlete.userId?.DOB || userDoc?.DOB || "",
+    },
+    athlete: {
+      id: aid,
+      complexName: athlete.SportComplexId?.name || "Independent / Unassigned",
+      complexLocation: athlete.SportComplexId?.location || "",
+      districtName: athlete.SportComplexId?.district?.District || "",
+      bloodGroup: athlete.bloodGroup || "",
+      height: athlete.height || "",
+      weight: athlete.weight || "",
+      address: athlete.address || "",
+      baseUrl: athlete.baseUrl || "",
+      isApproved: athlete.isApproved,
+      joinedAt: athlete.createdAt,
+      goals: athlete.goals || [],
+    },
+    summary: {
+      stateRank: rankRow?.rank || null,
+      totalRankedAthletes: ranked.length,
+      compositePoints: rankRow?.compositePoints || avgEval,
+      avgEvaluationScore: avgEval,
+      bestEvaluationScore: bestEval,
+      evaluationsCount: evaluations.length,
+      verifiedAchievementsCount: verifiedAchs.length,
+      pendingAchievementsCount: achievements.filter((a) => a.verificationStatus === "Pending").length,
+      medals,
+      confirmedBookingsCount: bookings.length,
+      attendedSessionsCount: bookings.filter((b) => b.attended || b.checkInStatus === "Checked In" || b.checkInStatus === "Checked Out").length,
+    },
+    sportBreakdown,
+    evaluations,
+    achievements,
+  };
+}
+
+async function ownPortfolio(req, res) {
+  try {
+    const [athlete, userDoc] = await Promise.all([
+      Athlete.findOne({ userId: req.user._id })
+        .populate("userId", "Name Email ContactNum DOB")
+        .populate({
+          path: "SportComplexId",
+          select: "name location district",
+          populate: { path: "district", select: "District" },
+        })
+        .lean(),
+      Users.findById(req.user._id).select("Name Email ContactNum DOB").lean(),
+    ]);
+    const portfolio = await buildAthletePortfolio(athlete, userDoc);
+    return res.json({ data: portfolio, rcode: 200 });
+  } catch (error) {
+    console.error("Could not load own portfolio:", error.message);
+    return fail(res, 500, "Could not load athlete portfolio");
+  }
+}
+
+async function athletePortfolio(req, res) {
+  try {
+    const { athleteId } = req.params;
+    if (!validId(athleteId)) return fail(res, 400, "Invalid athlete ID");
+    const athlete = await Athlete.findById(athleteId)
+      .populate("userId", "Name Email ContactNum DOB")
+      .populate({
+        path: "SportComplexId",
+        select: "name location district",
+        populate: { path: "district", select: "District" },
+      })
+      .lean();
+    if (!athlete) return fail(res, 404, "Athlete profile not found");
+    if (!(await resolveScopeAccess(req, athlete))) {
+      return fail(res, 403, "Athlete portfolio is outside your scope");
+    }
+    const portfolio = await buildAthletePortfolio(athlete, athlete.userId);
+    return res.json({ data: portfolio, rcode: 200 });
+  } catch (error) {
+    console.error("Could not load athlete portfolio:", error.message);
+    return fail(res, 500, "Could not load athlete portfolio");
   }
 }
 
@@ -298,4 +870,5 @@ module.exports = {
   adminTemplates, createTemplate, updateTemplate, publishTemplate, publishedTemplate,
   coachAthletes, createEvaluation, listEvaluations, ownEvaluations,
   createAchievement, listAchievements, verifyAchievement,
+  leaderboard, ownPortfolio, athletePortfolio,
 };

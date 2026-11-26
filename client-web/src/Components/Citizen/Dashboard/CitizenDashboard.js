@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CalendarCheck, Compass, FileText, Loader2, Star } from "lucide-react";
+import { Award, CalendarCheck, Compass, FileText, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { api } from "../../../API/client";
@@ -9,19 +9,120 @@ import { Button, Card, KpiCard, PageHeader, PageShell, SectionHeader } from "../
 export default function CitizenDashboard() {
   const citizen = useSelector((state) => state.user?.user) || {};
   const [data, setData] = useState(null);
+
   useEffect(() => {
-    Promise.all([api.get("/api/citizen/bookings"), api.get("/api/citizen/reviews"), api.get("/api/grievances")])
-      .then(([bookings, reviews, grievances]) => setData({ bookings: bookings.data || [], reviews: reviews.data || [], grievances: grievances.data || [] }))
+    Promise.all([
+      api.get("/api/citizen/bookings"),
+      api.get("/api/citizen/reviews"),
+      api.get("/api/grievances"),
+    ])
+      .then(([bookings, reviews, grievances]) =>
+        setData({
+          bookings: bookings.data || [],
+          reviews: reviews.data || [],
+          grievances: grievances.data || [],
+        })
+      )
       .catch(() => setData({ bookings: [], reviews: [], grievances: [] }));
   }, []);
-  return <PageShell>
-    <PageHeader eyebrow="Citizen account" title={`Welcome${citizen.Name ? `, ${citizen.Name.split(" ")[0]}` : ""}`} description="Explore bookable facilities, manage reservations, submit ratings and track complaints." actions={<Button as={Link} to="/explore"><Compass className="h-4 w-4" />Explore & book</Button>} />
-    <LatestBookingPass />
-    {!data ? <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-emerald-700" /></div> : <>
-      <div className="mb-5 grid gap-3 sm:grid-cols-3"><KpiCard label="My bookings" value={data.bookings.length} caption={`${data.bookings.filter((item) => item.bookingStatus === "Confirmed").length} confirmed`} icon={CalendarCheck} tone="green" /><KpiCard label="Ratings submitted" value={data.reviews.length} caption="Facility, sport and coach" icon={Star} tone="amber" /><KpiCard label="Complaints" value={data.grievances.length} caption={`${data.grievances.filter((item) => item.workflowStatus === "Resolved").length} resolved`} icon={FileText} tone="violet" /></div>
-      <Card><SectionHeader title="What would you like to do?" /><div className="grid gap-3 p-5 md:grid-cols-3"><Action to="/explore" icon={Compass} title="Explore & book" text="Find facilities, view live slots and make a booking." /><Action to="/citizen/bookings" icon={CalendarCheck} title="Bookings & ratings" text="Download invoices and rate facilities, sports or coaches." /><Action to="/citizen/complaints" icon={FileText} title="Complaints" text="Raise a complaint and track manager responses." /></div></Card>
-    </>}
-  </PageShell>;
+
+  return (
+    <PageShell>
+      <PageHeader
+        eyebrow="Citizen & Athlete Account"
+        title={`Welcome${citizen.Name ? `, ${citizen.Name.split(" ")[0]}` : ""}`}
+        description="Discover sports facilities, manage your reservations, track athlete evaluations, and submit achievements."
+        actions={
+          <Button as={Link} to="/citizen/explore">
+            <Compass className="h-4 w-4" />
+            Explore &amp; Book
+          </Button>
+        }
+      />
+
+      <LatestBookingPass />
+
+      {!data ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map((idx) => (
+            <div key={idx} className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="mb-6 grid gap-3 sm:grid-cols-3">
+            <KpiCard
+              label="My Bookings"
+              value={data.bookings.length}
+              caption={`${data.bookings.filter((item) => item.bookingStatus === "Confirmed").length} confirmed reservations`}
+              icon={CalendarCheck}
+              tone="green"
+              to="/citizen/bookings"
+            />
+            <KpiCard
+              label="Ratings Submitted"
+              value={data.reviews.length}
+              caption="Facilities, sports & coaches"
+              icon={Star}
+              tone="amber"
+              to="/citizen/bookings"
+            />
+            <KpiCard
+              label="Grievances"
+              value={data.grievances.length}
+              caption={`${data.grievances.filter((item) => item.workflowStatus === "Resolved").length} resolved`}
+              icon={FileText}
+              tone="violet"
+              to="/citizen/complaints"
+            />
+          </div>
+
+          <Card>
+            <SectionHeader title="Quick Actions" description="Navigate directly to your citizen and athlete services." />
+            <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <Action
+                to="/citizen/explore"
+                icon={Compass}
+                title="Explore & Book"
+                text="Browse facilities on the GIS map and book available slots."
+              />
+              <Action
+                to="/citizen/bookings"
+                icon={CalendarCheck}
+                title="Bookings & Passes"
+                text="Download GST invoices, view gate QR passes, and rate sessions."
+              />
+              <Action
+                to="/citizen/portfolio"
+                icon={Award}
+                title="Athlete Portfolio"
+                text="View your statewide rank, coach evaluation charts, and verified medals."
+              />
+              <Action
+                to="/citizen/complaints"
+                icon={FileText}
+                title="Grievances"
+                text="Report facility issues and track status updates from managers."
+              />
+            </div>
+          </Card>
+        </>
+      )}
+    </PageShell>
+  );
 }
 
-function Action({ to, icon: Icon, title, text }) { return <Link to={to} className="rounded-2xl border border-slate-200 p-5 transition hover:border-emerald-400 hover:bg-emerald-50/40"><Icon className="h-6 w-6 text-emerald-700" /><h2 className="mt-3 font-extrabold text-slate-900">{title}</h2><p className="mt-1 text-sm text-slate-500">{text}</p></Link>; }
+function Action({ to, icon: Icon, title, text }) {
+  return (
+    <Link
+      to={to}
+      className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-brand-primary/40 hover:bg-emerald-50/40"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-brand-primary transition group-hover:bg-brand-primary group-hover:text-white">
+        <Icon className="h-5 w-5" />
+      </span>
+      <h2 className="mt-4 font-display text-base font-extrabold text-slate-900">{title}</h2>
+      <p className="mt-1 text-xs leading-relaxed text-slate-500">{text}</p>
+    </Link>
+  );
+}

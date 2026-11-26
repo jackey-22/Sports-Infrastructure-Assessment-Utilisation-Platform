@@ -12,11 +12,11 @@ function csvCredentials(filePath) {
 }
 
 function credentials() {
-  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-    return {
-      keyId: process.env.RAZORPAY_KEY_ID,
-      keySecret: process.env.RAZORPAY_KEY_SECRET,
-    };
+  const keyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
+
+  if (keyId && keySecret) {
+    return { keyId, keySecret };
   }
 
   const localConfigPath = path.resolve(__dirname, "../razorpay.local.json");

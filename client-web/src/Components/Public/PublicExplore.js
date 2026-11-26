@@ -26,7 +26,7 @@ const VIEW_OPTIONS = [
   { id: "insights", label: "Stats", full: "Stats", icon: BarChart3 },
 ];
 
-export default function PublicExplore() {
+export default function PublicExplore({ embedded = false }) {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user?.user);
   const [searchParams] = useSearchParams();
@@ -60,7 +60,13 @@ export default function PublicExplore() {
       showToast("This facility has not published bookable sports and slots yet.");
       return;
     }
-    navigate(user?.Role === 7 ? `/institute/new?facilityId=${facility.id}` : `/book/${facility.id}`);
+    navigate(
+      user?.Role === 7
+        ? `/institute/new?facilityId=${facility.id}`
+        : user?.Role === 0
+        ? `/citizen/book/${facility.id}`
+        : `/book/${facility.id}`
+    );
   }, [navigate, showToast, user?.Role]);
 
   const openRating = useCallback((facility) => {
@@ -337,8 +343,8 @@ export default function PublicExplore() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FBF8] font-sans text-slate-800 flex flex-col">
-      <PublicNavbar />
+    <div className={embedded ? "w-full font-sans text-slate-800 flex flex-col flex-1 min-h-0" : "min-h-screen bg-[#F7FBF8] font-sans text-slate-800 flex flex-col"}>
+      {!embedded && <PublicNavbar />}
 
       {toast && (
         <div
@@ -355,7 +361,7 @@ export default function PublicExplore() {
         </div>
       )}
 
-      <div className="max-w-[1440px] mx-auto w-full px-4 sm:px-6 pt-5 pb-3 flex flex-col gap-3 flex-1">
+      <div className={embedded ? "w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6 flex flex-col gap-3 flex-1" : "max-w-[1440px] mx-auto w-full px-4 sm:px-6 pt-5 pb-3 flex flex-col gap-3 flex-1"}>
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
           <div>
@@ -388,7 +394,7 @@ export default function PublicExplore() {
         </div>
 
         {/* Sticky citizen toolbar */}
-        <div className="sticky top-[4.5rem] z-[1100] bg-[#F7FBF8]/95 backdrop-blur-md py-2 -mx-1 px-1">
+        <div className={`sticky ${embedded ? "top-0 lg:top-0" : "top-[4.5rem]"} z-[1100] bg-[#F7FBF8]/95 backdrop-blur-md py-2 -mx-1 px-1`}>
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

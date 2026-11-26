@@ -1,46 +1,34 @@
-import React, { useState, useEffect } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
-import { Bell, ChevronDown, Menu, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, Compass, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_BASE_URL } from "../../API/client";
 import { UserActions } from "../../store/UserData";
 import { readDemoToken } from "../Auth/demoAuth";
-
-function BrandMark({ className = "w-11 h-11" }) {
-  return (
-    <div
-      className={`${className} rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0 overflow-hidden`}
-      aria-hidden
-    >
-      <svg viewBox="0 0 48 48" className="w-9 h-9" fill="none">
-        <path
-          d="M24 4c-6 2-11 8-13 16-1 5 0 11 3 16l4-2c-2-4-3-9-2-13 1-6 5-11 10-13 5 2 9 7 10 13 1 4 0 9-2 13l4 2c3-5 4-11 3-16C35 12 30 6 24 4z"
-          fill="#007D40"
-          opacity="0.25"
-        />
-        <path
-          d="M24 14c1.2 0 2.2.9 2.2 2.1s-1 2.1-2.2 2.1-2.2-.9-2.2-2.1.1-2.1 2.2-2.1zm-1.4 5.4h2.8l2.2 6.2h-2.1l-.5-1.5h-2l-.5 1.5h-2.1l2.2-6.2zm-.4 3.2h2l-.7-2.1h-.6l-.7 2.1zm-1.4 3.6 1.6 4.2h2.2l-1-2.6 2.2-1.6h-2.3l-1.1 1.1-.6-1.1H18l2.8 3z"
-          fill="#007D40"
-        />
-      </svg>
-    </div>
-  );
-}
+import symbolImg from "../../Assets/symbol.png";
 
 const navLinkClass = ({ isActive }) =>
-  `px-3.5 py-1.5 rounded-full text-sm font-semibold transition whitespace-nowrap ${
+  `px-3.5 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${
     isActive
-      ? "bg-brand-soft text-brand-primary"
-      : "text-slate-600 hover:text-brand-dark hover:bg-brand-mint"
+      ? "bg-emerald-50 text-brand-primary"
+      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
   }`;
 
 export default function PublicNavbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const [sessionToken, setSessionToken] = useState(() => {
-    try { return window.localStorage.getItem("token") || ""; } catch (error) { return ""; }
+    try {
+      return window.localStorage.getItem("token") || "";
+    } catch {
+      return "";
+    }
   });
+
   const userData = useSelector((state) => state.user?.user);
   const hasToken = Boolean(sessionToken);
   const hasUser = Boolean(userData && (userData.Email || userData.Name));
@@ -68,6 +56,10 @@ export default function PublicNavbar() {
       ? "/citizen/dashboard"
       : userData?.Role === 7
       ? "/institute"
+      : userData?.Role === 6
+      ? "/gate"
+      : userData?.Role === 1
+      ? "/supervisor"
       : "/login";
 
   useEffect(() => {
@@ -95,7 +87,7 @@ export default function PublicNavbar() {
       })
       .catch((error) => {
         if (error.name !== "AbortError") {
-          // Keep the saved session during a temporary network failure.
+          // Preserve token on transient network outage
         }
       });
     return () => controller.abort();
@@ -103,24 +95,52 @@ export default function PublicNavbar() {
 
   useEffect(() => {
     setMobileOpen(false);
+    setMenuOpen(false);
   }, [location.pathname, location.hash]);
 
+  useEffect(() => {
+    const onPointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  const handleSignOut = () => {
+    window.localStorage.removeItem("token");
+    setSessionToken("");
+    dispatch(UserActions.getuserdata({}));
+    setMenuOpen(false);
+    navigate("/");
+  };
+
   return (
-    <header className="sticky top-0 z-[1200] bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-3 min-w-0 group">
-          <BrandMark />
+    <header className="sticky top-0 z-[1200] border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link to="/" className="group flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 p-1.5">
+            <img src={symbolImg} alt="Government of Gujarat emblem" className="h-full w-full object-contain" />
+          </div>
           <div className="min-w-0">
-            <div className="font-extrabold text-brand-dark text-sm sm:text-base leading-tight truncate group-hover:text-brand-primary transition">
+            <p className="truncate font-display text-sm font-extrabold tracking-tight text-slate-900 transition group-hover:text-brand-primary sm:text-base">
               Gujarat Sports Infrastructure Portal
-            </div>
-            <div className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
-              Sports, Youth &amp; Cultural Activities Department, Government of Gujarat
-            </div>
+            </p>
+            <p className="hidden truncate text-[11px] font-medium text-slate-500 sm:block">
+              Sports Authority of Gujarat · Government of Gujarat
+            </p>
           </div>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
           <NavLink to="/" end className={navLinkClass}>
             Home
           </NavLink>
@@ -130,89 +150,168 @@ export default function PublicNavbar() {
           <NavLink to={userData?.Role === 7 ? "/institute" : "/institution-signup"} className={navLinkClass}>
             Institution Events
           </NavLink>
-
           <a
             href={isHome ? "#about" : "/#about"}
-            className="px-3.5 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:text-brand-dark hover:bg-brand-mint transition"
+            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
           >
             About
           </a>
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            className="hidden sm:flex w-9 h-9 items-center justify-center rounded-full text-slate-500 hover:bg-brand-soft hover:text-brand-primary transition"
-            aria-label="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-2.5">
           {isLoggedIn ? (
-            <Link
-              to={roleHome}
-              className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full border border-slate-200 bg-white hover:bg-brand-soft transition"
-              title={userData?.Name || "Account"}
-            >
-              <span className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-extrabold flex items-center justify-center">
-                {initials}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-            </Link>
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-2 pr-3 text-sm font-bold text-slate-700 shadow-xs transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary text-xs font-extrabold text-white">
+                  {initials}
+                </span>
+                <span className="hidden max-w-[120px] truncate sm:inline">
+                  {userData?.Name?.split(" ")[0] || "Account"}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-slate-400 transition ${menuOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {menuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl"
+                >
+                  <div className="border-b border-slate-100 px-3 py-2.5">
+                    <p className="truncate text-xs font-extrabold text-slate-900">
+                      {userData?.Name || "Signed in user"}
+                    </p>
+                    <p className="truncate text-[11px] text-slate-500">
+                      {userData?.Email || "Active session"}
+                    </p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      to={roleHome}
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-brand-primary"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Open Console
+                    </Link>
+                    <Link
+                      to="/explore"
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      <Compass className="h-4 w-4" />
+                      Explore Facilities
+                    </Link>
+                  </div>
+                  <div className="border-t border-slate-100 pt-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleSignOut}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : (
-            <>
+            <div className="hidden items-center gap-2 sm:flex">
               <Link
                 to="/login"
-                className="hidden sm:inline-flex px-4 py-2 rounded-full text-sm font-bold text-brand-primary border border-brand-primary/30 hover:bg-brand-soft transition"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                Login
+                Sign In
               </Link>
               <Link
                 to="/signup"
-                className="inline-flex px-4 py-2 rounded-full text-sm font-bold text-white bg-brand-primary hover:bg-brand-dark transition shadow-sm"
+                className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white shadow-xs transition hover:bg-brand-dark"
               >
                 Register
               </Link>
-            </>
+            </div>
           )}
+
           <button
             type="button"
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full text-slate-600 hover:bg-brand-soft"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden"
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
       {mobileOpen && (
-        <div className="lg:hidden border-t border-slate-100 bg-white px-4 py-3 space-y-1">
+        <div className="space-y-1 border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
           <NavLink to="/" end className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Home
           </NavLink>
           <NavLink to="/explore" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Explore Facilities
           </NavLink>
-          <NavLink to={userData?.Role === 7 ? "/institute" : "/institution-signup"} className={navLinkClass} onClick={() => setMobileOpen(false)}>
+          <NavLink
+            to={userData?.Role === 7 ? "/institute" : "/institution-signup"}
+            className={navLinkClass}
+            onClick={() => setMobileOpen(false)}
+          >
             Institution Events
           </NavLink>
           <a
             href={isHome ? "#about" : "/#about"}
-            className="block px-3.5 py-2 text-sm font-semibold text-slate-600"
+            className="block rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
             onClick={() => setMobileOpen(false)}
           >
             About
           </a>
-          {!isLoggedIn && (
-            <Link
-              to="/login"
-              className="block px-3.5 py-2 text-sm font-bold text-brand-primary sm:hidden"
-              onClick={() => setMobileOpen(false)}
-            >
-              Login
-            </Link>
-          )}
-          {!isLoggedIn ? <Link to="/signup" className="block px-3.5 py-2 text-sm font-bold text-brand-primary sm:hidden" onClick={() => setMobileOpen(false)}>Register</Link> : null}
+          <div className="border-t border-slate-100 pt-2">
+            {isLoggedIn ? (
+              <div className="flex items-center justify-between gap-2 px-1 py-1">
+                <Link
+                  to={roleHome}
+                  className="flex-1 rounded-xl bg-brand-primary px-4 py-2.5 text-center text-sm font-bold text-white"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Open Console
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="rounded-xl border border-rose-200 px-3 py-2.5 text-sm font-bold text-rose-600"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  to="/login"
+                  className="rounded-xl border border-slate-200 py-2.5 text-center text-sm font-bold text-slate-700"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="rounded-xl bg-brand-primary py-2.5 text-center text-sm font-bold text-white"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </header>

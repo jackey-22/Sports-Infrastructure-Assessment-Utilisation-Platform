@@ -1,11 +1,31 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Clock, Loader2, MessageSquarePlus, RefreshCw } from "lucide-react";
-import "./GrievanceWorkspace.css";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Clock,
+  FileText,
+  Loader2,
+  LogOut,
+  MessageSquarePlus,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { api, API_BASE_URL } from "../../API/client";
+import {
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  PageShell,
+  StatusPill,
+  TableSkeleton,
+  inputClass,
+  selectClass,
+} from "../Admin/Common/AdminUI";
 
-
-const inputClass = "w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500";
-const fileUrl = (value) => /^https?:\/\//i.test(value || "") ? value : `${API_BASE_URL}${value || ""}`;
+const fileUrl = (value) =>
+  /^https?:\/\//i.test(value || "") ? value : `${API_BASE_URL}${value || ""}`;
 
 export default function GrievanceWorkspace({ role }) {
   const admin = role === "admin";
@@ -14,8 +34,14 @@ export default function GrievanceWorkspace({ role }) {
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [form, setForm] = useState({ sportsComplex: "", subject: "", description: "", proof: null });
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [form, setForm] = useState({
+    sportsComplex: "",
+    subject: "",
+    description: "",
+    proof: null,
+  });
   const [responses, setResponses] = useState({});
   const [view, setView] = useState(admin ? "assigned" : "mine");
   const [status, setStatus] = useState("all");
@@ -23,33 +49,58 @@ export default function GrievanceWorkspace({ role }) {
 
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
-    setLoading(true); setMessage(""); setRows([]);
+    setLoading(true);
+    setRows([]);
     try {
       const result = await api.get(`/api/grievances?view=${view}`);
       if (currentRequest === requestId.current) setRows(result.data || []);
-    } catch (error) { if (currentRequest === requestId.current) setMessage(error.message); }
-    finally { if (currentRequest === requestId.current) setLoading(false); }
+    } catch (error) {
+      if (currentRequest === requestId.current) {
+        setMessage({ type: "error", text: error.message });
+      }
+    } finally {
+      if (currentRequest === requestId.current) setLoading(false);
+    }
   }, [view]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const loadFacilities = useCallback(async () => {
     if (admin) return;
-    try { const result = await api.get("/api/grievances/facilities"); setFacilities(result.data || []); }
-    catch (error) { setMessage(error.message); }
+    try {
+      const result = await api.get("/api/grievances/facilities");
+      setFacilities(result.data || []);
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    }
   }, [admin]);
-  useEffect(() => { loadFacilities(); }, [loadFacilities]);
-  useEffect(() => { window.addEventListener("focus", load); return () => window.removeEventListener("focus", load); }, [load]);
 
+  useEffect(() => {
+    loadFacilities();
+  }, [loadFacilities]);
+
+  useEffect(() => {
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, [load]);
 
   const submit = async (event) => {
-    event.preventDefault(); setSaving(true); setMessage("");
+    event.preventDefault();
+    setSaving(true);
+    setMessage(null);
     try {
       let proof = {};
       if (form.proof) {
         const uploadForm = new FormData();
         uploadForm.append("file", form.proof);
         const uploaded = await api.upload("/api/uploads/attachment", uploadForm);
-        proof = { proofUrl: uploaded.data.url, proofName: uploaded.data.name, proofKey: uploaded.data.key };
+        proof = {
+          proofUrl: uploaded.data.url,
+          proofName: uploaded.data.name,
+          proofKey: uploaded.data.key,
+        };
       }
       await api.post("/api/grievances", {
         sportsComplex: form.sportsComplex,
@@ -57,46 +108,428 @@ export default function GrievanceWorkspace({ role }) {
         description: form.description,
         ...proof,
       });
-      setForm({ sportsComplex: "", subject: "", description: "", proof: null }); await load(); setMessage("Grievance raised successfully. View it in My grievances.");
-    } catch (error) { setMessage(error.message); }
-    finally { setSaving(false); }
+      setForm({ sportsComplex: "", subject: "", description: "", proof: null });
+      setShowCreateForm(false);
+      await load();
+      setMessage({
+        type: "success",
+        text: "Grievance submitted successfully. Track updates below.",
+      });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const respond = async (id, resolve, escalate = false) => {
     const response = String(responses[id] || "").trim();
-    if (!response) return setMessage("Enter a response first.");
+    if (!response) {
+      setMessage({ type: "error", text: "Please enter a response or remark first." });
+      return;
+    }
     setSaving(true);
-    try { await api.post(`/api/grievances/${id}/${escalate ? "escalate" : "respond"}`, { response, reason: response, resolve, revision: rows.find(row => row._id === id)?.revision }); setResponses((old) => ({ ...old, [id]: "" })); await load(); }
-    catch (error) { setMessage(error.message); }
-    finally { setSaving(false); }
+    setMessage(null);
+    try {
+      await api.post(`/api/grievances/${id}/${escalate ? "escalate" : "respond"}`, {
+        response,
+        reason: response,
+        resolve,
+        revision: rows.find((row) => row._id === id)?.revision,
+      });
+      setResponses((old) => ({ ...old, [id]: "" }));
+      await load();
+      setMessage({
+        type: "success",
+        text: escalate
+          ? "Grievance escalated to the next authority level."
+          : resolve
+          ? "Grievance marked as resolved."
+          : "Response recorded successfully.",
+      });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  return <div className="grievance-workspace space-y-6 p-4 sm:p-6">
-    <div className="grievance-banner flex items-center justify-between"><div><p className="grievance-eyebrow">Government of Gujarat / Sports Authority of Gujarat (SAG)</p><h1 className="text-2xl font-extrabold text-slate-900">Grievances</h1><p className="text-sm text-slate-500">{admin ? "View grievances and track their resolution." : "Report facility issues and track their progress."}</p></div><button onClick={() => { load(); loadFacilities(); }} aria-label={admin ? "Refresh grievances" : "Refresh grievances and facilities"} className="rounded-xl border border-slate-200 p-2"><RefreshCw className="h-4 w-4" /></button></div>
-    {role === "supervisor" && <button onClick={() => { localStorage.removeItem("token"); window.location.assign("/login"); }}>Sign out</button>}
-    {role === "gate" && <a href="/gate" className="text-blue-700">Back to gate scanner</a>}
-    {message ? <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{message}</div> : null}
-    {!admin && <form onSubmit={submit} className="grievance-form grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
-      <div className="md:col-span-2 flex items-center gap-2 font-extrabold"><MessageSquarePlus className="h-5 w-5 text-blue-600" />Raise a grievance</div>
-      <label className="text-xs font-bold text-slate-600">Facility<select required className={`${inputClass} mt-1`} value={form.sportsComplex} onChange={(e) => setForm({ ...form, sportsComplex: e.target.value })}><option value="">Select facility</option>{facilities.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label>
-      <label className="text-xs font-bold text-slate-600">Title<input required className={`${inputClass} mt-1`} maxLength={240} placeholder="Short title for your complaint" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></label>
-      <label className="md:col-span-2 text-xs font-bold text-slate-600">Complaint<textarea required rows="4" maxLength={5000} className={`${inputClass} mt-1`} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-      <label className="text-xs font-bold text-slate-600">Photo/PDF (optional)<input type="file" accept="image/png,image/jpeg,application/pdf" className="mt-1 block text-sm" onChange={(e) => setForm({ ...form, proof: e.target.files?.[0] || null })} /></label>
-      <div className="flex items-end justify-end"><button disabled={saving} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Uploading & submitting…" : "Submit grievance"}</button></div>
-    </form>}
-    <div className="grievance-filters flex flex-wrap gap-3">{!admin && <button onClick={() => setView("mine")} aria-pressed={view === "mine"} className="rounded-xl border p-3">My grievances</button>}{["admin","authority","manager","supervisor"].includes(role) && <button onClick={() => setView("assigned")} aria-pressed={view === "assigned"} className="rounded-xl border p-3">Assigned grievances</button>}<select aria-label="Filter grievance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}><option value="all">All statuses</option>{["Open","Responded","Escalated","Resolved"].map(value => <option key={value}>{value}</option>)}</select></div>
-    {loading ? <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin" /></div> : <div className="space-y-4">{rows.filter(item => status === "all" || item.workflowStatus === status).map((item) => {
-      const escalated = item.workflowStatus === "Escalated";
-      return <article key={item._id} className={`grievance-entry rounded-2xl border bg-white p-5 shadow-sm ${escalated ? "border-red-300" : "border-slate-200"}`}>
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold text-slate-900">{item.subject || "Facility grievance"}</h2><p className="text-xs text-slate-500">{item.sportsComplex?.name} · {item.userId?.Name || "Citizen"}</p></div><span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${escalated ? "bg-red-100 text-red-700" : item.workflowStatus === "Resolved" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{escalated ? <AlertTriangle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}{item.workflowStatus || "Open"} / {item.handlingRole}</span></div>
-        <p className="mt-4 text-sm text-slate-700">{item.Description}</p>
-        {item.photo ? <a href={fileUrl(item.photo)} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-bold text-blue-700">View {item.proofName || "attachment"}</a> : null}
-        {item.dueAt && item.workflowStatus !== "Resolved" ? <p className="mt-2 text-xs font-semibold text-amber-700">{item.handlingRole} deadline{item.overdue ? " (overdue)" : ""}: {new Date(item.dueAt).toLocaleString()}</p> : null}
-        <p className="mt-2 text-sm font-semibold">Handling role: {item.handlingRole}</p>
-        <div className="mt-4 space-y-2 border-t pt-3">{(item.history?.length ? [...(item.remarks || []).filter(remark => !item.history.some(event => event.reason === remark.remark && String(event.userId?._id || event.userId) === String(remark.userId?._id || remark.userId))), ...item.history] : item.remarks || []).map((event, index) => <div key={index} className="rounded-xl bg-slate-50 p-3 text-sm"><b>{event.userId?.Name || "System"}</b> {event.action || "response"}{event.toLevel !== undefined ? ` to ${["Supervisor","Manager","District Authority","Admin"][event.toLevel]}` : ""}<p>{event.reason || event.remark}</p><small>{event.date ? new Date(event.date).toLocaleString() : ""}</small></div>)}</div>
-        {(!citizen && (item.permissions?.canRespond || item.permissions?.canEscalate)) && <div className="mt-4 space-y-3 border-t pt-4"><textarea className={inputClass} rows="2" aria-label="Response or escalation reason" placeholder="Write a response or escalation reason" value={responses[item._id] || ""} onChange={e => setResponses({ ...responses, [item._id]: e.target.value })} /><div className="flex flex-wrap gap-3">{item.permissions.canRespond && <button disabled={saving} onClick={() => respond(item._id, false)} className="rounded-xl border p-3">Respond</button>}{item.permissions.canResolve && <button disabled={saving} onClick={() => respond(item._id, true)} className="rounded-xl bg-emerald-600 p-3 text-white">Resolve</button>}{!citizen && item.permissions.canEscalate && <button disabled={saving} onClick={() => respond(item._id, false, true)} className="rounded-xl bg-amber-100 p-3">Escalate to higher role</button>}</div></div>}
+  const filteredRows = rows.filter(
+    (item) => status === "all" || item.workflowStatus === status
+  );
 
-      </article>;
-    })}{!rows.filter(item => status === "all" || item.workflowStatus === status).length ? <div className="rounded-2xl border border-dashed p-12 text-center text-sm text-slate-500">No grievances found.</div> : null}</div>}
-  </div>;
+  return (
+    <PageShell>
+      <PageHeader
+        eyebrow="Sports Authority of Gujarat · Resolution Desk"
+        title="Facility Grievances"
+        description={
+          admin
+            ? "Monitor escalated facility complaints, SLAs, and resolution trails statewide."
+            : "Report facility issues, attach evidence, and track status updates."
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {role === "gate" ? (
+              <Button variant="secondary" as="a" href="/gate">
+                <ArrowLeft className="h-4 w-4" /> Gate Scanner
+              </Button>
+            ) : null}
+            {role === "supervisor" ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  localStorage.removeItem("token");
+                  window.location.assign("/login");
+                }}
+              >
+                <LogOut className="h-4 w-4" /> Sign out
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              onClick={() => {
+                load();
+                loadFacilities();
+              }}
+              aria-label="Refresh grievances"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            {!admin ? (
+              <Button
+                onClick={() => setShowCreateForm((prev) => !prev)}
+                variant={showCreateForm ? "secondary" : "primary"}
+              >
+                {showCreateForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {showCreateForm ? "Cancel" : "Raise Grievance"}
+              </Button>
+            ) : null}
+          </div>
+        }
+      />
+
+      {message ? (
+        <div
+          role={message.type === "error" ? "alert" : "status"}
+          className={`mb-5 flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${
+            message.type === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          <span>{message.text}</span>
+          <button type="button" onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      {!admin && showCreateForm ? (
+        <Card className="mb-6 border-2 border-emerald-500/20 p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <MessageSquarePlus className="h-5 w-5 text-brand-primary" />
+              <h2 className="font-display text-lg font-extrabold text-slate-900">
+                Submit a Facility Grievance
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-700">Facility *</label>
+              <select
+                required
+                className={selectClass}
+                value={form.sportsComplex}
+                onChange={(e) => setForm({ ...form, sportsComplex: e.target.value })}
+              >
+                <option value="">Select facility</option>
+                {facilities.map((item) => (
+                  <option key={item._id} value={item._id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-700">Subject *</label>
+              <input
+                required
+                className={inputClass}
+                maxLength={240}
+                placeholder="Short summary of the issue"
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                Complaint Details *
+              </label>
+              <textarea
+                required
+                rows="4"
+                maxLength={5000}
+                placeholder="Describe the maintenance, equipment, or operational issue..."
+                className={inputClass}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                Supporting Photo or PDF (optional)
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,application/pdf"
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-brand-primary hover:file:bg-emerald-100"
+                onChange={(e) => setForm({ ...form, proof: e.target.files?.[0] || null })}
+              />
+            </div>
+            <div className="flex items-end justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {saving ? "Submitting..." : "Submit Grievance"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
+      {/* Filter Bar */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          {!admin ? (
+            <button
+              type="button"
+              onClick={() => setView("mine")}
+              aria-pressed={view === "mine"}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                view === "mine"
+                  ? "bg-brand-primary text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              My Grievances
+            </button>
+          ) : null}
+          {["admin", "authority", "manager", "supervisor"].includes(role) ? (
+            <button
+              type="button"
+              onClick={() => setView("assigned")}
+              aria-pressed={view === "assigned"}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                view === "assigned"
+                  ? "bg-brand-primary text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              Assigned Queue
+            </button>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <select
+            aria-label="Filter grievance status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-brand-primary"
+          >
+            <option value="all">All Statuses</option>
+            {["Open", "Responded", "Escalated", "Resolved"].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <Card>
+          <TableSkeleton rows={5} columns={4} />
+        </Card>
+      ) : filteredRows.length ? (
+        <div className="space-y-4">
+          {filteredRows.map((item) => {
+            const escalated = item.workflowStatus === "Escalated";
+            const history = item.history?.length
+              ? [
+                  ...(item.remarks || []).filter(
+                    (remark) =>
+                      !item.history.some(
+                        (event) =>
+                          event.reason === remark.remark &&
+                          String(event.userId?._id || event.userId) ===
+                            String(remark.userId?._id || remark.userId)
+                      )
+                  ),
+                  ...item.history,
+                ]
+              : item.remarks || [];
+
+            return (
+              <Card
+                key={item._id}
+                className={`p-5 sm:p-6 ${escalated ? "border-rose-300" : ""}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-lg font-extrabold text-slate-900">
+                        {item.subject || "Facility Grievance"}
+                      </h2>
+                      <StatusPill status={item.workflowStatus || "Open"} />
+                    </div>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      {item.sportsComplex?.name || "Facility"} · Submitted by{" "}
+                      <span className="font-semibold text-slate-700">
+                        {item.userId?.Name || "Citizen"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700">
+                      Handler: {item.handlingRole}
+                    </span>
+                    {item.dueAt && item.workflowStatus !== "Resolved" ? (
+                      <p
+                        className={`mt-1.5 flex items-center justify-end gap-1 text-[11px] font-bold ${
+                          item.overdue ? "text-rose-600" : "text-amber-700"
+                        }`}
+                      >
+                        {escalated || item.overdue ? (
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5" />
+                        )}
+                        Due {new Date(item.dueAt).toLocaleDateString("en-IN")}
+                        {item.overdue ? " (Overdue)" : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm leading-relaxed text-slate-700">
+                  {item.Description}
+                </p>
+
+                {item.photo ? (
+                  <a
+                    href={fileUrl(item.photo)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-brand-primary transition hover:bg-emerald-100"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    View {item.proofName || "attachment"}
+                  </a>
+                ) : null}
+
+                {history.length ? (
+                  <div className="mt-5 space-y-2 border-t border-slate-100 pt-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Resolution Timeline
+                    </p>
+                    {history.map((event, index) => (
+                      <div
+                        key={index}
+                        className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-800">
+                            {event.userId?.Name || "System"} ·{" "}
+                            <span className="capitalize text-brand-primary">
+                              {event.action || "response"}
+                            </span>
+                            {event.toLevel !== undefined
+                              ? ` to ${["Supervisor", "Manager", "District Authority", "Admin"][event.toLevel]}`
+                              : ""}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {event.date ? new Date(event.date).toLocaleString("en-IN") : ""}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-slate-600">{event.reason || event.remark}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {!citizen && (item.permissions?.canRespond || item.permissions?.canEscalate) ? (
+                  <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                    <textarea
+                      className={inputClass}
+                      rows="2"
+                      aria-label="Response or escalation reason"
+                      placeholder="Write an official response, resolution note, or escalation reason..."
+                      value={responses[item._id] || ""}
+                      onChange={(e) =>
+                        setResponses({ ...responses, [item._id]: e.target.value })
+                      }
+                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {item.permissions.canRespond ? (
+                        <Button
+                          variant="secondary"
+                          disabled={saving}
+                          onClick={() => respond(item._id, false)}
+                        >
+                          Send Response
+                        </Button>
+                      ) : null}
+                      {!citizen && item.permissions.canEscalate ? (
+                        <Button
+                          variant="amber"
+                          disabled={saving}
+                          onClick={() => respond(item._id, false, true)}
+                        >
+                          Escalate Upward
+                        </Button>
+                      ) : null}
+                      {item.permissions.canResolve ? (
+                        <Button
+                          variant="primary"
+                          disabled={saving}
+                          onClick={() => respond(item._id, true)}
+                        >
+                          Mark Resolved
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
+          <EmptyState
+            title="No grievances found"
+            description={
+              !admin
+                ? "Click 'Raise Grievance' above to submit a new facility issue."
+                : "No grievances match the selected filter."
+            }
+          />
+        </Card>
+      )}
+    </PageShell>
+  );
 }

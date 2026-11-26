@@ -61,8 +61,18 @@ export const ManagerDashboardScreen = ({
           }]}>
               <Ionicons name="id-card" size={22} color="#b45309" />
             </View>
-            <Text style={styles.actionTitle}>Staff & Coaches</Text>
-            <Text style={styles.actionDesc}>Supervisors & Instructors</Text>
+            <Text style={styles.actionTitle}>Staff &amp; Coaches</Text>
+            <Text style={styles.actionDesc}>Supervisors &amp; Instructors</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionCard} onPress={() => onNavigateTab && onNavigateTab("achievements")}>
+            <View style={[styles.actionIcon, {
+            backgroundColor: "#fef9c3"
+          }]}>
+              <Ionicons name="trophy" size={22} color="#a16207" />
+            </View>
+            <Text style={styles.actionTitle}>Athlete Achievements</Text>
+            <Text style={styles.actionDesc}>Verify &amp; record awards</Text>
           </TouchableOpacity>
         </View>
 

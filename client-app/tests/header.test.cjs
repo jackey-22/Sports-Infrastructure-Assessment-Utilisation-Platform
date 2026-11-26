@@ -62,8 +62,8 @@ test("the app shell owns a single safe-area boundary outside screen content",()=
 });
 const parser=require("@babel/parser"),traverse=require("@babel/traverse").default;
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?walk(path.join(dir,entry.name)):[path.join(dir,entry.name)]);}
-test("all 21 active screen modules use the shared scrolling header including empty branches",()=> {
-  const files=walk(path.join(__dirname,"../src/screens")).filter(file=>file.endsWith(".js")&&!file.endsWith(`${path.sep}SupervisorScanScreen.js`));assert.equal(files.length,21);
+test("all 22 active screen modules use the shared scrolling header including empty branches",()=> {
+  const files=walk(path.join(__dirname,"../src/screens")).filter(file=>file.endsWith(".js")&&!file.endsWith(`${path.sep}SupervisorScanScreen.js`));assert.equal(files.length,22);
   for(const file of files) {
     const ast=parser.parse(fs.readFileSync(file,"utf8"),{sourceType:"module",plugins:["jsx"]});let headers=0;
     traverse(ast,{JSXElement(p){const name=p.node.openingElement.name.name;

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Clock3, Edit3, Loader2, Plus, Trash2, Users, X } from "lucide-react";
 import { api } from "../../../API/client";
-import { Button, Card, EmptyState, PageHeader, PageShell } from "../Common/ManagerUI";
+import { Button, Card, ConfirmDialog, EmptyState, PageHeader, PageShell } from "../Common/ManagerUI";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const input = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10";
@@ -42,6 +42,7 @@ export default function SportsConfiguration() {
   const [configs, setConfigs] = useState([]);
   const [catalog, setCatalog] = useState({ sports: [], coaches: [], configuredSportIds: [] });
   const [modal, setModal] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(null);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,13 +61,18 @@ export default function SportsConfiguration() {
   };
   useEffect(() => { load(); }, []);
 
-  const remove = async (row) => {
-    if (!window.confirm(`Remove ${row.sport?.SportName} from this facility?`)) return;
+  const remove = (row) => setConfirmRemove(row);
+  const executeRemove = async () => {
+    if (!confirmRemove) return;
     try {
-      await api.del(`/api/manager/sport-configs/${row._id}`);
+      await api.del(`/api/manager/sport-configs/${confirmRemove._id}`);
       setNotice({ type: "success", text: "Sport configuration removed." });
+      setConfirmRemove(null);
       await load();
-    } catch (error) { setNotice({ type: "error", text: error.message }); }
+    } catch (error) {
+      setNotice({ type: "error", text: error.message });
+      setConfirmRemove(null);
+    }
   };
   const save = async (value) => {
     if (value._id) await api.patch(`/api/manager/sport-configs/${value._id}`, value);
@@ -81,6 +87,15 @@ export default function SportsConfiguration() {
     {notice ? <div className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.type === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{notice.text}</div> : null}
     {loading ? <Card><div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-brand-primary" /></div></Card> : configs.length ? <div className="grid gap-5 xl:grid-cols-2">{configs.map((row) => <ConfigCard key={row._id} row={row} onEdit={() => setModal(normalize(row))} onDelete={() => remove(row)} />)}</div> : <Card><EmptyState title="No sports configured" description="Choose a sport from the global Admin directory and configure how it is booked at this facility." /></Card>}
     {modal ? <ConfigModal value={modal} catalog={catalog} onClose={() => setModal(null)} onSave={save} /> : null}
+    <ConfirmDialog
+      open={Boolean(confirmRemove)}
+      title={`Remove ${confirmRemove?.sport?.SportName || "sport"}?`}
+      description="This removes its capacity and slot configuration from online booking for your facility."
+      confirmLabel="Remove sport"
+      tone="danger"
+      onConfirm={executeRemove}
+      onCancel={() => setConfirmRemove(null)}
+    />
   </PageShell>;
 }
 

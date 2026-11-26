@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, ClipboardList, Edit3, LayoutDashboard, Loader2, Menu, Plus, Search, Trash2, UserRound, X } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Building2, ClipboardList, Edit3, LayoutDashboard, Loader2, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, UserRound, X } from "lucide-react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import AdminSidebar from "./AdminSidebar";
 import { api } from "../../API/client";
 import UploadImageField from "../Common/UploadImageField";
+import { ConfirmDialog } from "./Common/AdminUI";
 
 const MODULES = [
   { id: "facilities", label: "Facility Management", icon: Building2 },
@@ -38,6 +39,7 @@ export default function AdminPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,10 +62,15 @@ export default function AdminPanel() {
   useEffect(() => setQuery(""), [active]);
 
   const records = useMemo(() => {
+    const rows = data[active] || [];
     const term = query.trim().toLowerCase();
-    return term ? data[active].filter((row) => JSON.stringify(row).toLowerCase().includes(term)) : data[active];
+    return term ? rows.filter((row) => JSON.stringify(row).toLowerCase().includes(term)) : rows;
   }, [active, data, query]);
   const current = MODULES.find((item) => item.id === active);
+
+  if (requested === "achievements") {
+    return <Navigate to="/admin/insights/achievements" replace />;
+  }
 
   const save = async (record) => {
     const id = idOf(record);
@@ -105,23 +112,29 @@ export default function AdminPanel() {
     setNotice({ type: "success", text: "Record saved successfully." });
     await load();
   };
-  const remove = async (record) => {
-    if (!window.confirm("Delete this record?")) return;
+  const remove = (record) => setConfirmDelete(record);
+  const executeDelete = async () => {
+    if (!confirmDelete) return;
     try {
-      await api.del(`/api/admin/${active}/${idOf(record)}`);
+      await api.del(`/api/admin/${active}/${idOf(confirmDelete)}`);
       setNotice({ type: "success", text: "Record deleted." });
+      setConfirmDelete(null);
       await load();
-    } catch (error) { setNotice({ type: "error", text: error.message }); }
+    } catch (error) {
+      setNotice({ type: "error", text: error.message });
+      setConfirmDelete(null);
+    }
   };
 
   return <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-    <aside className={`fixed inset-y-0 left-0 z-30 ${collapsed ? "w-20" : "w-72"}`}><AdminSidebar collapsed={collapsed} /></aside>
-    <main className={`min-h-screen transition-all ${collapsed ? "ml-20" : "ml-72"}`}>
-      <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-slate-200 bg-white/90 px-8 backdrop-blur">
-        <button onClick={() => setCollapsed((value) => !value)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Menu className="h-5 w-5" /></button>
-        <div><p className="text-xs text-slate-400">Admin / Master data</p><h1 className="font-display text-xl font-extrabold text-brand-dark">{current.label}</h1></div>
+    <aside className={`fixed inset-y-0 left-0 z-30 border-r border-slate-200/90 bg-white shadow-[1px_0_0_rgba(15,23,42,0.04),8px_0_24px_-16px_rgba(15,23,42,0.12)] transition-[width] duration-200 ease-out ${collapsed ? "w-[76px]" : "w-[260px]"}`}><AdminSidebar collapsed={collapsed} /></aside>
+    <main className={`min-h-screen transition-[margin] duration-200 ease-out ${collapsed ? "ml-[76px]" : "ml-[260px]"}`}>
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-6 backdrop-blur-md">
+        <button onClick={() => setCollapsed((value) => !value)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-2xs transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>{collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}</button>
+        <span className="h-5 w-px bg-slate-200" aria-hidden="true" />
+        <div><p className="text-[11px] font-bold uppercase tracking-wider text-brand-primary">Admin · Master directory</p><h1 className="font-display text-base font-extrabold text-slate-900">{current.label}</h1></div>
       </header>
-      <section className="mx-auto max-w-[1500px] p-8">
+      <section className="mx-auto max-w-[1440px] p-6 sm:p-8">
         <div className="mb-7 flex items-end justify-between gap-4">
           <div><p className="text-sm text-slate-500">Database-backed master directory</p><h2 className="font-display text-3xl font-extrabold text-brand-dark">{current.label}</h2></div>
           <button onClick={() => setModal({ ...EMPTY[active] })} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add {{ facilities: "facility", sports: "sport", coaches: "coach", evaluationTemplates: "template" }[active]}</button>
@@ -138,11 +151,20 @@ export default function AdminPanel() {
       </section>
     </main>
     {modal ? <RecordModal module={active} record={modal} facilities={data.facilities} sports={data.sports} districts={districts} onClose={() => setModal(null)} onSave={save} /> : null}
+    <ConfirmDialog
+      open={Boolean(confirmDelete)}
+      title="Delete record?"
+      description="This action permanently removes the selected master record. Active dependencies may be affected."
+      confirmLabel="Delete record"
+      tone="danger"
+      onConfirm={executeDelete}
+      onCancel={() => setConfirmDelete(null)}
+    />
   </div>;
 }
 
 function Metric({ label, value }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold text-slate-400">{label}</p><p className="mt-1 font-display text-2xl font-extrabold text-brand-dark">{value}</p></div>;
+  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-[13px] font-bold text-slate-700">{label}</p><p className="mt-1.5 font-display text-2xl font-extrabold text-slate-900 tabular-nums">{value}</p></div>;
 }
 
 function RecordTable({ module, records, onEdit, onDelete, onPublish }) {

@@ -85,6 +85,25 @@ export const AdminCommandDeskScreen = ({
           </TouchableOpacity>
         </View>
 
+        <View style={[styles.grantCtaCard, { backgroundColor: "#fffbeb", borderColor: "#fde68a", marginTop: -4 }]}>
+          <View style={{
+          flex: 1,
+          marginRight: 10
+        }}>
+            <Text style={[styles.grantCtaTitle, { color: "#92400e" }]}>Athlete Achievements &amp; Verification</Text>
+            <Text style={styles.grantCtaSub}>
+              Review state-wide medals, verify submitted athlete achievements, and add official awards.
+            </Text>
+          </View>
+
+          <TouchableOpacity style={[styles.allocateBtn, { backgroundColor: "#d97706" }]} onPress={() => onNavigateTab && onNavigateTab("achievements")} activeOpacity={0.8}>
+            <Ionicons name="trophy" size={16} color="#ffffff" style={{
+            marginRight: 4
+          }} />
+            <Text style={styles.allocateBtnText}>Open Awards</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* District Infrastructure Leaderboard */}
         <Text style={styles.sectionHeading}>STATE-WIDE DISTRICT BENCHMARK & FCI RATINGS</Text>
 

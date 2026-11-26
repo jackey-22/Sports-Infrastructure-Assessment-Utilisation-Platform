@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 
 export const inputClass =
-  "w-full min-h-11 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full min-h-11 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60";
 
-export const selectClass = `${inputClass} appearance-none pr-8`;
+export const selectClass = `${inputClass} pr-8`;
 
 export function PageShell({ children }) {
   return (
-    <div className="min-h-full bg-transparent font-sans text-slate-800">
+    <div className="min-h-full bg-slate-50/50 font-sans text-slate-800">
       <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </div>
@@ -27,23 +27,23 @@ export function PageShell({ children }) {
 
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+    <header className="mb-6 flex flex-col gap-4 border-b border-slate-200/80 pb-5 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-xs font-semibold text-brand-primary">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-primary">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-brand-dark sm:text-[28px]">
+        <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500">
             {description}
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2.5">{actions}</div> : null}
     </header>
   );
 }
@@ -94,12 +94,12 @@ export function KpiCard({
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold text-slate-500">
+        <p className="text-[13px] font-bold leading-snug text-slate-700">
           {label}
         </p>
         {Icon ? (
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
               KPI_TONES[tone] || KPI_TONES.green
             }`}
             aria-hidden="true"
@@ -108,13 +108,13 @@ export function KpiCard({
           </span>
         ) : null}
       </div>
-      <p className="mt-2 text-2xl font-extrabold tracking-tight text-brand-dark">{value}</p>
-      {caption ? <p className="mt-1 text-xs text-slate-500">{caption}</p> : null}
+      <p className="mt-2.5 text-[26px] font-extrabold leading-none tracking-tight text-slate-900 tabular-nums">{value}</p>
+      {caption ? <p className="mt-2 text-xs font-medium text-slate-500">{caption}</p> : null}
     </>
   );
 
   const className =
-    "group block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-brand-primary/40 hover:bg-brand-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
+    "group block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-brand-primary/40 hover:bg-emerald-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
   if (to) {
     return (
@@ -223,12 +223,12 @@ export function Button({
   ...rest
 }) {
   const sizes = {
-    sm: "px-2.5 py-1.5 text-xs",
-    md: "min-h-11 px-3.5 py-2.5 text-sm",
+    sm: "px-3 py-1.5 text-xs",
+    md: "min-h-10 px-4 py-2 text-sm",
   };
   return (
     <Tag
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-bold transition disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl font-bold transition disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
         BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary
       } ${sizes[size]} ${className}`}
       disabled={Tag === "button" ? disabled : undefined}

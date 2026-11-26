@@ -15,6 +15,8 @@ import {
   WalletCards,
 } from "lucide-react";
 import { api } from "../../API/client";
+import { BarChart } from "../Admin/Common/AdminCharts";
+import { KpiCard, PageHeader, PageShell } from "../Admin/Common/AdminUI";
 
 const money = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -29,29 +31,6 @@ function formatDate(value) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function Kpi({ label, value, caption, icon: Icon, tone = "green" }) {
-  const tones = {
-    green: "bg-emerald-50 text-emerald-700",
-    amber: "bg-amber-50 text-amber-700",
-    violet: "bg-violet-50 text-violet-700",
-    slate: "bg-slate-100 text-slate-700",
-  };
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-          <p className="mt-2 truncate text-2xl font-extrabold text-slate-900">{value}</p>
-        </div>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tones[tone] || tones.green}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-      </div>
-      <p className="mt-2 text-xs text-slate-500">{caption}</p>
-    </div>
-  );
 }
 
 function Panel({ title, description, action, children, className = "" }) {
@@ -86,29 +65,45 @@ function Status({ value }) {
 }
 
 function Trend({ rows }) {
-  const maximum = Math.max(1, ...rows.map((row) => Math.max(row.bookings, row.revenue / 100)));
+  const [metric, setMetric] = useState("bookings");
+  const categories = (rows || []).map((row) => row.label);
+  const series = [
+    {
+      name: metric === "bookings" ? "Bookings" : "Revenue",
+      data: (rows || []).map((row) => (metric === "bookings" ? row.bookings || 0 : row.revenue || 0)),
+    },
+  ];
+
   return (
-    <div className="p-5">
-      <div className="flex h-52 items-end gap-3 sm:gap-5" aria-label="Six month booking and revenue trend">
-        {rows.map((row) => {
-          const bookingHeight = Math.max(row.bookings ? 10 : 2, (row.bookings / maximum) * 150);
-          const revenueHeight = Math.max(row.revenue ? 10 : 2, ((row.revenue / 100) / maximum) * 150);
-          return (
-            <div key={row.key} className="flex min-w-0 flex-1 flex-col items-center">
-              <div className="flex h-40 w-full items-end justify-center gap-1">
-                <div className="w-2/5 max-w-8 rounded-t-md bg-emerald-600" style={{ height: bookingHeight }} title={`${row.bookings} bookings`} />
-                <div className="w-2/5 max-w-8 rounded-t-md bg-amber-400" style={{ height: revenueHeight }} title={`${money.format(row.revenue)} revenue`} />
-              </div>
-              <span className="mt-2 text-[10px] font-bold text-slate-500 sm:text-xs">{row.label}</span>
-              <span className="mt-0.5 hidden text-[10px] text-slate-400 sm:block">{row.bookings} booked</span>
-            </div>
-          );
-        })}
+    <div className="p-3 sm:p-4">
+      <div className="mb-2 flex items-center justify-end gap-1.5 px-2">
+        {[
+          { id: "bookings", label: "Bookings" },
+          { id: "revenue", label: "Revenue (₹)" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setMetric(tab.id)}
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+              metric === tab.id
+                ? "bg-brand-primary text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-600" />Bookings</span>
-        <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-sm bg-amber-400" />Revenue (scaled)</span>
-      </div>
+      <BarChart
+        series={series}
+        categories={categories}
+        colors={[metric === "bookings" ? "#007D40" : "#D97706"]}
+        height={240}
+        formatValue={(val) =>
+          metric === "bookings" ? `${Math.round(val)}` : money.format(val)
+        }
+      />
     </div>
   );
 }
@@ -148,22 +143,24 @@ export default function OperationalDashboard({ role }) {
 
   if (loading && !data) {
     return (
-      <div className="mx-auto max-w-[1500px] space-y-5 p-4 sm:p-6 lg:p-8">
-        <div className="h-28 animate-pulse rounded-3xl bg-emerald-950" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div>
-        <div className="h-80 animate-pulse rounded-2xl bg-white" />
-      </div>
+      <PageShell>
+        <div className="mb-6 h-20 animate-pulse rounded-2xl bg-slate-200" />
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white" />)}</div>
+        <div className="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+      </PageShell>
     );
   }
 
   if (error && !data) {
     return (
-      <div className="mx-auto max-w-2xl p-8 text-center">
-        <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
-        <h1 className="mt-3 text-xl font-extrabold text-slate-900">Dashboard unavailable</h1>
-        <p className="mt-2 text-sm text-slate-500">{error}</p>
-        <button type="button" onClick={load} className="mt-5 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Try again</button>
-      </div>
+      <PageShell>
+        <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
+          <h1 className="mt-3 text-xl font-extrabold text-slate-900">Dashboard unavailable</h1>
+          <p className="mt-2 text-sm text-slate-500">{error}</p>
+          <button type="button" onClick={load} className="mt-5 rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white">Try again</button>
+        </div>
+      </PageShell>
     );
   }
 
@@ -200,25 +197,39 @@ export default function OperationalDashboard({ role }) {
   ].filter(Boolean);
 
   return (
-    <main className="mx-auto max-w-[1500px] space-y-5 p-4 sm:p-6 lg:p-8">
-      <header className="overflow-hidden rounded-3xl bg-emerald-950 px-6 py-6 text-white shadow-lg sm:px-8">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300">Live operational overview</p>
-            <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{isAdmin ? "Platform dashboard" : data.facility.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-emerald-100/80">
-              {isAdmin ? "Bookings, collections, facilities and service delivery across the platform." : `${data.facility.location}${data.facility.district ? ` · ${data.facility.district}` : ""}`}
-            </p>
+    <PageShell>
+      <PageHeader
+        eyebrow={isAdmin ? "Platform Operations" : "Facility Operational Overview"}
+        title={isAdmin ? "Platform Dashboard" : data.facility.name}
+        description={
+          isAdmin
+            ? "Bookings, collections, facilities, and service delivery across Gujarat."
+            : `${data.facility.location}${data.facility.district ? ` · ${data.facility.district}` : ""}`
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </button>
+            <Link
+              to={links.bookings}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-xs font-bold text-white shadow-2xs transition hover:bg-brand-dark"
+            >
+              Bookings &amp; Payments
+            </Link>
           </div>
-          <button type="button" onClick={load} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold transition hover:bg-white/20 disabled:opacity-60">
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
-        </div>
-      </header>
+        }
+      />
 
-      {error && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Could not refresh: {error}. Showing the last loaded figures.</div>}
+      <div className="space-y-5">
+        {error && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Could not refresh: {error}. Showing the last loaded figures.</div>}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map((card) => <Kpi key={card.label} {...card} />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map((card) => <KpiCard key={card.label} {...card} />)}</div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Panel title="Bookings and collections" description="Actual activity for the latest six calendar months." className="xl:col-span-2">
@@ -292,6 +303,7 @@ export default function OperationalDashboard({ role }) {
           {data.configuration.length ? <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-3">Sport</th><th className="px-5 py-3">Booking model</th><th className="px-5 py-3 text-right">Units</th><th className="px-5 py-3 text-right">Bookable slots</th><th className="px-5 py-3 text-right">Capacity</th><th className="px-5 py-3 text-right">Base price</th></tr></thead><tbody className="divide-y divide-slate-100">{data.configuration.map((row) => <tr key={row.id}><td className="px-5 py-3 font-bold text-slate-800">{row.sport}</td><td className="px-5 py-3 capitalize text-slate-500">{row.bookingMode}</td><td className="px-5 py-3 text-right">{row.units}</td><td className="px-5 py-3 text-right">{row.slots}</td><td className="px-5 py-3 text-right">{row.capacity}</td><td className="px-5 py-3 text-right font-bold">{money.format(row.price)}</td></tr>)}</tbody></table></div> : <Empty>No sports are configured for this facility.</Empty>}
         </Panel>
       )}
-    </main>
+      </div>
+    </PageShell>
   );
 }
