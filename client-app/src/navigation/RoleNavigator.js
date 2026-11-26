@@ -75,7 +75,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return [
           { key: "home", label: "Squad", icon: "people" },
           { key: "rate", label: "Evaluate", icon: "star-outline" },
-          { key: "explore", label: "Facilities", icon: "compass-outline" },
+          { key: "explore", label: "Facilities", icon: "business-outline" },
           { key: "complaints", label: "Issues", icon: "warning-outline" },
         ];
       case 1: // Supervisor
