@@ -76,6 +76,9 @@ const GuestSchema = new mongoose.Schema(
     razorpayPaymentId: { type: String, index: true },
     paidAt: Date,
     priceBreakdown: { type: mongoose.Schema.Types.Mixed, default: {} },
+    isEvaluated: { type: Boolean, default: false },
+    evaluatedAt: { type: Date, default: null },
+    evaluationScore: { type: Number, default: null },
   },
   { timestamps: true }
 );

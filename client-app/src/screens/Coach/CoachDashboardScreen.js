@@ -23,6 +23,7 @@ import { performanceService } from "../../services/performanceService";
 const DEFAULT_COACH_ATHLETES = [
   {
     id: "ath_dhruv",
+    athleteId: "ath_dhruv",
     name: "Patel Dhruv Vasantkumar",
     email: "dhruv@gmail.com",
     phone: "+919157098859",
@@ -30,15 +31,48 @@ const DEFAULT_COACH_ATHLETES = [
     sports: [{ id: "sport_swim", name: "Swimming" }],
     confirmedBookings: 2,
     bookings: 2,
+    completedPlayedBookings: 2,
+    evaluatedBookings: 1,
     canRate: true,
     latestEvaluation: {
       totalScore: 85.0,
       evaluationDate: "2026-11-18",
     },
+    sessions: [
+      {
+        id: "sess_dhruv_1",
+        bookingId: "sess_dhruv_1",
+        reference: "BK-SWIM-1811",
+        date: "18/11/2026",
+        time: { from: "06:00 AM", to: "07:30 AM" },
+        sport: "Swimming",
+        isPlayed: true,
+        isEvaluated: true,
+        evaluationScore: 85.0,
+        evaluationDate: "2026-11-18",
+        canRate: true,
+        statusText: "Evaluated (85.0/100)",
+      },
+      {
+        id: "sess_dhruv_2",
+        bookingId: "sess_dhruv_2",
+        reference: "BK-SWIM-2411",
+        date: "24/11/2026",
+        time: { from: "06:00 AM", to: "07:30 AM" },
+        sport: "Swimming",
+        isPlayed: true,
+        isEvaluated: false,
+        evaluationScore: null,
+        evaluationDate: null,
+        canRate: true,
+        statusText: "Played - Ready to Rate",
+      },
+    ],
     evaluationUnavailableReason: null,
   },
   {
     id: "ath_razorpay",
+    athleteId: "ath_razorpay",
     name: "Razorpay Test Athlete",
     email: "razorpay.test@example.test",
     phone: "+919000000000",
@@ -46,13 +80,17 @@ const DEFAULT_COACH_ATHLETES = [
     sports: [{ id: "sport_swim", name: "Swimming" }],
     confirmedBookings: 0,
     bookings: 1,
+    completedPlayedBookings: 0,
+    evaluatedBookings: 0,
     canRate: false,
     latestEvaluation: null,
+    sessions: [],
     evaluationUnavailableReason:
       "An athlete profile must be linked to this booking.",
   },
   {
     id: "ath_test_rating",
+    athleteId: "ath_test_rating",
     name: "Test Rating Athlete",
     email: "athlete.rating.test@example.com",
     phone: "9999999999",
@@ -60,8 +98,11 @@ const DEFAULT_COACH_ATHLETES = [
     sports: [],
     confirmedBookings: 0,
     bookings: 0,
+    completedPlayedBookings: 0,
+    evaluatedBookings: 0,
     canRate: false,
     latestEvaluation: null,
+    sessions: [],
     evaluationUnavailableReason:
       "A confirmed, paid coaching booking is required.",
   },
@@ -407,6 +448,59 @@ export default function CoachDashboardScreen({
                     </View>
                   )}
                 </View>
+
+                {/* Individual Played Sessions (Per-booking Evaluation Breakdown) */}
+                {Array.isArray(athlete.sessions) && athlete.sessions.length > 0 && (
+                  <View style={styles.sessionsContainer}>
+                    <Text style={styles.sessionsHeading}>Guided Coaching Sessions</Text>
+                    {athlete.sessions.map((sess) => (
+                      <View key={sess.id} style={styles.sessionItemRow}>
+                        <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                          <Text style={styles.sessionDateText} numberOfLines={1}>
+                            {sess.date} {sess.time?.from ? `• ${sess.time.from}` : ""}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.sessionStatusSub,
+                              sess.isEvaluated
+                                ? styles.sessionStatusEvaluated
+                                : sess.canRate
+                                ? styles.sessionStatusReady
+                                : styles.sessionStatusPending,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {sess.statusText}
+                          </Text>
+                        </View>
+                        {sess.canRate && (
+                          <TouchableOpacity
+                            style={[
+                              styles.sessionRateBtn,
+                              sess.isEvaluated && styles.sessionRateBtnReeval,
+                            ]}
+                            onPress={() =>
+                              onRateAthlete?.({
+                                ...athlete,
+                                selectedBookingId: sess.id,
+                                bookingId: sess.id,
+                              })
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.sessionRateBtnText,
+                                sess.isEvaluated && styles.sessionRateBtnTextReeval,
+                              ]}
+                            >
+                              {sess.isEvaluated ? "Re-rate" : "Rate Session"}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Main Action Button (Evaluate again) */}
                 {isEvaluated && (
@@ -788,5 +882,74 @@ const styles = StyleSheet.create({
     color: "#475569",
     flex: 1,
     lineHeight: 16,
+  },
+
+  /* Guided Sessions per-booking styling */
+  sessionsContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
+  sessionsHeading: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  sessionItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  sessionDateText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  sessionStatusSub: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  sessionStatusEvaluated: {
+    color: "#007D40",
+    fontWeight: "700",
+  },
+  sessionStatusReady: {
+    color: "#d97706",
+    fontWeight: "700",
+  },
+  sessionStatusPending: {
+    color: "#64748b",
+  },
+  sessionRateBtn: {
+    backgroundColor: "#007D40",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  sessionRateBtnReeval: {
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  sessionRateBtnText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  sessionRateBtnTextReeval: {
+    color: "#475569",
+    fontWeight: "600",
   },
 });

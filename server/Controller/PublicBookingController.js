@@ -8,6 +8,7 @@ const BookingPayment = require("../Model/BookingPaymentModel");
 const Review = require("../Model/ReviewModel");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const InstitutionBooking = require("../Model/InstitutionEventBookingModel");
+const Instructor = require("../Model/instructorModel");
 const { ROLE } = require("../Utils/roles");
 const {
   checkoutKeyId,
@@ -521,6 +522,25 @@ async function createBooking(req, res) {
         sport: config.sport.SportName,
       },
     });
+    // Ensure a coach is bound to the booking so they can guide and evaluate the athlete
+    let assignedCoach = slot.coach || null;
+    if (!assignedCoach) {
+      const availableCoach = await Instructor.findOne({
+        SportComplexId: config.facility,
+        "sports.sport": config.sport._id,
+        status: "Active",
+      }).select("_id");
+      if (availableCoach) {
+        assignedCoach = availableCoach._id;
+      } else {
+        const fallbackCoach = await Instructor.findOne({
+          SportComplexId: config.facility,
+          status: "Active",
+        }).select("_id");
+        if (fallbackCoach) assignedCoach = fallbackCoach._id;
+      }
+    }
+
     const booking = await Guest.create({
       Name: bookerName,
       Email: bookerEmail,
@@ -536,7 +556,7 @@ async function createBooking(req, res) {
       Enddate: date,
       facilitySportConfig: config._id,
       slotId: slot._id,
-      coach: slot.coach || null,
+      coach: assignedCoach,
       memberCount,
       reservedUnits: 1,
       totalAmount: price.total,
@@ -556,7 +576,7 @@ async function createBooking(req, res) {
       bookingReference: reference,
       facility: config.facility,
       sport: config.sport._id,
-      coach: slot.coach || null,
+      coach: assignedCoach,
       amount: price.total,
       currency: "INR",
       status: "Created",

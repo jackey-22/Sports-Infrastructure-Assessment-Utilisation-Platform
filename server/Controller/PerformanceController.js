@@ -61,7 +61,7 @@ function normalizedValue(parameter, raw) {
   return ((value - min) / (max - min)) * 100;
 }
 
-async function ensureCoachCanEvaluate(req, athlete, sportId) {
+async function ensureCoachCanEvaluate(req, athlete, sportId, bookingId) {
   const coach = await Instructor.findOne({ userId: req.user._id }).select("sports SportComplexId").lean();
   const sports = (coach?.sports || []).map(item => String(item.sport));
   if (!coach || (sportId && !sports.includes(String(sportId)))) return false;
@@ -69,16 +69,18 @@ async function ensureCoachCanEvaluate(req, athlete, sportId) {
   // A missing profile facility is not a reason to reject a paid coaching enrolment.
   // Never use this fallback for an athlete explicitly assigned to another facility.
   if (athlete.SportComplexId || !coach.SportComplexId) return false;
-  return Boolean(await Guest.exists({
+  const guestQuery = {
     coach: coach._id, SportComplexId: coach.SportComplexId,
     citizenUser: athlete.userId?._id || athlete.userId,
     sport: sportId || { $in: sports },
     bookingStatus: "Confirmed", paymentStatus: "Paid",
-  }));
+  };
+  if (bookingId && validId(bookingId)) guestQuery._id = bookingId;
+  return Boolean(await Guest.exists(guestQuery));
 }
 async function canAccessPerformanceAthlete(req, athlete) {
   return req.user.Role === ROLE.COACH
-    ? ensureCoachCanEvaluate(req, athlete, validId(req.query?.sportId) ? req.query.sportId : undefined)
+    ? ensureCoachCanEvaluate(req, athlete, validId(req.query?.sportId) ? req.query.sportId : undefined, validId(req.query?.bookingId) ? req.query.bookingId : undefined)
     : canAccessAthlete(req.user, athlete);
 }
 
@@ -184,13 +186,37 @@ async function coachAthletes(req, res) {
 
 async function createEvaluation(req, res) {
   try {
-    const { athleteId, sportId, details, remarks, evaluationDate } = req.body || {};
-    if (!validId(athleteId) || !validId(sportId) || !Array.isArray(details)) return fail(res, 400, "Athlete, sport and parameter scores are required");
+    const { athleteId, sportId, bookingId, details, remarks, evaluationDate } = req.body || {};
+    if (!validId(athleteId) || !validId(sportId) || !Array.isArray(details)) {
+      return fail(res, 400, "Athlete, sport and parameter scores are required");
+    }
     const athlete = await Athlete.findById(athleteId).lean();
-    if (!athlete || !await ensureCoachCanEvaluate(req, athlete, sportId)) return fail(res, 403, "Athlete or sport is outside your coaching scope");
+    if (!athlete || !await ensureCoachCanEvaluate(req, athlete, sportId, bookingId)) {
+      return fail(res, 403, "Athlete or sport is outside your coaching scope");
+    }
+
+    // Resolve specific booking if provided or latest played booking
+    let matchedBooking = null;
+    if (bookingId && validId(bookingId)) {
+      matchedBooking = await Guest.findById(bookingId).lean();
+    } else {
+      const coach = await Instructor.findOne({ userId: req.user._id }).select("_id").lean();
+      if (coach) {
+        matchedBooking = await Guest.findOne({
+          citizenUser: athlete.userId?._id || athlete.userId,
+          sport: sportId,
+          coach: coach._id,
+          bookingStatus: "Confirmed",
+          paymentStatus: "Paid",
+        }).sort({ Startdate: -1 }).lean();
+      }
+    }
+
     const template = await Template.findOne({ sport: sportId, status: "Published" }).sort({ version: -1 }).lean();
     if (!template) return fail(res, 404, "No published evaluation template for this sport");
-    if (details.length !== template.parameters.filter((item) => item.active).length) return fail(res, 400, "Provide a score for every active parameter");
+    if (details.length !== template.parameters.filter((item) => item.active).length) {
+      return fail(res, 400, "Provide a score for every active parameter");
+    }
     const submitted = new Map(details.map((item) => [String(item.parameterId), item]));
     const evaluationDetails = [];
     for (const parameter of template.parameters.filter((item) => item.active)) {
@@ -208,10 +234,27 @@ async function createEvaluation(req, res) {
     }
     const totalScore = Math.round(evaluationDetails.reduce((sum, item) => sum + item.weightedScore, 0) * 100) / 100;
     const data = await Evaluation.create({
-      athlete: athleteId, sport: sportId, coach: req.user._id, template: template._id,
-      templateVersion: template.version, totalScore, recognition: recognitionFor(totalScore, template.recognitionLevels),
-      remarks: String(remarks || ""), evaluationDate: evaluationDate || new Date(), details: evaluationDetails,
+      athlete: athleteId,
+      sport: sportId,
+      coach: req.user._id,
+      booking: matchedBooking ? matchedBooking._id : null,
+      sessionDate: matchedBooking?.Startdate || (evaluationDate ? new Date(evaluationDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)),
+      template: template._id,
+      templateVersion: template.version,
+      totalScore,
+      recognition: recognitionFor(totalScore, template.recognitionLevels),
+      remarks: String(remarks || ""),
+      evaluationDate: evaluationDate || new Date(),
+      details: evaluationDetails,
     });
+
+    if (matchedBooking) {
+      await Guest.updateOne(
+        { _id: matchedBooking._id },
+        { $set: { isEvaluated: true, evaluatedAt: new Date(), evaluationScore: totalScore } }
+      );
+    }
+
     return res.status(201).json({ data, rcode: 200 });
   } catch (error) {
     console.error("Could not submit athlete evaluation:", error.message);
@@ -227,7 +270,12 @@ async function listEvaluations(req, res) {
     const query = { athlete: athlete._id };
     if (validId(req.query.sportId)) query.sport = req.query.sportId;
     if (req.user.Role === ROLE.COACH) query.coach = req.user._id;
-    const data = await Evaluation.find(query).populate("sport", "SportName").populate("coach", "Name").sort({ evaluationDate: -1 }).lean();
+    const data = await Evaluation.find(query)
+      .populate("sport", "SportName")
+      .populate("coach", "Name")
+      .populate({ path: "booking", select: "Startdate timeslot bookingReference bookingStatus paymentStatus isEvaluated" })
+      .sort({ evaluationDate: -1 })
+      .lean();
     return res.json({ data, rcode: 200 });
   } catch (error) {
     console.error("Could not load athlete evaluations:", error.message);
