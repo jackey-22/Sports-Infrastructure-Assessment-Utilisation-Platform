@@ -78,18 +78,14 @@ export default function AssessmentRecordsScreen({ onBack }) {
           </View>
           {!!selected.photos?.length && (
             <View style={styles.card}>
-              <Text style={styles.heading}>Geotagged photos</Text>
+              <Text style={styles.heading}>Assessment photos</Text>
               <View style={styles.photoGrid}>
                 {selected.photos.map((value, index) => {
                   const photo = typeof value === "string" ? { filename: value } : value;
                   return (
                     <View key={photo.key || photo.url || `${photo.filename}-${index}`} style={styles.evidence}>
                       {!!photo.url && <Image source={{ uri: photo.url }} style={styles.photo} accessibilityLabel={`Assessment photo ${index + 1}`} />}
-                      <Text style={styles.photoMeta}>{photo.source === "gallery" ? "Gallery GPS" : photo.source === "camera" ? "Live GPS" : photo.filename}</Text>
-                      {photo.latitude != null && photo.longitude != null && (
-                        <Text style={styles.photoMeta}>{Number(photo.latitude).toFixed(5)}, {Number(photo.longitude).toFixed(5)}</Text>
-                      )}
-                      {photo.distanceFromFacilityMeters != null && <Text style={styles.photoMeta}>{photo.distanceFromFacilityMeters} m from facility</Text>}
+                      <Text style={styles.photoMeta}>{photo.filename || `Photo ${index + 1}`}</Text>
                     </View>
                   );
                 })}
