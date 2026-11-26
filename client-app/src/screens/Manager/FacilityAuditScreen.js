@@ -30,12 +30,22 @@ function assessmentScore(assessment) {
     : assessment.score;
 }
 
+function formatSummary(summary) {
+  const text = typeof summary === "string" ? summary.replace(/\s+/g, " ").trim() : "";
+  if (!text) return "No summary recorded.";
+  const words = text.split(" ");
+  if (words.length <= 45) return text;
+  const shortened = words.slice(0, 45).join(" ");
+  const sentenceEnd = shortened.search(/[.!?](?=\s|$)/);
+  return sentenceEnd >= 0
+    ? shortened.slice(0, sentenceEnd + 1)
+    : `${shortened}…`;
+}
+
 function AssessmentReport({ assessment, saved = false }) {
   const analysed = assessment.ai?.status === "completed";
   const score = assessmentScore(assessment);
-  const summary = analysed ? assessment.ai.overallSummary : assessment.summary;
-  const categories = assessment.ai?.categories || [];
-  const observableCategories = categories.filter((category) => category.observable);
+  const summary = formatSummary(analysed ? assessment.ai.overallSummary : assessment.summary);
 
   return (
     <View style={styles.card}>
@@ -52,29 +62,7 @@ function AssessmentReport({ assessment, saved = false }) {
         )}
       </View>
       <Text accessibilityRole="header" style={styles.heading}>Summary</Text>
-      <Text style={styles.body}>{summary || "No summary recorded."}</Text>
-      {analysed && <Text style={styles.scoreLabel}>Maintenance priority: {assessment.ai.priority || "unknown"}</Text>}
-      {!!categories.length && (
-        <>
-          <Text accessibilityRole="header" style={styles.heading}>Category findings</Text>
-          {observableCategories.map((category) => (
-            <View key={category.id} style={styles.finding}>
-              <View style={styles.recordDetails}>
-                <Text style={styles.scoreLabel}>{category.label}</Text>
-                <Text style={styles.findingSeverity}>{category.severity}</Text>
-              </View>
-              <Text style={styles.body}>{category.condition}</Text>
-              {category.defects?.map((defect, index) => <Text key={`${defect.description}-${index}`} style={styles.defect}>• {defect.description}</Text>)}
-              {!!category.maintenance && <Text style={styles.success}>Action: {category.maintenance}</Text>}
-            </View>
-          ))}
-          {observableCategories.length === 0 ? (
-            <Text style={styles.body}>No categories could be assessed from these photos.</Text>
-          ) : observableCategories.length < categories.length ? (
-            <Text style={styles.body}>Other categories could not be assessed from these photos.</Text>
-          ) : null}
-        </>
-      )}
+      <Text style={styles.body}>{summary}</Text>
       {!!assessment.photos?.length && (
         <>
           <Text accessibilityRole="header" style={styles.heading}>Assessment photos</Text>
@@ -83,7 +71,13 @@ function AssessmentReport({ assessment, saved = false }) {
               const item = typeof photo === "string" ? { filename: photo } : photo;
               return (
                 <View key={item.key || item.url || `${item.filename}-${index}`} style={styles.evidence}>
-                  {!!item.url && <Image source={{ uri: item.url }} style={styles.evidencePhoto} accessibilityLabel={`Assessment evidence ${index + 1}`} />}
+                  {!!item.url && (
+                    <Image
+                      source={{ uri: item.url }}
+                      style={styles.evidencePhoto}
+                      accessibilityLabel={`Assessment photo ${index + 1}`}
+                    />
+                  )}
                   <Text style={styles.photoMeta}>{item.filename || `Photo ${index + 1}`}</Text>
                 </View>
               );
@@ -450,9 +444,6 @@ const styles = StyleSheet.create({
   photoMeta: { maxWidth: 150, fontSize: 10, lineHeight: 14, color: colors.slate[600] },
   evidence: { width: 150, gap: 3 },
   evidencePhoto: { width: 150, height: 105, borderRadius: 10, backgroundColor: colors.slate[100] },
-  finding: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.slate[200], gap: 5 },
-  findingSeverity: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", color: colors.slate[600] },
-  defect: { fontSize: 12, lineHeight: 18, color: colors.status.danger },
 });
 
 export default FacilityAuditScreen;
