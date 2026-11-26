@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Mail,
   Phone,
+  Activity,
 } from "lucide-react";
 import { getAverageRating, getFacilityType } from "./exploreUtils";
 import { applyPublicImageFallback } from "../../services/public/publicFacilityService";
@@ -77,6 +78,12 @@ export default function FacilityDetailPanel({
             <InfoChip icon={Users} label="Manager" value={facility.contactPerson || "Not specified"} />
           </div>
 
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Latest assessed condition</p><p className="mt-1 text-sm font-bold text-slate-800">{facility.condition?.score == null ? "No submitted assessment" : `${facility.condition.grade} · ${facility.condition.score}/100`}</p></div><Activity className="h-6 w-6 text-emerald-700" /></div>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600">{facility.condition?.notes || "No submitted sport condition assessment yet."}</p>
+            {facility.condition?.score != null && <><div className="mt-3 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${Math.min(100, Math.max(0, facility.condition.score))}%` }} /></div><p className="mt-2 text-[11px] text-slate-500">Based on {facility.condition.assessedSports} of {facility.condition.totalSports} configured sports · Last assessment {facility.condition.lastInspectionDate || "not recorded"}</p></>}
+          </div>
+
           {(facility.details || facility.gallery?.length > 0) && (
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Complex details</h3>
@@ -120,6 +127,7 @@ export default function FacilityDetailPanel({
                     <p className="text-xs text-slate-500">{sp.surface || "Details available at facility"} · {sp.availability || "Availability not specified"}</p>
                     {sp.feePerHour && <p className="text-xs font-semibold text-brand-primary">{sp.feePerHour}</p>}
                     <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><Star className={`h-3.5 w-3.5 ${typeof sp.rating === "number" ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />{typeof sp.rating === "number" ? `${sp.rating.toFixed(1)} sport rating` : "No sport ratings yet"}</p>
+                    <p className={`mt-1 inline-flex items-center gap-1 text-xs font-semibold ${sp.condition ? "text-emerald-700" : "text-slate-400"}`}><Activity className="h-3.5 w-3.5" />{sp.condition ? `${sp.condition.grade} · ${sp.condition.score}/100 condition` : "Condition not assessed"}</p>
                   </div>
                 </div>
               ))}

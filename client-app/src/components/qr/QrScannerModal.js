@@ -9,12 +9,24 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [session, setSession] = useState(0);
 
   useEffect(() => {
     if (visible) {
       setScanned(false);
+      setCameraReady(false);
+      setCameraError("");
+      setSession((value) => value + 1);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible && permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [visible, permission, requestPermission]);
 
   const handleBarcodeScanned = ({ data }) => {
     if (scanned) return;
@@ -27,7 +39,7 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" hardwareAccelerated onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
         {/* Top Header */}
         <View style={styles.header}>
@@ -55,17 +67,21 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
         ) : (
           <View style={styles.cameraWrapper}>
             <CameraView
-              style={StyleSheet.absoluteFillObject}
+              key={`gate-camera-${session}`}
+              style={styles.camera}
               facing="back"
+              active={visible}
               enableTorch={torch}
               barcodeScannerSettings={{
                 barcodeTypes: ["qr"],
               }}
               onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+              onCameraReady={() => setCameraReady(true)}
+              onMountError={(event) => setCameraError(event?.message || "The camera could not start.")}
             />
 
             {/* Target Reticle */}
-            <View style={styles.overlay}>
+            <View pointerEvents="none" style={styles.overlay}>
               <View style={styles.targetBox}>
                 <View style={[styles.corner, styles.tl]} />
                 <View style={[styles.corner, styles.tr]} />
@@ -76,6 +92,8 @@ export const QrScannerModal = ({ visible, onClose, onScan, title = "Scan Attenda
                 Align the citizen or athlete QR pass inside the frame
               </Text>
             </View>
+            {!cameraReady && !cameraError ? <View pointerEvents="none" style={styles.cameraStatus}><Text style={styles.msgText}>Starting camera…</Text></View> : null}
+            {!!cameraError ? <View style={styles.cameraStatus}><Text style={styles.msgText}>{cameraError}</Text><TouchableOpacity onPress={() => { setCameraError(""); setCameraReady(false); setSession((value) => value + 1); }} style={styles.grantBtn}><Text style={styles.grantBtnText}>Retry camera</Text></TouchableOpacity></View> : null}
           </View>
         )}
       </SafeAreaView>
@@ -132,11 +150,20 @@ const styles = StyleSheet.create({
   cameraWrapper: {
     flex: 1,
     position: "relative",
+    overflow: "hidden",
   },
+  camera: { flex: 1, width: "100%", backgroundColor: "#111111" },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
+  },
+  cameraStatus: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    padding: 24,
   },
   targetBox: {
     width: 250,

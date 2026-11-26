@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Clock3,
   Dumbbell,
+  Gauge,
   RefreshCw,
   Star,
   Users,
@@ -83,6 +84,19 @@ function Status({ value }) {
       {value || "Pending"}
     </span>
   );
+}
+
+function UtilisationRows({ rows, labelKey }) {
+  if (!rows?.length) return <Empty>No configured capacity for this period.</Empty>;
+  return <div className="divide-y divide-slate-100">{rows.slice(0, 8).map((row) => (
+    <div key={row.sportId || row.facilityId} className="px-5 py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div><p className="text-sm font-bold text-slate-800">{row[labelKey]}</p><p className="text-xs text-slate-400">{number.format(row.used)} used of {number.format(row.capacity)} capacity · {row.bookings} bookings</p></div>
+        <span className={`text-sm font-extrabold ${row.utilisationPct >= 80 ? "text-amber-700" : row.utilisationPct < 25 ? "text-slate-500" : "text-emerald-700"}`}>{row.utilisationPct}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${row.utilisationPct >= 80 ? "bg-amber-500" : "bg-emerald-600"}`} style={{ width: `${Math.min(100, row.utilisationPct)}%` }} /></div>
+    </div>
+  ))}</div>;
 }
 
 function Trend({ rows }) {
@@ -168,6 +182,7 @@ export default function OperationalDashboard({ role }) {
   }
 
   const { kpis, alerts } = data;
+  const utilisation = data.utilisation || { overall: { utilisationPct: 0, used: 0, capacity: 0 }, bySport: [], byFacility: [], insights: [], period: {} };
   const rating = kpis.ratings;
   const cards = isAdmin ? [
     { label: "Facilities", value: number.format(kpis.facilities), caption: `${kpis.bookingReadyFacilities} ready for online booking`, icon: Building2 },
@@ -178,6 +193,7 @@ export default function OperationalDashboard({ role }) {
     { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} successful payments`, icon: IndianRupee, tone: "amber" },
     { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.escalatedGrievances ? "amber" : "slate" },
     { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet" },
+    { label: "Overall utilisation", value: `${utilisation.overall.utilisationPct}%`, caption: `Last 30 days · ${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} capacity`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green" },
   ] : [
     { label: "Total bookings", value: number.format(kpis.bookings), caption: `${kpis.confirmedBookings} confirmed`, icon: CalendarCheck },
     { label: "Upcoming", value: number.format(kpis.upcomingBookings), caption: `${kpis.todayBookings} bookings today`, icon: Clock3 },
@@ -187,6 +203,7 @@ export default function OperationalDashboard({ role }) {
     { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Assigned to this facility", icon: Users },
     { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.overdueGrievances ? "amber" : "slate" },
     { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet" },
+    { label: "Facility utilisation", value: `${utilisation.overall.utilisationPct}%`, caption: `Last 30 days · ${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} capacity`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green" },
   ];
 
   const alertItems = [
@@ -238,6 +255,20 @@ export default function OperationalDashboard({ role }) {
           ) : <Empty>Nothing needs immediate attention.</Empty>}
         </Panel>
       </div>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel title="Sports utilisation" description={`Confirmed usage against configured bookable capacity · ${formatDate(utilisation.period.startDate)} to ${formatDate(utilisation.period.endDate)}`}>
+          <UtilisationRows rows={utilisation.bySport} labelKey="sport" />
+        </Panel>
+
+        <Panel title={isAdmin ? "Utilisation insights" : "Facility insights"} description="Operational observations calculated from the latest 30 days.">
+          <div className="space-y-3 p-5">
+            {utilisation.insights?.length ? utilisation.insights.map((insight, index) => <div key={`${insight}-${index}`} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"><Gauge className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><p className="text-sm text-slate-700">{insight}</p></div>) : <p className="text-sm text-slate-400">More booking data is needed for insights.</p>}
+          </div>
+        </Panel>
+      </div>
+
+      {isAdmin && <Panel title="Facility-wise utilisation" description="Compare confirmed usage with available capacity at each configured facility."><UtilisationRows rows={utilisation.byFacility} labelKey="facility" /></Panel>}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="Popular sports" description="Ranked using real booking payments and collected revenue." action={<Link to={links.bookings} className="text-xs font-bold text-emerald-700">View bookings</Link>}>

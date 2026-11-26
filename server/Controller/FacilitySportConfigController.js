@@ -25,6 +25,21 @@ function validateSlots(slots, bookingMode, unitCount, capacityPerUnit) {
       return "Court slot capacity cannot exceed configured court capacity";
     }
   }
+  for (let firstIndex = 0; firstIndex < slots.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < slots.length; secondIndex += 1) {
+      const first = slots[firstIndex];
+      const second = slots[secondIndex];
+      const firstDays = Array.isArray(first.days) ? first.days : [];
+      const secondDays = Array.isArray(second.days) ? second.days : [];
+      const sharedDays = firstDays.length && secondDays.length
+        ? firstDays.filter((day) => secondDays.includes(day))
+        : firstDays.length ? firstDays : secondDays.length ? secondDays : ["every day"];
+      const overlaps = first.startTime < second.endTime && second.startTime < first.endTime;
+      if (sharedDays.length && overlaps) {
+        return `Slots “${first.label}” and “${second.label}” overlap on ${sharedDays.join(", ")}`;
+      }
+    }
+  }
   return null;
 }
 
@@ -253,4 +268,4 @@ async function remove(req, res) {
   return res.json({ data: { id: req.params.id }, rcode: 200 });
 }
 
-module.exports = { catalog, list, create, update, remove };
+module.exports = { catalog, list, create, update, remove, validateSlots };

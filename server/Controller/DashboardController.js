@@ -10,8 +10,10 @@ const Grant = require("../Model/GrantModel");
 const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const Review = require("../Model/ReviewModel");
 const AthleteRating = require("../Model/athleteRatingModel");
+const InstitutionEventBooking = require("../Model/InstitutionEventBookingModel");
 const { ROLE } = require("../Utils/roles");
 const { verifiedGrantTotals } = require("../Utils/grantProgress");
+const { summariseUtilisation } = require("../Utils/utilisation");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const monthKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -58,13 +60,14 @@ async function buildDashboard({ facility = null }) {
   const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
   const today = indiaDate();
 
-  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, trendBookings, payments, complaints, grants, assessmentCount, reviews] = await Promise.all([
+  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, institutionalBookings, trendBookings, payments, complaints, grants, assessmentCount, reviews] = await Promise.all([
     facility ? [facility] : SportsComplex.find().populate("district", "District").lean(),
     facility ? FacilitySportConfig.distinct("sport", { facility: facility._id, status: "Active" }).then((ids) => ids.length) : Sport.countDocuments({ status: "Active" }),
     Instructor.countDocuments({ ...coachFilter, status: "Active" }),
     facility ? Guest.distinct("citizenUser", { ...bookingFacilityFilter, citizenUser: { $ne: null } }).then((ids) => ids.length) : User.countDocuments({ Role: ROLE.ATHLETE, IsActive: { $ne: 0 } }),
     FacilitySportConfig.find({ ...facilityFilter, status: "Active" }).populate("sport", "SportName").lean(),
-    Guest.find(bookingFacilityFilter).select("Startdate bookingStatus paymentStatus memberCount reservedUnits").lean(),
+    Guest.find(bookingFacilityFilter).select("Startdate bookingStatus paymentStatus memberCount reservedUnits slotId facilitySportConfig sport SportComplexId").lean(),
+    InstitutionEventBooking.find(facility ? { facility: facility._id } : {}).select("facility status selections").lean(),
     Guest.find({ ...bookingFacilityFilter, createdAt: { $gte: trendStart } }).select("createdAt").lean(),
     BookingPayment.find(facilityFilter).populate("sport", "SportName").populate("facility", "name").sort({ createdAt: -1 }).lean(),
     Complaint.find(complaintFilter).select("workflowStatus status dueAt createdAt subject sportsComplex").sort({ createdAt: -1 }).lean(),
@@ -118,6 +121,15 @@ async function buildDashboard({ facility = null }) {
     units: config.unitCount, slots: (config.slots || []).filter((slot) => slot.bookable).length,
     capacity: config.unitCount * config.capacityPerUnit, price: config.price?.amount || 0,
   }));
+  const utilisation = summariseUtilisation({
+    configs,
+    bookings,
+    institutionalBookings,
+    payments,
+    facilities,
+    endDate: today,
+    days: 30,
+  });
 
   return {
     generatedAt: new Date(),
@@ -150,6 +162,7 @@ async function buildDashboard({ facility = null }) {
       amount: booking.totalAmount || 0, bookingStatus: booking.bookingStatus, paymentStatus: booking.paymentStatus,
     })),
     configuration: configSummary,
+    utilisation,
     facilityReadiness: facility ? [] : facilities.map((item) => ({ id: String(item._id), name: item.name, district: item.district?.District || "", ready: configuredFacilityIds.has(String(item._id)), sports: configs.filter((config) => String(config.facility) === String(item._id)).length })),
     alerts: {
       facilitiesNotReady: facility ? (configs.length ? 0 : 1) : facilities.length - configuredFacilityIds.size,
