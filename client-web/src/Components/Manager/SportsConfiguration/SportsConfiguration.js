@@ -108,8 +108,7 @@ function ConfigModal({ value: initial, catalog, onClose, onSave }) {
   const availableSports = useMemo(() => catalog.sports.filter((item) => value._id || !catalog.configuredSportIds.includes(item._id)), [catalog, value._id]);
   const compatibleCoaches = catalog.coaches.filter((coach) => (coach.sports || []).some((item) => (item.sport?._id || item.sport) === value.sportId));
   const chooseSport = (sportId) => {
-    const selected = catalog.sports.find((item) => item._id === sportId);
-    setValue((current) => ({ ...current, sportId, bookingMode: selected?.defaultBookingMode || current.bookingMode, unitLabel: selected?.unitLabel || current.unitLabel }));
+    setValue((current) => ({ ...current, sportId }));
   };
   const updateSlot = (index, key, next) => update("slots", value.slots.map((slot, slotIndex) => slotIndex === index ? { ...slot, [key]: next } : slot));
   const toggleDay = (index, day) => {

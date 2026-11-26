@@ -196,21 +196,16 @@ function sportPayload(body) {
     Category: text(body.category || body.Category, 80),
     baseUrl: text(body.image || body.baseUrl, 1500),
     description: text(body.description, 2000),
-    formats: Array.isArray(body.formats)
-      ? body.formats.map((item) => text(item, 80)).filter(Boolean)
-      : text(body.formats, 500).split(",").map((item) => item.trim()).filter(Boolean),
-    defaultBookingMode: body.defaultBookingMode || "capacity",
-    unitLabel: text(body.unitLabel, 80) || "participants",
     status: body.status || "Active",
-    parameters: Array.isArray(body.parameters)
-      ? body.parameters
-      : text(body.parameters, 1000).split(",").map((item) => item.trim()).filter(Boolean),
     metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
   };
 }
 
 async function listSports(req, res) {
-  const sports = await Sport.find().sort({ SportName: 1 }).lean();
+  const sports = await Sport.find()
+    .select("SportName Category baseUrl description status metadata createdAt updatedAt")
+    .sort({ SportName: 1 })
+    .lean();
   return res.json({ data: sports, rcode: 200 });
 }
 

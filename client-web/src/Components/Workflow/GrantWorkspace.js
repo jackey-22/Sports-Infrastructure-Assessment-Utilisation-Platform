@@ -7,23 +7,25 @@ const field = "w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm out
 const rupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 const fileUrl = (value) => /^https?:\/\//i.test(value || "") ? value : `${API_BASE_URL}${value || ""}`;
 
-function baselineFrom(updates) {
-  return updates.filter((item) => item.reviewStatus === "Verified").reduce((result, item) => ({
-    percent: Math.max(result.percent, Number(item.percent) || 0),
-    amountUsed: Math.max(result.amountUsed, Number(item.amountUsed) || 0),
-  }), { percent: 0, amountUsed: 0 });
-}
-
 function percentForAmount(grant, amountUsed) {
   if (!Number.isFinite(amountUsed) || !Number(grant.allocatedAmount)) return 0;
   return Math.round(((amountUsed / Number(grant.allocatedAmount)) * 100) * 100) / 100;
 }
 
-function cumulativeError(grant, amountUsed, baseline, submittedPercent = null) {
-  if (!Number.isFinite(amountUsed) || amountUsed <= baseline.amountUsed) {
-    return `Cumulative usage must be greater than ${rupees(baseline.amountUsed)}.`;
+function verifiedTotals(grant, updates) {
+  const amountUsed = updates
+    .filter((item) => item.reviewStatus === "Verified")
+    .reduce((total, item) => total + (Number(item.amountUsed) || 0), 0);
+  return { amountUsed, percent: percentForAmount(grant, amountUsed) };
+}
+
+function milestoneError(grant, amountUsed, verifiedTotal, submittedPercent = null) {
+  if (!Number.isFinite(amountUsed) || amountUsed <= 0) {
+    return "Milestone amount must be greater than zero.";
   }
-  if (amountUsed > Number(grant.allocatedAmount)) return "Cumulative usage cannot exceed the grant allocation.";
+  if (verifiedTotal.amountUsed + amountUsed > Number(grant.allocatedAmount)) {
+    return `Milestone amount cannot exceed the remaining ${rupees(Number(grant.allocatedAmount) - verifiedTotal.amountUsed)}.`;
+  }
   const calculated = percentForAmount(grant, amountUsed);
   if (submittedPercent !== null && Math.abs(Number(submittedPercent) - calculated) > 0.01) {
     return `The percentage should be ${calculated}% for ${rupees(amountUsed)} usage.`;
@@ -80,7 +82,7 @@ export default function GrantWorkspace({ role }) {
         proofMimeType: uploaded.data.mimeType,
       });
       setProgress((old) => ({ ...old, [grantId]: {} }));
-      setNotice({ tone: "success", text: "Cumulative milestone submitted for Admin review." });
+      setNotice({ tone: "success", text: "Grant milestone submitted for Admin review." });
       await load();
     } catch (error) { setNotice({ tone: "error", text: error.message }); }
     finally { setSubmittingProgress((old) => ({ ...old, [grantId]: false })); }
@@ -95,7 +97,7 @@ export default function GrantWorkspace({ role }) {
   };
 
   return <div className="space-y-6 p-4 sm:p-6">
-    <div><h1 className="text-2xl font-extrabold text-slate-900">Grant management</h1><p className="text-sm text-slate-500">Cumulative milestones, usage evidence, verification and queries.</p></div>
+    <div><h1 className="text-2xl font-extrabold text-slate-900">Grant management</h1><p className="text-sm text-slate-500">Separate utilisation milestones, usage evidence, verification and queries.</p></div>
     {notice ? <div className={`rounded-xl px-4 py-3 text-sm font-semibold ${notice.tone === "error" ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"}`}>{notice.text}</div> : null}
     {role === "admin" ? <form onSubmit={allocate} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 md:grid-cols-2">
       <h2 className="font-extrabold md:col-span-2">Allocate a grant</h2>
@@ -117,12 +119,12 @@ export default function GrantWorkspace({ role }) {
 function GrantCard({ grant, role, progress, setProgress, submitProgress, submittingProgress, queries, setQueries, review }) {
   const updates = [...(grant.progressUpdates || [])].sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
   const pending = updates.filter((item) => item.reviewStatus === "Pending");
-  const baseline = baselineFrom(updates);
+  const totals = verifiedTotals(grant, updates);
   const draft = progress[grant._id] || {};
   const amountUsed = draft.amountUsed === "" || draft.amountUsed == null ? NaN : Number(draft.amountUsed);
   const calculatedPercent = percentForAmount(grant, amountUsed);
-  const validation = cumulativeError(grant, amountUsed, baseline);
-  const complete = baseline.amountUsed >= Number(grant.allocatedAmount);
+  const validation = milestoneError(grant, amountUsed, totals);
+  const complete = totals.amountUsed >= Number(grant.allocatedAmount);
   const canSubmit = !pending.length && !complete && !validation && String(draft.note || "").trim() && draft.proof;
   const updateDraft = (key, value) => setProgress((old) => ({ ...old, [grant._id]: { ...old[grant._id], [key]: value } }));
 
@@ -130,18 +132,18 @@ function GrantCard({ grant, role, progress, setProgress, submitProgress, submitt
     <div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-extrabold text-slate-900">{grant.title}</h2><p className="text-xs text-slate-500">{grant.facility?.name}</p></div><div className="text-right"><p className="inline-flex items-center font-extrabold text-emerald-700"><IndianRupee className="h-4 w-4" />{Number(grant.allocatedAmount).toLocaleString("en-IN")}</p><p className="text-xs font-bold text-slate-500">{grant.status}</p></div></div>
     <p className="mt-3 text-sm text-slate-700">{grant.purpose}</p>
     <div className="mt-4 grid gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:grid-cols-3">
-      <Summary label="Verified utilisation" value={`${baseline.percent}%`} />
-      <Summary label="Verified usage" value={rupees(baseline.amountUsed)} />
-      <Summary label="Allocation remaining" value={rupees(Number(grant.allocatedAmount) - baseline.amountUsed)} />
-      <div className="h-2 overflow-hidden rounded-full bg-slate-200 sm:col-span-3"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${baseline.percent}%` }} /></div>
+      <Summary label="Verified utilisation" value={`${totals.percent}%`} />
+      <Summary label="Verified usage" value={rupees(totals.amountUsed)} />
+      <Summary label="Allocation remaining" value={rupees(Number(grant.allocatedAmount) - totals.amountUsed)} />
+      <div className="h-2 overflow-hidden rounded-full bg-slate-200 sm:col-span-3"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${totals.percent}%` }} /></div>
     </div>
     {role === "manager" && pending.length ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">A milestone is awaiting Admin review. The next milestone can be submitted after it is verified or queried.</div> : null}
     {role === "manager" && complete && !pending.length ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">This grant has reached 100% verified utilisation.</div> : null}
     {role === "manager" && !pending.length && !complete ? <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 md:grid-cols-2">
-      <Labeled label="Cumulative amount used (₹)"><input type="number" min={baseline.amountUsed + 1} max={Number(grant.allocatedAmount)} className={field} placeholder={`Up to ${rupees(grant.allocatedAmount)}`} value={draft.amountUsed || ""} onChange={(event) => updateDraft("amountUsed", event.target.value)} /></Labeled>
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Automatically calculated utilisation</p><p className="mt-1 text-xl font-extrabold text-emerald-900">{Number.isFinite(amountUsed) ? `${calculatedPercent}%` : "—"}</p></div>
-      <div className="md:col-span-2"><p className="text-xs text-slate-500">Enter the total amount used so far. Utilisation is calculated automatically from the {rupees(grant.allocatedAmount)} allocation.</p>{draft.amountUsed && validation ? <p className="mt-1 text-xs font-bold text-rose-600">{validation}</p> : null}</div>
-      <textarea className={`${field} md:col-span-2`} placeholder="Describe completed work and cumulative expenditure" value={draft.note || ""} onChange={(event) => updateDraft("note", event.target.value)} />
+      <Labeled label="Amount used in this milestone (₹)"><input type="number" min="1" max={Math.max(0, Number(grant.allocatedAmount) - totals.amountUsed)} className={field} placeholder={`Remaining ${rupees(Number(grant.allocatedAmount) - totals.amountUsed)}`} value={draft.amountUsed || ""} onChange={(event) => updateDraft("amountUsed", event.target.value)} /></Labeled>
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">This milestone</p><p className="mt-1 text-xl font-extrabold text-emerald-900">{Number.isFinite(amountUsed) ? `${calculatedPercent}%` : "—"}</p></div>
+      <div className="md:col-span-2"><p className="text-xs text-slate-500">Enter only the amount covered by this submission. Its percentage is calculated against the full {rupees(grant.allocatedAmount)} allocation. Verified milestones may total up to 100%.</p>{draft.amountUsed && validation ? <p className="mt-1 text-xs font-bold text-rose-600">{validation}</p> : null}</div>
+      <textarea className={`${field} md:col-span-2`} placeholder="Describe the work and expenditure covered by this milestone" value={draft.note || ""} onChange={(event) => updateDraft("note", event.target.value)} />
       <Labeled label="Usage proof (PDF, JPG or PNG)"><input type="file" accept="image/png,image/jpeg,application/pdf" onChange={(event) => updateDraft("proof", event.target.files?.[0])} /></Labeled>
       <button type="button" disabled={!canSubmit || submittingProgress[grant._id]} onClick={() => submitProgress(grant._id)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{submittingProgress[grant._id] ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{submittingProgress[grant._id] ? "Uploading proof…" : "Submit milestone for review"}</button>
     </div> : null}
@@ -150,11 +152,11 @@ function GrantCard({ grant, role, progress, setProgress, submitProgress, submitt
 }
 
 function Milestone({ item, index, updates, pending, grant, role, queries, setQueries, review }) {
-  const itemError = cumulativeError(grant, Number(item.amountUsed), baselineFrom(updates.slice(0, index)), Number(item.percent));
+  const itemError = milestoneError(grant, Number(item.amountUsed), verifiedTotals(grant, updates.slice(0, index)), Number(item.percent));
   const isFirstPending = pending[0] && String(pending[0]._id) === String(item._id);
   return <div className={`rounded-xl border p-4 ${itemError ? "border-rose-200 bg-rose-50/40" : "border-slate-200"}`}>
-    <div className="flex flex-wrap justify-between gap-2"><b>{item.percent}% cumulative utilisation</b><span className="text-xs font-bold text-slate-500">{item.reviewStatus}</span></div>
-    <p className="mt-1 text-sm">{item.note}</p><p className="mt-1 text-xs text-slate-500">Cumulative usage: {rupees(item.amountUsed)}</p>
+    <div className="flex flex-wrap justify-between gap-2"><b>{item.percent}% milestone</b><span className="text-xs font-bold text-slate-500">{item.reviewStatus}</span></div>
+    <p className="mt-1 text-sm">{item.note}</p><p className="mt-1 text-xs text-slate-500">Milestone amount: {rupees(item.amountUsed)}</p>
     {itemError ? <p className="mt-2 rounded-lg bg-rose-100 p-2 text-xs font-bold text-rose-700">Invalid milestone: {itemError}</p> : null}
     {item.proofUrl ? <a className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-700" href={fileUrl(item.proofUrl)} target="_blank" rel="noreferrer"><FileCheck2 className="h-4 w-4" />View {item.proofName || "proof"}</a> : null}
     {item.adminNote ? <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-800">Admin: {item.adminNote}</p> : null}

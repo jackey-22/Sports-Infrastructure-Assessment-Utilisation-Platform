@@ -76,7 +76,10 @@ async function catalog(req, res) {
   const facility = await managerFacility(req);
   if (!facility) return fail(res, 403, "No facility is assigned to this manager");
   const [sports, coaches, configured] = await Promise.all([
-    Sport.find({ status: "Active" }).sort({ SportName: 1 }).lean(),
+    Sport.find({ status: "Active" })
+      .select("SportName Category baseUrl description status")
+      .sort({ SportName: 1 })
+      .lean(),
     Instructor.find({ SportComplexId: facility, status: "Active" })
       .populate("userId", "Name Email")
       .populate("sports.sport", "SportName")
@@ -97,7 +100,7 @@ async function list(req, res) {
   const facility = await managerFacility(req);
   if (!facility) return fail(res, 403, "No facility is assigned to this manager");
   const data = await FacilitySportConfig.find({ facility })
-    .populate("sport", "SportName Category baseUrl defaultBookingMode unitLabel")
+    .populate("sport", "SportName Category baseUrl")
     .populate("slots.coach", "userId qualification")
     .populate({ path: "slots.coach", populate: { path: "userId", select: "Name Email" } })
     .sort({ createdAt: -1 })

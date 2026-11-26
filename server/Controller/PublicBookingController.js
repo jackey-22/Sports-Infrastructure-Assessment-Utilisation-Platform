@@ -106,7 +106,7 @@ async function listFacilities(req, res) {
     const facilities = await SportsComplex.find({ status: { $ne: "Inactive" } })
       .populate("district", "District")
       .populate("manager", "Name Email ContactNum")
-      .populate("sports.sport", "SportName Category baseUrl description defaultBookingMode unitLabel status")
+      .populate("sports.sport", "SportName Category baseUrl description status")
       .sort({ name: 1 })
       .lean();
     const facilityIds = facilities.map((facility) => facility._id);
@@ -171,8 +171,8 @@ async function listFacilities(req, res) {
               category: entry.sport.Category,
               image: entry.sport.baseUrl || entry.images?.[0] || "",
               description: entry.sport.description || "",
-              type: entry.sport.defaultBookingMode,
-              unitLabel: entry.sport.unitLabel,
+              type: "unconfigured",
+              unitLabel: "",
               units: Number(entry.capacity) || 0,
               capacity: Number(entry.capacity) || 0,
               availability: "Active",

@@ -12,6 +12,7 @@ const Guest = require("../Model/GuestModel");
 const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const { setReminder } = require("../SetReminder");
 const { ROLE } = require("../Utils/roles");
+const { percentForAmount, verifiedGrantTotals, validateMilestoneProgress } = require("../Utils/grantProgress");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const validId = (value) => mongoose.Types.ObjectId.isValid(String(value || ""));
@@ -290,34 +291,6 @@ function orderedProgress(grant, status) {
     .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
 }
 
-function verifiedGrantBaseline(grant, excludeId = null) {
-  return (grant.progressUpdates || []).reduce((baseline, item) => {
-    if (item.reviewStatus !== "Verified" || (excludeId && String(item._id) === String(excludeId))) return baseline;
-    return {
-      percent: Math.max(baseline.percent, Number(item.percent) || 0),
-      amountUsed: Math.max(baseline.amountUsed, Number(item.amountUsed) || 0),
-    };
-  }, { percent: 0, amountUsed: 0 });
-}
-
-function percentForAmount(grant, amountUsed) {
-  return Math.round(((amountUsed / Number(grant.allocatedAmount)) * 100) * 100) / 100;
-}
-
-function validateCumulativeProgress(grant, amountUsed, baseline, submittedPercent = null) {
-  if (!Number.isFinite(amountUsed) || amountUsed <= baseline.amountUsed) {
-    return `Cumulative amount used must be greater than ₹${baseline.amountUsed.toLocaleString("en-IN")}`;
-  }
-  if (amountUsed > Number(grant.allocatedAmount)) {
-    return "Cumulative amount used cannot exceed the grant allocation";
-  }
-  const calculatedPercent = percentForAmount(grant, amountUsed);
-  if (submittedPercent !== null && Math.abs(Number(submittedPercent) - calculatedPercent) > 0.01) {
-    return `The stored percentage must be ${calculatedPercent}% for ₹${amountUsed.toLocaleString("en-IN")} usage`;
-  }
-  return "";
-}
-
 async function submitGrantProgress(req, res) {
   try {
     const grant = await Grant.findById(req.params.id);
@@ -330,8 +303,8 @@ async function submitGrantProgress(req, res) {
     if (orderedProgress(grant, "Pending").length) {
       return fail(res, 409, "A progress submission is already awaiting Admin review");
     }
-    const baseline = verifiedGrantBaseline(grant);
-    const validationError = validateCumulativeProgress(grant, amountUsed, baseline);
+    const verifiedTotal = verifiedGrantTotals(grant);
+    const validationError = validateMilestoneProgress(grant, amountUsed, verifiedTotal);
     if (validationError) return fail(res, 400, validationError);
     const percent = percentForAmount(grant, amountUsed);
 
@@ -380,16 +353,19 @@ async function reviewGrantProgress(req, res) {
       return fail(res, 409, "Review the earlier pending milestone first");
     }
     if (decision === "Verified") {
-      const baseline = verifiedGrantBaseline(grant, progress._id);
-      const validationError = validateCumulativeProgress(grant, Number(progress.amountUsed), baseline, Number(progress.percent));
+      const verifiedTotal = verifiedGrantTotals(grant, progress._id);
+      const validationError = validateMilestoneProgress(grant, Number(progress.amountUsed), verifiedTotal, Number(progress.percent));
       if (validationError) return fail(res, 400, `Cannot verify: ${validationError}`);
     }
     progress.reviewStatus = decision;
     progress.adminNote = String(req.body.note || "");
     progress.reviewedBy = req.user._id;
     progress.reviewedAt = new Date();
+    const verifiedAfterReview = decision === "Verified"
+      ? verifiedGrantTotals(grant, progress._id).amountUsed + Number(progress.amountUsed)
+      : verifiedGrantTotals(grant).amountUsed;
     grant.status = decision === "Verified"
-      ? (Number(progress.percent) === 100 ? "Verified" : "In Progress")
+      ? (verifiedAfterReview >= Number(grant.allocatedAmount) ? "Verified" : "In Progress")
       : "Query Raised";
     await grant.save();
     const managers = await User.find({ Role: ROLE.MANAGER, SportComplexId: grant.facility, IsActive: { $ne: 0 } }).select("_id").lean();

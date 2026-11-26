@@ -11,6 +11,7 @@ const FacilityAssessment = require("../Model/FacilityAssessmentModel");
 const Review = require("../Model/ReviewModel");
 const AthleteRating = require("../Model/athleteRatingModel");
 const { ROLE } = require("../Utils/roles");
+const { verifiedGrantTotals } = require("../Utils/grantProgress");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const monthKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -36,9 +37,8 @@ function grantStats(grants) {
   let allocated = 0; let utilised = 0; let pendingProofs = 0; let queries = 0;
   grants.forEach((grant) => {
     allocated += Number(grant.allocatedAmount) || 0;
-    let verifiedUsage = 0;
+    const verifiedUsage = verifiedGrantTotals(grant).amountUsed;
     (grant.progressUpdates || []).forEach((progress) => {
-      if (progress.reviewStatus === "Verified") verifiedUsage = Math.max(verifiedUsage, Number(progress.amountUsed) || 0);
       if (progress.reviewStatus === "Pending") pendingProofs += 1;
       if (progress.reviewStatus === "Query Raised") queries += 1;
     });
