@@ -66,6 +66,8 @@ export default function PublicNavbar() {
       ? "/coach/dashboard"
       : userData?.Role === 0
       ? "/citizen/dashboard"
+      : userData?.Role === 7
+      ? "/institute"
       : "/login";
 
   useEffect(() => {
@@ -124,6 +126,9 @@ export default function PublicNavbar() {
           </NavLink>
           <NavLink to="/explore" className={navLinkClass}>
             Explore Facilities
+          </NavLink>
+          <NavLink to={userData?.Role === 7 ? "/institute" : "/institution-signup"} className={navLinkClass}>
+            Institution Events
           </NavLink>
 
           <a
@@ -187,6 +192,9 @@ export default function PublicNavbar() {
           </NavLink>
           <NavLink to="/explore" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Explore Facilities
+          </NavLink>
+          <NavLink to={userData?.Role === 7 ? "/institute" : "/institution-signup"} className={navLinkClass} onClick={() => setMobileOpen(false)}>
+            Institution Events
           </NavLink>
           <a
             href={isHome ? "#about" : "/#about"}

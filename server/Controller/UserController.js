@@ -26,7 +26,7 @@ function sanitizeUser(user) {
 }
 
 function isSignupAllowed(actor, requestedRole) {
-  if (requestedRole === ROLE.ATHLETE) return true;
+  if (requestedRole === ROLE.ATHLETE || requestedRole === ROLE.INSTITUTE) return true;
   if (!actor) return false;
   if (actor.Role === ROLE.ADMIN) return true;
   if (actor.Role === ROLE.AUTHORITY) return requestedRole === ROLE.MANAGER;
@@ -47,6 +47,14 @@ function buildUserPayload(body, requestedRole, passwordHash) {
     DistrictId: body.DistrictId,
     SportComplexId: body.SportComplexId,
     Password: passwordHash,
+    ...(requestedRole === ROLE.INSTITUTE ? {
+      institution: {
+        name: String(body.institutionName || "").trim(),
+        type: String(body.institutionType || "Other").trim(),
+        registrationNumber: String(body.registrationNumber || "").trim(),
+        address: String(body.address || "").trim(),
+      },
+    } : {}),
   };
 }
 
@@ -81,9 +89,17 @@ module.exports.signup = async function (req, res) {
         .json({ data: "", msg: "Email already registered", rcode: -9 });
     }
 
-    // Citizens choose their own password; staff accounts receive a generated one.
+    if (requestedRole === ROLE.INSTITUTE && (!body.institutionName || !body.registrationNumber || !body.address)) {
+      return res.status(400).json({
+        data: "",
+        msg: "Institution name, registration number and address are required",
+        rcode: -9,
+      });
+    }
+
+    // Citizens and institutions choose their own password; staff accounts receive a generated one.
     let passwordPlain;
-    if (requestedRole === ROLE.ATHLETE) {
+    if (requestedRole === ROLE.ATHLETE || requestedRole === ROLE.INSTITUTE) {
       if (
         typeof body.Password !== "string" ||
         body.Password.length < MIN_PASSWORD_LENGTH
@@ -128,7 +144,7 @@ module.exports.signup = async function (req, res) {
     let User = new UserModel(userData);
     let data = await User.save();
 
-    if (requestedRole !== ROLE.ATHLETE) {
+    if (requestedRole !== ROLE.ATHLETE && requestedRole !== ROLE.INSTITUTE) {
       sendMail.sendEmail(userData.Email, passwordPlain);
     }
 

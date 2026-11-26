@@ -6,6 +6,7 @@ const SportsComplex = require("../Model/SportsComplexModel");
 const Guest = require("../Model/GuestModel");
 const BookingPayment = require("../Model/BookingPaymentModel");
 const Review = require("../Model/ReviewModel");
+const InstitutionBooking = require("../Model/InstitutionEventBookingModel");
 const { ROLE } = require("../Utils/roles");
 const {
   checkoutKeyId,
@@ -300,14 +301,20 @@ async function availability(req, res) {
     if (!config) return fail(res, 404, "Sport configuration not found");
     const window = bookingWindow();
     const pendingCutoff = new Date(Date.now() - 15 * 60 * 1000);
-    const bookings = await Guest.find({
-      facilitySportConfig: config._id,
-      Startdate: { $gte: window.start, $lte: window.end },
-      $or: [
-        { bookingStatus: "Confirmed" },
-        { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
-      ],
-    }).select("Startdate slotId memberCount reservedUnits").lean();
+    const [bookings, institutionEvents] = await Promise.all([
+      Guest.find({
+        facilitySportConfig: config._id,
+        Startdate: { $gte: window.start, $lte: window.end },
+        $or: [
+          { bookingStatus: "Confirmed" },
+          { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
+        ],
+      }).select("Startdate slotId memberCount reservedUnits").lean(),
+      InstitutionBooking.find({
+        status: "Confirmed",
+        selections: { $elemMatch: { facilitySportConfig: config._id, date: { $gte: window.start, $lte: window.end } } },
+      }).select("selections").lean(),
+    ]);
     const used = new Map();
     bookings.forEach((booking) => {
       const key = `${booking.Startdate}:${booking.slotId}`;
@@ -315,6 +322,16 @@ async function availability(req, res) {
       current.members += Number(booking.memberCount) || 1;
       current.units += Number(booking.reservedUnits) || 1;
       used.set(key, current);
+    });
+    institutionEvents.forEach((event) => {
+      (event.selections || []).forEach((selection) => {
+        if (String(selection.facilitySportConfig) !== String(config._id) || selection.date < window.start || selection.date > window.end) return;
+        const key = `${selection.date}:${selection.slotId}`;
+        const current = used.get(key) || { members: 0, units: 0 };
+        current.members += Number(selection.reservedUnits) || 1;
+        current.units += Number(selection.reservedUnits) || 1;
+        used.set(key, current);
+      });
     });
     const dates = [];
     for (let cursor = new Date(`${window.start}T00:00:00Z`); dateOnly(cursor) <= window.end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
@@ -414,26 +431,35 @@ async function createBooking(req, res) {
     }
 
     const pendingCutoff = new Date(Date.now() - 15 * 60 * 1000);
-    const activeBookings = await Guest.find({
-      facilitySportConfig: config._id,
-      slotId: slot._id,
-      Startdate: date,
-      $or: [
-        { bookingStatus: "Confirmed" },
-        { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
-      ],
-    }).select("memberCount reservedUnits");
+    const [activeBookings, activeInstitutionEvents] = await Promise.all([
+      Guest.find({
+        facilitySportConfig: config._id,
+        slotId: slot._id,
+        Startdate: date,
+        $or: [
+          { bookingStatus: "Confirmed" },
+          { bookingStatus: "Pending Payment", createdAt: { $gte: pendingCutoff } },
+        ],
+      }).select("memberCount reservedUnits"),
+      InstitutionBooking.find({
+        status: "Confirmed",
+        selections: { $elemMatch: { facilitySportConfig: config._id, slotId: slot._id, date } },
+      }).select("selections").lean(),
+    ]);
+    const institutionalSelections = activeInstitutionEvents
+      .flatMap((event) => event.selections || [])
+      .filter((item) => String(item.facilitySportConfig) === String(config._id) && String(item.slotId) === String(slot._id) && item.date === date);
     if (policy.inventoryMode === "exclusive-unit") {
       const reserved = activeBookings.reduce(
         (sum, booking) => sum + (Number(booking.reservedUnits) || 1),
         0
-      );
+      ) + institutionalSelections.reduce((sum, booking) => sum + (Number(booking.reservedUnits) || 1), 0);
       if (reserved >= config.unitCount) return fail(res, 409, "All units are booked for this slot");
     } else {
       const occupied = activeBookings.reduce(
         (sum, booking) => sum + (Number(booking.memberCount) || 1),
         0
-      );
+      ) + institutionalSelections.reduce((sum, booking) => sum + (Number(booking.reservedUnits) || 1), 0);
       if (occupied + memberCount > slot.capacity) {
         return fail(res, 409, "The selected slot does not have enough remaining capacity");
       }

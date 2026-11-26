@@ -22,6 +22,7 @@ export default function ExploreListCard({
   onRate = () => {},
   compact = false,
   cardRef,
+  bookLabel = "Book",
 }) {
   const [favorited, setFavorited] = useState(false);
   const [savedHint, setSavedHint] = useState(false);
@@ -150,7 +151,7 @@ export default function ExploreListCard({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary text-white text-xs font-bold hover:bg-brand-dark transition shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <Ticket className="w-3.5 h-3.5" />
-            {facility.bookingAvailable ? "Book" : "Not configured"}
+            {facility.bookingAvailable ? bookLabel : "Not configured"}
           </button>
         </div>
       </div>

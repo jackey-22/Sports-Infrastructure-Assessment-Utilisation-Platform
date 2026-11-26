@@ -35,6 +35,8 @@ const LoginVerify = async () => {
         return redirect("/coach/dashboard");
       } else if (result.data.Role === 0) {
         return redirect("/citizen/dashboard");
+      } else if (result.data.Role === 7) {
+        return redirect("/institute");
       }
     } else {
       localStorage.removeItem("token");

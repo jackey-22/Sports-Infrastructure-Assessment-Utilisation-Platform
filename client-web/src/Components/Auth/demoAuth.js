@@ -119,6 +119,8 @@ export function homeForRole(role) {
       return "/coach/dashboard";
     case 0:
       return "/citizen/dashboard";
+    case 7:
+      return "/institute";
     default:
       return "/";
   }

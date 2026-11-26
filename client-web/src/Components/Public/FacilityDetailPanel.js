@@ -18,6 +18,7 @@ export default function FacilityDetailPanel({
   onClose = () => {},
   onOpenBooking = () => {},
   onRate = () => {},
+  institutionBooking = false,
 }) {
   if (!facility) return null;
   const { avg, count } = getAverageRating(facility);
@@ -131,7 +132,7 @@ export default function FacilityDetailPanel({
               onClick={() => onOpenBooking(facility)}
               className="w-full py-3 rounded-xl bg-brand-primary text-white text-sm font-bold hover:bg-brand-dark transition flex items-center justify-center gap-2"
             >
-              <Ticket className="w-4 h-4" /> Book slot
+              <Ticket className="w-4 h-4" /> {institutionBooking ? "Plan institution event" : "Book slot"}
             </button>
             <button type="button" onClick={() => onRate(facility)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100"><Star className="h-4 w-4 fill-current" />Rate facility, sport or coach</button>
 

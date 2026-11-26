@@ -10,7 +10,7 @@ const attendance = require("../Controller/BookingAttendanceController");
 const { buildBookingPass } = require("../Utils/bookingPass");
 const { verifyPassword } = require("../Utils/password");
 const { signAccessToken } = require("../Utils/tokens");
-const { authenticate, optionalAuthenticate, gateOperatorAllowed } = require("../Middleware/auth.middleware");
+const { authenticate, optionalAuthenticate, gateOperatorAllowed, instituteAllowed } = require("../Middleware/auth.middleware");
 const { ROLE } = require("../Utils/roles");
 const originals = [];
 function stub(target,key,value) { originals.push([target,key,target[key]]); target[key] = value; }
@@ -38,6 +38,14 @@ test("gate operators are restricted to QR and attendance APIs",()=>{
   assert(gateOperatorAllowed({method:"GET",path:"/api/gate/attendance"},staff));
   assert(gateOperatorAllowed({method:"POST",path:"/api/booking-passes/verify"},staff));
   for(const [method,path] of [["POST","/signup"],["GET","/getuser"],["POST","/api/manager/gate-operators"],["POST","/addSession/123"],["GET","/api/citizen/bookings"]]) assert.equal(gateOperatorAllowed({method,path},staff),false);
+});
+test("institution accounts are restricted to their own event booking APIs",()=>{
+  const institute = { Role: ROLE.INSTITUTE };
+  assert(instituteAllowed({method:"GET",path:"/api/institute/events"},institute));
+  assert(instituteAllowed({method:"POST",path:"/api/institute/events"},institute));
+  assert(instituteAllowed({method:"POST",path:"/api/institute/events/507f1f77bcf86cd799439011/payment-order"},institute));
+  assert(instituteAllowed({method:"POST",path:"/api/institute/events/507f1f77bcf86cd799439011/payment/verify"},institute));
+  for(const [method,path] of [["GET","/getuser"],["GET","/api/grievances"],["POST","/api/public/bookings"],["GET","/api/admin/institution-events"]]) assert.equal(instituteAllowed({method,path},institute),false);
 });
 test("authentication blocks scanner escalation and immediately rejects deactivated staff",async()=>{
   let current={...staff};stub(User,"findById",async()=>current);

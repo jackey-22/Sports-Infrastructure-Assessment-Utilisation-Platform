@@ -55,6 +55,7 @@ const WorkflowController = require("./Controller/WorkflowController");
 const FileUploadController = require("./Controller/FileUploadController");
 const DashboardController = require("./Controller/DashboardController");
 const PerformanceController = require("./Controller/PerformanceController");
+const InstitutionBookingController = require("./Controller/InstitutionBookingController");
 
 const {
   filtersportsforcomplex,
@@ -71,6 +72,9 @@ const { sendPushNotification } = require("./PushNotification");
 const Reminder = require("./Model/Reminder");
 const { setReminder } = require("./SetReminder");
 const app = express();
+// Roles that participate in the existing grievance/evidence workflow. Institution
+// accounts have a deliberately narrow event-booking API surface.
+const SERVICE_ROLES = [ROLE.ATHLETE, ROLE.SUPERVISOR, ROLE.COACH, ROLE.MANAGER, ROLE.AUTHORITY, ROLE.ADMIN, ROLE.GATE_OPERATOR];
 
 // Reverse proxies must be declared explicitly. Leaving this unset keeps the
 // direct socket address as req.ip, which is the safe default.
@@ -901,6 +905,15 @@ app.get("/api/dashboard/admin", requireRole(ROLE.ADMIN), DashboardController.adm
 app.get("/api/dashboard/manager", requireRole(ROLE.MANAGER), DashboardController.manager);
 app.get("/api/dashboard/coach", requireRole(ROLE.COACH), DashboardController.coach);
 
+// Educational institution bulk event booking workflow.
+app.post("/api/institute/events", requireRole(ROLE.INSTITUTE), InstitutionBookingController.create);
+app.get("/api/institute/events", requireRole(ROLE.INSTITUTE), InstitutionBookingController.own);
+app.post("/api/institute/events/:id/payment-order", requireRole(ROLE.INSTITUTE), InstitutionBookingController.paymentOrder);
+app.post("/api/institute/events/:id/payment/verify", requireRole(ROLE.INSTITUTE), InstitutionBookingController.verifyPayment);
+app.get("/api/manager/institution-events", requireRole(ROLE.MANAGER), InstitutionBookingController.managerList);
+app.patch("/api/manager/institution-events/:id/review", requireRole(ROLE.MANAGER), InstitutionBookingController.review);
+app.get("/api/admin/institution-events", requireRole(ROLE.ADMIN), InstitutionBookingController.adminList);
+
 // Sport-specific athlete performance, templates and achievements.
 app.get("/api/admin/evaluation-templates", requireRole(ROLE.ADMIN), PerformanceController.adminTemplates);
 app.post("/api/admin/evaluation-templates", requireRole(ROLE.ADMIN), PerformanceController.createTemplate);
@@ -916,11 +929,11 @@ app.get("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceContr
 app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.listAchievements);
 app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH), PerformanceController.verifyAchievement);
 
-app.get("/api/grievances", requireRole(...Object.values(ROLE)), WorkflowController.grievanceList);
-app.get("/api/grievances/facilities", requireRole(...Object.values(ROLE)), require("./Controller/GrievanceController").facilities);
-app.post("/api/grievances/:id/escalate", requireRole(...Object.values(ROLE)), require("./Controller/GrievanceController").escalateGrievance);
-app.post("/api/grievances", requireRole(...Object.values(ROLE)), WorkflowController.createGrievance);
-app.post("/api/grievances/:id/respond", requireRole(...Object.values(ROLE)), WorkflowController.respondGrievance);
+app.get("/api/grievances", requireRole(...SERVICE_ROLES), WorkflowController.grievanceList);
+app.get("/api/grievances/facilities", requireRole(...SERVICE_ROLES), require("./Controller/GrievanceController").facilities);
+app.post("/api/grievances/:id/escalate", requireRole(...SERVICE_ROLES), require("./Controller/GrievanceController").escalateGrievance);
+app.post("/api/grievances", requireRole(...SERVICE_ROLES), WorkflowController.createGrievance);
+app.post("/api/grievances/:id/respond", requireRole(...SERVICE_ROLES), WorkflowController.respondGrievance);
 
 app.get("/api/citizen/rating-catalog", requireRole(ROLE.ATHLETE), WorkflowController.ratingCatalog);
 app.get("/api/citizen/reviews", requireRole(ROLE.ATHLETE), WorkflowController.citizenReviews);
@@ -953,7 +966,7 @@ app.post(
 );
 app.post(
   "/api/uploads/attachment",
-  requireRole(...Object.values(ROLE)),
+  requireRole(...SERVICE_ROLES),
   FileUploadController.parseAttachment,
   FileUploadController.uploadAttachment
 );

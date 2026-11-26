@@ -7,6 +7,7 @@ const ROLE = Object.freeze({
   AUTHORITY: 4,
   ADMIN: 5,
   GATE_OPERATOR: 6,
+  INSTITUTE: 7,
 });
 
 module.exports = { ROLE };

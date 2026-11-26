@@ -19,6 +19,7 @@ import {
   LogOut,
   FileText,
   ListChecks,
+  School,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
 ];
 
 const OPS_ITEMS = [
+  { to: "/manager/institution-events", label: "Institution Events", icon: School },
   { to: "/manager/gate-operators", label: "Gate Operators", icon: Users },
   { to: "/manager/gate-desk", label: "Gate Desk & Scanner", icon: ShieldCheck },
   { to: "/manager/transactions", label: "Bookings & payments", icon: Building2 },

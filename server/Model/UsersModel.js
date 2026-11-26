@@ -51,6 +51,16 @@ const UserSchema = new mongoose.Schema(
       ref: "sportscomplexes",
     },
     createdBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users" },
+    institution: {
+      name: { type: String, trim: true, default: "" },
+      type: {
+        type: String,
+        enum: ["School", "College / University", "Sports Academy", "Other", ""],
+        default: "",
+      },
+      registrationNumber: { type: String, trim: true, default: "" },
+      address: { type: String, trim: true, default: "" },
+    },
   },
   { timestamps: true }
 );

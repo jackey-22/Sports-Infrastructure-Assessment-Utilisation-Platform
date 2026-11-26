@@ -18,6 +18,7 @@ import FacilityDetailPanel from "./FacilityDetailPanel";
 import CitizenRatingDialog from "../Citizen/Ratings/CitizenRatingDialog";
 import { getPublicFacilities } from "../../services/public/publicFacilityService";
 import { getFacilityType, sortFacilities } from "./exploreUtils";
+import { useSelector } from "react-redux";
 
 const VIEW_OPTIONS = [
   { id: "map", label: "Map", full: "Map view", icon: MapIcon },
@@ -27,6 +28,7 @@ const VIEW_OPTIONS = [
 
 export default function PublicExplore() {
   const navigate = useNavigate();
+  const user = useSelector((state) => state.user?.user);
   const [searchParams] = useSearchParams();
   const listScrollRef = useRef(null);
   const suppressAutoSelectRef = useRef(false);
@@ -58,8 +60,8 @@ export default function PublicExplore() {
       showToast("This facility has not published bookable sports and slots yet.");
       return;
     }
-    navigate(`/book/${facility.id}`);
-  }, [navigate, showToast]);
+    navigate(user?.Role === 7 ? `/institute/new?facilityId=${facility.id}` : `/book/${facility.id}`);
+  }, [navigate, showToast, user?.Role]);
 
   const openRating = useCallback((facility) => {
     if (!window.localStorage.getItem("token")) {
@@ -309,6 +311,7 @@ export default function PublicExplore() {
               onSelect={setActiveFacility}
               onViewDetails={setDetailFacility}
               onBook={openCitizenBooking}
+              bookLabel={user?.Role === 7 ? "Plan event" : "Book"}
               onRate={openRating}
             />
           ))}
@@ -550,6 +553,7 @@ export default function PublicExplore() {
             openCitizenBooking(f);
           }}
           onRate={(f) => { setDetailFacility(null); openRating(f); }}
+          institutionBooking={user?.Role === 7}
         />
       )}
 

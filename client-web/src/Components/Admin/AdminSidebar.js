@@ -12,6 +12,7 @@ import {
   UserRound,
   Wallet,
   ClipboardList,
+  School,
 } from "lucide-react";
 
 const MANAGEMENT = [
@@ -30,6 +31,7 @@ const PLATFORM = [
   },
   { to: "/admin/insights/grievances", label: "Grievances", icon: MessageSquareWarning },
   { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },
+  { to: "/admin/insights/institution-events", label: "Institution events", icon: School },
   { to: "/admin/insights/grants", label: "Grants", icon: Wallet },
   { to: "/admin/insights/assessments", label: "Facility assessments", icon: ClipboardCheck },
 ];

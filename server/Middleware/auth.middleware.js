@@ -50,6 +50,14 @@ function gateOperatorAllowed(req, user) {
   return (req.method === "POST" && ["/api/booking-passes/verify", "/api/gate/attendance"].includes(path)) || (req.method === "GET" && path === "/api/gate/attendance");
 }
 
+function instituteAllowed(req, user) {
+  if (Number(user.Role) !== ROLE.INSTITUTE) return true;
+  const path = req.path.replace(/\/$/, "");
+  if (req.method === "GET" && path === "/api/institute/events") return true;
+  if (req.method === "POST" && path === "/api/institute/events") return true;
+  return req.method === "POST" && /^\/api\/institute\/events\/[a-f0-9]{24}\/(?:payment-order|payment\/verify)$/i.test(path);
+}
+
 async function authenticate(req, res, next) {
   const token = extractToken(req);
   if (!token) return sendUnauthorized(res, MESSAGES.missing);
@@ -58,6 +66,7 @@ async function authenticate(req, res, next) {
     const user = await resolveUser(token);
     if (!user) return sendUnauthorized(res, MESSAGES.inactive);
     if (!gateOperatorAllowed(req, user)) return sendForbidden(res, "Gate operators can only scan passes and record attendance");
+    if (!instituteAllowed(req, user)) return sendForbidden(res, "Institution accounts can only manage their own event bookings");
     req.user = user;
     req.auth = { id: String(user._id), role: Number(user.Role) };
     return next();
@@ -77,6 +86,7 @@ async function optionalAuthenticate(req, res, next) {
     const user = await resolveUser(token);
     if (!user) return sendUnauthorized(res, MESSAGES.inactive);
     if (!gateOperatorAllowed(req, user)) return sendForbidden(res, "Gate operators can only scan passes and record attendance");
+    if (!instituteAllowed(req, user)) return sendForbidden(res, "Institution accounts can only manage their own event bookings");
     req.user = user;
     req.auth = { id: String(user._id), role: Number(user.Role) };
     return next();
@@ -101,6 +111,7 @@ module.exports = {
   ROLE,
   MESSAGES,
   gateOperatorAllowed,
+  instituteAllowed,
   extractToken,
   authenticate,
   optionalAuthenticate,

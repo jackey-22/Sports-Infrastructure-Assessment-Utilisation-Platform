@@ -10,6 +10,7 @@ import Verify from "./Components/Auth/Verify";
 //Login Page (Common for All)
 import Login from "./Pages/Login";
 import CitizenSignup from "./Pages/CitizenSignup";
+import InstitutionSignup from "./Pages/InstitutionSignup";
 import HomeLanding from "./Components/Public/HomeLanding";
 import PublicExplore from "./Components/Public/PublicExplore";
 import CitizenBookingPage from "./Components/Public/CitizenBookingPage";
@@ -76,6 +77,9 @@ import GrantWorkspace from "./Components/Workflow/GrantWorkspace";
 
 import GateOperators from "./Components/Gate/GateOperators";
 import GateScanner from "./Components/Gate/GateScanner";
+import InstitutionLayout from "./Components/Institution/Layout";
+import InstitutionEvents from "./Components/Institution/InstitutionEvents";
+import InstitutionEventManagement from "./Components/Institution/InstitutionEventManagement";
 
 const routes = createBrowserRouter([
   { path: "/gate/grievances", element: <GrievanceWorkspace role="gate" />, loader: () => Verify(6), errorElement: <ErrorPage /> },
@@ -104,6 +108,7 @@ const routes = createBrowserRouter([
     element: <CitizenSignup />,
     errorElement: <ErrorPage />,
   },
+  { path: "/institution-signup", element: <InstitutionSignup />, errorElement: <ErrorPage /> },
   {
     path: "/admin",
     element: <AdminPanel />,
@@ -127,6 +132,7 @@ const routes = createBrowserRouter([
       { path: "grants/allocate", element: <GrantWorkspace role="admin" /> },
       { path: "grants/:grantId", element: <GrantWorkspace role="admin" /> },
       { path: "assessments", element: <AdminAssessmentList /> },
+      { path: "institution-events", element: <InstitutionEventManagement admin /> },
     ],
   },
   {
@@ -252,6 +258,7 @@ const routes = createBrowserRouter([
         element: <ManagerAssessmentDetail />,
         errorElement: <ErrorPage />,
       },
+      { path: "institution-events", element: <InstitutionEventManagement />, errorElement: <ErrorPage /> },
     ],
   },
   {
@@ -313,6 +320,16 @@ const routes = createBrowserRouter([
         element: <AthletePerformance />,
         errorElement: <ErrorPage />,
       },
+    ],
+  },
+  {
+    path: "/institute",
+    element: <InstitutionLayout />,
+    loader: () => Verify(7),
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <InstitutionEvents /> },
+      { path: "new", element: <InstitutionEvents createMode /> },
     ],
   },
 ]);

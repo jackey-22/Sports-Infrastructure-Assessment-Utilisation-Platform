@@ -136,10 +136,10 @@ const Login = () => {
           <div className="w-full md:w-1/2 p-6 sm:p-8 flex flex-col justify-center">
             <h1 className="text-xl font-bold text-brand-dark mb-1">Sign in to KhelGujarat</h1>
             <p className="text-sm text-slate-600 mb-6">
-              Citizens, athletes and authorised staff can use their registered credentials.
+              Citizens, athletes, educational institutions and authorised staff can use their registered credentials.
             </p>
 
-            {searchParams.get("registered") === "1" ? <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Your citizen account was created. Sign in to continue.</p> : null}
+            {searchParams.get("registered") ? <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Your {searchParams.get("registered") === "institute" ? "institution" : "citizen"} account was created. Sign in to continue.</p> : null}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -213,6 +213,7 @@ const Login = () => {
 
             <div className="mt-6 space-y-2 border-t border-slate-200 pt-4 text-center">
               <p className="text-sm text-slate-600">New athlete or citizen? <Link to="/signup" className="font-bold text-brand-primary hover:text-brand-dark">Create an account</Link></p>
+              <p className="text-sm text-slate-600">School, college or academy? <Link to="/institution-signup" className="font-bold text-brand-primary hover:text-brand-dark">Register your institution</Link></p>
               <Link to="/explore" className="block text-sm font-semibold text-brand-primary hover:text-brand-dark">Continue exploring without signing in &rarr;</Link>
             </div>
           </div>
