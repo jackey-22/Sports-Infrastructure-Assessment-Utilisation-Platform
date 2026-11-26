@@ -34,6 +34,8 @@ function AssessmentReport({ assessment, saved = false }) {
   const analysed = assessment.ai?.status === "completed";
   const score = assessmentScore(assessment);
   const summary = analysed ? assessment.ai.overallSummary : assessment.summary;
+  const categories = assessment.ai?.categories || [];
+  const observableCategories = categories.filter((category) => category.observable);
 
   return (
     <View style={styles.card}>
@@ -52,20 +54,25 @@ function AssessmentReport({ assessment, saved = false }) {
       <Text accessibilityRole="header" style={styles.heading}>Summary</Text>
       <Text style={styles.body}>{summary || "No summary recorded."}</Text>
       {analysed && <Text style={styles.scoreLabel}>Maintenance priority: {assessment.ai.priority || "unknown"}</Text>}
-      {!!assessment.ai?.categories?.length && (
+      {!!categories.length && (
         <>
           <Text accessibilityRole="header" style={styles.heading}>Category findings</Text>
-          {assessment.ai.categories.map((category) => (
+          {observableCategories.map((category) => (
             <View key={category.id} style={styles.finding}>
               <View style={styles.recordDetails}>
                 <Text style={styles.scoreLabel}>{category.label}</Text>
-                <Text style={styles.findingSeverity}>{category.observable ? category.severity : "not visible"}</Text>
+                <Text style={styles.findingSeverity}>{category.severity}</Text>
               </View>
               <Text style={styles.body}>{category.condition}</Text>
               {category.defects?.map((defect, index) => <Text key={`${defect.description}-${index}`} style={styles.defect}>• {defect.description}</Text>)}
               {!!category.maintenance && <Text style={styles.success}>Action: {category.maintenance}</Text>}
             </View>
           ))}
+          {observableCategories.length === 0 ? (
+            <Text style={styles.body}>No categories could be assessed from these photos.</Text>
+          ) : observableCategories.length < categories.length ? (
+            <Text style={styles.body}>Other categories could not be assessed from these photos.</Text>
+          ) : null}
         </>
       )}
       {!!assessment.photos?.length && (
