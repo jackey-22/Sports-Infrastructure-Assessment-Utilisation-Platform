@@ -514,11 +514,29 @@ async function computeLeaderboardEntries({ sportId = "", districtId = "" } = {})
   const achFilter = { verificationStatus: "Verified", ...(validId(sportId) ? { sport: sportId } : {}) };
   const legacyFilter = { isEvaluated: 1, ...(validId(sportId) ? { sport: sportId } : {}) };
 
-  const [evaluations, achievements, legacyRatings] = await Promise.all([
+  const [evaluations, achievements, legacyRatings, confirmedBookings] = await Promise.all([
     Evaluation.find(evalFilter).populate("sport", "SportName").sort({ evaluationDate: -1 }).lean(),
     Achievement.find(achFilter).populate("sport", "SportName").lean(),
     AthleteRating.find(legacyFilter).populate("sport", "SportName").lean(),
+    mongoose.connection.readyState === 1 || Object.hasOwn(Guest, "find")
+      ? Guest.find({ bookingStatus: "Confirmed", citizenUser: { $ne: null } })
+          .populate({
+            path: "SportComplexId",
+            select: "name location district",
+            populate: { path: "district", select: "District" },
+          })
+          .sort({ Startdate: -1, createdAt: -1 })
+          .lean()
+      : Promise.resolve([]),
   ]);
+
+  const fallbackComplexByUser = new Map();
+  for (const bk of confirmedBookings || []) {
+    const uid = bk.citizenUser ? String(bk.citizenUser) : "";
+    if (uid && bk.SportComplexId && !fallbackComplexByUser.has(uid)) {
+      fallbackComplexByUser.set(uid, bk.SportComplexId);
+    }
+  }
 
   const evalsByAthlete = new Map();
   for (const ev of evaluations) {
@@ -545,7 +563,7 @@ async function computeLeaderboardEntries({ sportId = "", districtId = "" } = {})
   for (const athlete of athletes) {
     if (!athlete.userId) continue;
     const aid = String(athlete._id);
-    const complex = athlete.SportComplexId;
+    const complex = athlete.SportComplexId || fallbackComplexByUser.get(String(athlete.userId._id)) || null;
     const distId = complex?.district?._id ? String(complex.district._id) : "";
     const distName = complex?.district?.District || "";
 
@@ -555,7 +573,8 @@ async function computeLeaderboardEntries({ sportId = "", districtId = "" } = {})
     const achs = achsByAthlete.get(aid) || [];
     const leg = legacyByAthlete.get(aid) || [];
 
-    if (validId(sportId) && !evals.length && !achs.length && !leg.length) continue;
+    // Only rank athletes who have recorded evaluations, verified achievements, or ratings
+    if (!evals.length && !achs.length && !leg.length) continue;
 
     const avgEvalScore = evals.length
       ? Math.round((evals.reduce((s, e) => s + Number(e.totalScore || 0), 0) / evals.length) * 10) / 10
@@ -754,11 +773,23 @@ async function buildAthletePortfolio(athlete, userDoc) {
       .populate("verifiedBy", "Name")
       .sort({ achievementDate: -1, createdAt: -1 })
       .lean(),
-    uid ? Guest.find({ citizenUser: uid, bookingStatus: "Confirmed" }).select("attended attendedAt checkInStatus sport").lean() : [],
+    uid
+      ? Guest.find({ citizenUser: uid, bookingStatus: "Confirmed" })
+          .select("attended attendedAt checkInStatus sport SportComplexId Startdate")
+          .populate({
+            path: "SportComplexId",
+            select: "name location district",
+            populate: { path: "district", select: "District" },
+          })
+          .sort({ Startdate: -1, createdAt: -1 })
+          .lean()
+      : [],
     computeLeaderboardEntries({}),
   ]);
 
   const rankRow = ranked.find((r) => r.athleteId === aid) || null;
+  const fallbackBookingComplex = (bookings || []).find((b) => b.SportComplexId)?.SportComplexId || null;
+  const effectiveComplex = athlete.SportComplexId || fallbackBookingComplex;
 
   // Build per-sport performance summaries
   const sportMap = new Map();
@@ -840,9 +871,9 @@ async function buildAthletePortfolio(athlete, userDoc) {
     },
     athlete: {
       id: aid,
-      complexName: athlete.SportComplexId?.name || "Independent / Unassigned",
-      complexLocation: athlete.SportComplexId?.location || "",
-      districtName: athlete.SportComplexId?.district?.District || "",
+      complexName: effectiveComplex?.name || "Unassigned",
+      complexLocation: effectiveComplex?.location || "",
+      districtName: effectiveComplex?.district?.District || rankRow?.districtName || "",
       bloodGroup: athlete.bloodGroup || "",
       height: athlete.height || "",
       weight: athlete.weight || "",

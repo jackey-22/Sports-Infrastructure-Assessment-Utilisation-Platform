@@ -43,6 +43,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState("home");
   const [targetAthlete, setTargetAthlete] = useState(null);
   const [achievementTarget, setAchievementTarget] = useState(null);
+  const [coachRefreshKey, setCoachRefreshKey] = useState(0);
   const [targetFacility, setTargetFacility] = useState(null);
   const [bookingFacility, setBookingFacility] = useState(null);
 
@@ -136,6 +137,10 @@ export const RoleNavigator = ({ user, onLogout }) => {
         <RateAthleteScreen
           athlete={targetAthlete}
           onBack={() => setTargetAthlete(null)}
+          onSaved={() => {
+            setTargetAthlete(null);
+            setCoachRefreshKey((k) => k + 1);
+          }}
         />
       );
     }
@@ -209,7 +214,16 @@ export const RoleNavigator = ({ user, onLogout }) => {
         return <AchievementsScreen role="coach" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
       }
       if (activeTab === "rate") {
-        return <RateAthleteScreen athlete={null} onBack={() => setActiveTab("home")} />;
+        return (
+          <RateAthleteScreen
+            athlete={null}
+            onBack={() => setActiveTab("home")}
+            onSaved={() => {
+              setCoachRefreshKey((k) => k + 1);
+              setActiveTab("home");
+            }}
+          />
+        );
       }
       if (activeTab === "explore") {
         return <GujaratExploreMapScreen onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;
@@ -219,6 +233,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       }
       return (
         <CoachDashboardScreen
+          key={coachRefreshKey}
           user={user}
           onLogout={onLogout}
           onRateAthlete={(ath) => setTargetAthlete(ath)}
