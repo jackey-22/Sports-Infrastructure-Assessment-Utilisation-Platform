@@ -980,6 +980,7 @@ app.get("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.adminGr
 app.post("/api/admin/grants", requireRole(ROLE.ADMIN), WorkflowController.createGrant);
 app.get("/api/manager/grants", requireRole(ROLE.MANAGER), WorkflowController.managerGrants);
 app.post("/api/manager/grants/:id/progress", requireRole(ROLE.MANAGER), WorkflowController.submitGrantProgress);
+app.post("/api/admin/grants/:id/progress/:progressId/scan", requireRole(ROLE.ADMIN), WorkflowController.scanGrantProgress);
 app.patch("/api/admin/grants/:id/progress/:progressId", requireRole(ROLE.ADMIN), WorkflowController.reviewGrantProgress);
 
 app.get(

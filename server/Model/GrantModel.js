@@ -1,5 +1,29 @@
 const mongoose = require("mongoose");
 
+const proofExtractionSchema = new mongoose.Schema({
+  status: {
+    type: String,
+    enum: ["Pending", "Completed", "Failed", "Unsupported", "Not Configured"],
+    default: "Pending",
+  },
+  provider: String,
+  model: String,
+  scannedAt: Date,
+  documentType: String,
+  vendorName: String,
+  invoiceNumber: String,
+  documentDate: String,
+  currency: { type: String, default: "INR" },
+  subtotal: Number,
+  taxAmount: Number,
+  totalAmount: Number,
+  paymentReference: String,
+  summary: String,
+  confidence: { type: Number, min: 0, max: 1 },
+  warnings: [{ type: String }],
+  error: String,
+}, { _id: false });
+
 const progressSchema = new mongoose.Schema({
   percent: { type: Number, min: 0, max: 100, required: true },
   amountUsed: { type: Number, min: 0, default: 0 },
@@ -9,6 +33,7 @@ const progressSchema = new mongoose.Schema({
   proofKey: String,
   proofSize: Number,
   proofMimeType: String,
+  proofExtraction: proofExtractionSchema,
   submittedBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users", required: true },
   submittedAt: { type: Date, default: Date.now },
   reviewStatus: { type: String, enum: ["Pending", "Verified", "Query Raised"], default: "Pending" },

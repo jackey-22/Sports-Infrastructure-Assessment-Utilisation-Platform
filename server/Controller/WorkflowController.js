@@ -14,6 +14,7 @@ const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const { setReminder } = require("../SetReminder");
 const { ROLE } = require("../Utils/roles");
 const { percentForAmount, verifiedGrantTotals, validateMilestoneProgress } = require("../Utils/grantProgress");
+const { extractGrantProof } = require("../Services/grantProofExtraction");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const validId = (value) => mongoose.Types.ObjectId.isValid(String(value || ""));
@@ -365,6 +366,42 @@ function orderedProgress(grant, status) {
     .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
 }
 
+function failedProofExtraction(error) {
+  const status = error?.code === "NOT_CONFIGURED"
+    ? "Not Configured"
+    : error?.code === "UNSUPPORTED"
+      ? "Unsupported"
+      : "Failed";
+  return {
+    status,
+    scannedAt: new Date(),
+    error: String(error?.message || "The proof could not be scanned.").slice(0, 300),
+    warnings: [],
+  };
+}
+
+async function scanStoredGrantProof(grantId, progressId) {
+  const grant = await Grant.findById(grantId);
+  const progress = grant?.progressUpdates.id(progressId);
+  if (!grant || !progress || !progress.proofUrl) return null;
+  let extraction;
+  try {
+    extraction = await extractGrantProof({
+      url: progress.proofUrl,
+      mimeType: progress.proofMimeType,
+      size: progress.proofSize,
+      name: progress.proofName,
+    }, progress.amountUsed);
+  } catch (error) {
+    extraction = failedProofExtraction(error);
+  }
+  await Grant.updateOne(
+    { _id: grantId, "progressUpdates._id": progressId },
+    { $set: { "progressUpdates.$.proofExtraction": extraction } }
+  );
+  return extraction;
+}
+
 async function submitGrantProgress(req, res) {
   try {
     const grant = await Grant.findById(req.params.id);
@@ -388,6 +425,7 @@ async function submitGrantProgress(req, res) {
     const proofSize = Math.max(0, Number(req.body.proofSize) || 0);
     const proofMimeType = String(req.body.proofMimeType || "").trim().slice(0, 120);
     const queried = orderedProgress(grant, "Query Raised").at(-1);
+    let progressId;
     if (queried) {
       queried.percent = percent;
       queried.amountUsed = amountUsed;
@@ -403,15 +441,44 @@ async function submitGrantProgress(req, res) {
       queried.adminNote = "";
       queried.reviewedBy = undefined;
       queried.reviewedAt = undefined;
+      queried.proofExtraction = { status: "Pending", warnings: [] };
+      progressId = queried._id;
     } else {
-      grant.progressUpdates.push({ percent, amountUsed, note, proofUrl, proofName, proofKey, proofSize, proofMimeType, submittedBy: req.user._id });
+      grant.progressUpdates.push({
+        percent, amountUsed, note, proofUrl, proofName, proofKey, proofSize, proofMimeType,
+        proofExtraction: { status: "Pending", warnings: [] },
+        submittedBy: req.user._id,
+      });
+      progressId = grant.progressUpdates.at(-1)._id;
     }
     grant.status = "Proof Submitted";
     await grant.save();
+    try {
+      await scanStoredGrantProof(grant._id, progressId);
+    } catch (scanError) {
+      console.error("Grant proof scan could not be saved:", scanError.message);
+    }
     const admins = await User.find({ Role: ROLE.ADMIN, IsActive: { $ne: 0 } }).select("_id").lean();
     if (admins.length) await setReminder(new Date(), grant.title, "Grant progress submitted", admins.map((item) => item._id));
-    return res.status(201).json({ data: grant, msg: "Progress submitted", rcode: 200 });
+    return res.status(201).json({
+      data: await populateGrant(Grant.findById(grant._id)),
+      msg: "Progress submitted; proof scan processed",
+      rcode: 200,
+    });
   } catch (error) { return fail(res, 500, "Could not submit progress"); }
+}
+
+async function scanGrantProgress(req, res) {
+  try {
+    const grant = await Grant.findById(req.params.id);
+    const progress = grant?.progressUpdates.id(req.params.progressId);
+    if (!grant || !progress) return fail(res, 404, "Grant progress not found");
+    if (!progress.proofUrl) return fail(res, 400, "This milestone has no proof to scan");
+    progress.proofExtraction = { status: "Pending", warnings: [] };
+    await grant.save();
+    const extraction = await scanStoredGrantProof(grant._id, progress._id);
+    return res.json({ data: extraction, msg: "Proof scan completed", rcode: 200 });
+  } catch (error) { return fail(res, 500, "Could not scan the proof"); }
 }
 async function reviewGrantProgress(req, res) {
   try {
@@ -451,5 +518,5 @@ async function reviewGrantProgress(req, res) {
 module.exports = {
   escalateOverdueComplaints, grievanceList, createGrievance, respondGrievance,
   ratingCatalog, saveCitizenReview, citizenReviews, coachRateableAthletes, saveCoachRating, coachRatingHistory,
-  adminGrants, createGrant, managerGrants, submitGrantProgress, reviewGrantProgress,
+  adminGrants, createGrant, managerGrants, submitGrantProgress, scanGrantProgress, reviewGrantProgress,
 };
