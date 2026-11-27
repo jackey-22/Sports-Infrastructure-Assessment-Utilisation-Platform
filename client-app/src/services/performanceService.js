@@ -74,4 +74,12 @@ export const performanceService = {
     const result = await api.del(`/api/athlete/goals/${encodeURIComponent(goalId)}`);
     return result.data;
   },
+  async coachGoals() {
+    const result = await api.get("/api/coach/goals");
+    return result.data || { athletes: [], goals: [], summary: { total: 0, active: 0, completed: 0, overdue: 0 } };
+  },
+  async coachAssignGoal(athleteId, payload) {
+    const result = await api.post(`/api/coach/athletes/${encodeURIComponent(athleteId)}/goals`, payload);
+    return result.data;
+  },
 };

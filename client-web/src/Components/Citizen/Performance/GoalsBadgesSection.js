@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Award,
   CheckCircle2,
@@ -6,34 +6,38 @@ import {
   Flame,
   Lock,
   Plus,
-  Sparkles,
   Target,
   Trash2,
   X,
 } from "lucide-react";
 import { api } from "../../../API/client";
-import { Button, Card, EmptyState, Field, inputClass, selectClass } from "../Common/CitizenUI";
-
-const TIER_STYLES = {
-  bronze: "border-amber-300/80 bg-amber-50/70 text-amber-900",
-  silver: "border-slate-300 bg-slate-100/80 text-slate-800",
-  gold: "border-yellow-300 bg-yellow-50/80 text-yellow-900",
-  platinum: "border-cyan-300 bg-cyan-50/80 text-cyan-900",
-  diamond: "border-indigo-300 bg-indigo-50/80 text-indigo-900",
-  crown: "border-purple-300 bg-purple-50/80 text-purple-900",
-};
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  KpiCard,
+  SectionHeader,
+  inputClass,
+  selectClass,
+} from "../Common/CitizenUI";
 
 const GOAL_TYPES = [
-  { value: "attendance", label: "Attendance (facility check-ins)", defaultTarget: 10, unit: "sessions" },
-  { value: "skill_score", label: "Evaluation Score (out of 100)", defaultTarget: 85, unit: "score" },
-  { value: "custom", label: "Custom Training Milestone", defaultTarget: 1, unit: "milestone" },
+  { value: "attendance", label: "Attendance (facility check-ins)", defaultTarget: 10 },
+  { value: "skill_score", label: "Evaluation Score (out of 100)", defaultTarget: 85 },
+  { value: "custom", label: "Custom Training Milestone", defaultTarget: 1 },
 ];
 
-export default function GoalsBadgesSection({ sports = [], onNotify }) {
+export default function GoalsBadgesSection({
+  sports = [],
+  onNotify,
+  showForm = false,
+  setShowForm,
+}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState({
     title: "",
     sportId: "",
@@ -73,7 +77,7 @@ export default function GoalsBadgesSection({ sports = [], onNotify }) {
         targetdate: "",
         description: "",
       });
-      setShowForm(false);
+      if (setShowForm) setShowForm(false);
       if (onNotify) onNotify("Goal added and progress synced.");
     } catch (err) {
       if (onNotify) onNotify(err.message);
@@ -86,7 +90,7 @@ export default function GoalsBadgesSection({ sports = [], onNotify }) {
     try {
       const res = await api.patch(`/api/athlete/goals/${goalId}`, { achieved: "1" });
       setData(res.data);
-      if (onNotify) onNotify("Goal marked as completed! Badges updated.");
+      if (onNotify) onNotify("Goal marked as completed. Badges updated.");
     } catch (err) {
       if (onNotify) onNotify(err.message);
     }
@@ -96,88 +100,72 @@ export default function GoalsBadgesSection({ sports = [], onNotify }) {
     try {
       const res = await api.del(`/api/athlete/goals/${goalId}`);
       setData(res.data);
+      if (onNotify) onNotify("Goal removed.");
     } catch (err) {
       if (onNotify) onNotify(err.message);
     }
   };
 
-  const goals = data?.goals || [];
+  const goals = useMemo(() => data?.goals || [], [data?.goals]);
   const badgeCatalog = data?.badgeCatalog || [];
   const xpPoints = data?.xpPoints || 0;
   const rank = data?.rank;
-  const nextMin = rank?.next?.minPoints || null;
-  const curMin = rank?.current?.minPoints || 0;
-  const rankPct = nextMin
-    ? Math.min(100, Math.round(((xpPoints - curMin) / Math.max(1, nextMin - curMin)) * 100))
-    : 100;
+  const completedCount = goals.filter((g) => g.status === "Completed").length;
+  const unlockedCount = badgeCatalog.filter((b) => b.unlocked).length;
+
+  const filteredGoals = useMemo(() => {
+    if (statusFilter === "all") return goals;
+    return goals.filter((g) => String(g.status || "").toLowerCase() === statusFilter);
+  }, [goals, statusFilter]);
 
   return (
-    <div className="mb-8 space-y-5">
-      {/* Section Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Target className="h-6 w-6 text-emerald-700" />
-            <h2 className="text-xl font-extrabold text-slate-900">Goals &amp; Badges</h2>
-          </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Set sport-wise attendance, skill score, or milestone targets — auto-tracked from check-ins and evaluations to unlock badges.
-          </p>
-        </div>
-        <Button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className={showForm ? "bg-slate-200 text-slate-700 hover:bg-slate-300 shadow-none border-0" : ""}
-        >
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm ? "Close Form" : "Set Goal"}
-        </Button>
+    <div className="space-y-5">
+      {/* KPI Overview Strip */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Rank Tier"
+          value={rank?.current?.name || "Bronze Athlete"}
+          caption={rank?.current?.description || "KhelGujarat athlete rank"}
+          icon={Crown}
+          tone="amber"
+        />
+        <KpiCard
+          label="Total XP"
+          value={`${xpPoints} XP`}
+          caption={
+            rank?.next
+              ? `${Math.max(0, rank.next.minPoints - xpPoints)} XP to ${rank.next.name}`
+              : "Maximum rank reached"
+          }
+          icon={Flame}
+          tone="green"
+        />
+        <KpiCard
+          label="Goals Completed"
+          value={`${completedCount} / ${goals.length}`}
+          caption={goals.length ? `${goals.filter((g) => g.status === "Active").length} active` : "No goals yet"}
+          icon={Target}
+          tone="slate"
+        />
+        <KpiCard
+          label="Milestone Badges"
+          value={`${unlockedCount} / ${badgeCatalog.length}`}
+          caption="Unlocked across goals & awards"
+          icon={Award}
+          tone="violet"
+        />
       </div>
-
-      {/* Rank Tier & XP Card */}
-      {rank ? (
-        <Card className={`border p-5 ${TIER_STYLES[rank.current?.key] || TIER_STYLES.bronze}`}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
-                <Crown className="h-6 w-6 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-wider opacity-75">
-                  Current Rank Tier
-                </p>
-                <h3 className="text-lg font-extrabold">{rank.current?.name}</h3>
-                <p className="text-xs opacity-80">{rank.current?.description}</p>
-              </div>
-            </div>
-            <div className="min-w-[200px] text-right">
-              <p className="flex items-center justify-end gap-1 text-2xl font-extrabold tabular-nums">
-                <Flame className="h-5 w-5 text-amber-500" /> {xpPoints} XP
-              </p>
-              {rank.next ? (
-                <p className="text-xs font-semibold opacity-80">
-                  {Math.max(0, rank.next.minPoints - xpPoints)} XP to {rank.next.name}
-                </p>
-              ) : (
-                <p className="text-xs font-semibold opacity-80">Maximum rank achieved</p>
-              )}
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/70">
-                <div
-                  className="h-full rounded-full bg-emerald-600 transition-all"
-                  style={{ width: `${rankPct}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-      ) : null}
 
       {/* Create Goal Form */}
       {showForm ? (
-        <Card className="border-2 border-emerald-500/20 p-5 shadow-md">
-          <div className="mb-4 flex items-center justify-between">
+        <Card className="border-2 border-emerald-600/20 p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-extrabold text-slate-900">Create a training goal</h3>
-            <button type="button" onClick={() => setShowForm(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowForm && setShowForm(false)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -257,151 +245,191 @@ export default function GoalsBadgesSection({ sports = [], onNotify }) {
         </Card>
       ) : null}
 
-      {/* Goals + Badges 2-column layout */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-extrabold text-slate-900">Your Goals</h3>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-              {goals.filter((g) => g.status === "Completed").length} / {goals.length} completed
-            </span>
-          </div>
-          {loading && !data ? (
-            <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
-          ) : goals.length ? (
-            <div className="space-y-3">
-              {goals.map((g) => {
-                const target = Math.max(1, Number(g.targetValue) || 1);
-                const current = Number(g.currentValue) || 0;
-                const pct = Math.min(100, Math.round((current / target) * 100));
-                const done = g.status === "Completed";
-                const overdue = g.status === "Overdue";
-                return (
-                  <div
-                    key={g._id}
-                    className={`rounded-2xl border p-4 ${
-                      done
-                        ? "border-emerald-200 bg-emerald-50/40"
-                        : overdue
-                        ? "border-rose-200 bg-rose-50/40"
-                        : "border-slate-200 bg-white"
+      {/* Main Content Grid */}
+      <div className="grid gap-5 lg:grid-cols-12">
+        {/* Goals List */}
+        <Card className="lg:col-span-7">
+          <SectionHeader
+            title="Training Goals"
+            description="Auto-tracked from gate check-ins and coach evaluations."
+            action={
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "active", label: "Active" },
+                  { id: "completed", label: "Completed" },
+                  { id: "overdue", label: "Overdue" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+                      statusFilter === tab.id
+                        ? "bg-brand-primary text-white shadow-2xs"
+                        : "text-slate-600 hover:bg-slate-200/70"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {g.sport?.SportName ? (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200/70">
-                              {g.sport.SportName}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            }
+          />
+          <div className="p-5">
+            {loading && !data ? (
+              <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />
+            ) : filteredGoals.length ? (
+              <div className="space-y-3">
+                {filteredGoals.map((g) => {
+                  const target = Math.max(1, Number(g.targetValue) || 1);
+                  const current = Number(g.currentValue) || 0;
+                  const pct = Math.min(100, Math.round((current / target) * 100));
+                  const done = g.status === "Completed";
+                  const overdue = g.status === "Overdue";
+                  return (
+                    <div
+                      key={g._id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {g.sport?.SportName ? (
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                                {g.sport.SportName}
+                              </span>
+                            ) : null}
+                            {g.assignedByRole === "coach" ? (
+                              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
+                                Coach Assigned
+                              </span>
+                            ) : null}
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
+                                done
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : overdue
+                                  ? "bg-rose-100 text-rose-700"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {g.status}
                             </span>
+                          </div>
+                          <h4 className="mt-2 font-bold text-slate-900">{g.title}</h4>
+                          {g.description ? (
+                            <p className="mt-0.5 text-xs text-slate-500">{g.description}</p>
                           ) : null}
-                          {g.assignedByRole === "coach" ? (
-                            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200/70">
-                              Coach Assigned
-                            </span>
-                          ) : null}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-                              done
-                                ? "bg-emerald-100 text-emerald-800"
-                                : overdue
-                                ? "bg-rose-100 text-rose-700"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {g.status}
-                          </span>
                         </div>
-                        <h4 className="mt-1.5 font-bold text-slate-900">{g.title}</h4>
-                        {g.description ? <p className="mt-0.5 text-xs text-slate-500">{g.description}</p> : null}
+                        {g.assignedByRole !== "coach" ? (
+                          <button
+                            type="button"
+                            onClick={() => deleteGoal(g._id)}
+                            title="Remove goal"
+                            className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : null}
                       </div>
-                      {g.assignedByRole !== "coach" ? (
-                        <button
-                          type="button"
-                          onClick={() => deleteGoal(g._id)}
-                          title="Remove goal"
-                          className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs font-semibold text-slate-600">
+
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs font-semibold text-slate-600">
+                          <span className="tabular-nums">
+                            {current} / {target} {g.unit || ""}
+                          </span>
+                          <span className="font-bold text-slate-800 tabular-nums">{pct}%</span>
+                        </div>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              done ? "bg-emerald-600" : overdue ? "bg-rose-500" : "bg-brand-primary"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500">
                         <span>
-                          {current} / {target} {g.unit || ""}
+                          {g.targetdate
+                            ? `Due ${new Date(g.targetdate).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}`
+                            : "No deadline"}
                         </span>
-                        <span>{pct}%</span>
-                      </div>
-                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className={`h-full rounded-full ${done ? "bg-emerald-600" : overdue ? "bg-rose-500" : "bg-brand-primary"}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                        {!done && g.goalType === "custom" ? (
+                          <button
+                            type="button"
+                            onClick={() => markComplete(g._id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-dark"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Mark Complete
+                          </button>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>
-                        {g.targetdate ? `Due ${new Date(g.targetdate).toLocaleDateString("en-IN")}` : "No deadline"}
-                      </span>
-                      {!done && g.goalType === "custom" ? (
-                        <button
-                          type="button"
-                          onClick={() => markComplete(g._id)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-800"
-                        >
-                          <CheckCircle2 className="h-3 w-3" /> Mark Complete
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              title="No goals set yet"
-              description="Click '+ Set Goal' above to start tracking your sessions, evaluation score, or training milestones."
-            />
-          )}
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                title={statusFilter === "all" ? "No goals set yet" : `No ${statusFilter} goals`}
+                description="Use '+ Set Goal' in the top right to start tracking sessions, scores, or training milestones."
+              />
+            )}
+          </div>
         </Card>
 
-        <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-500" />
-              <h3 className="font-extrabold text-slate-900">Milestone Badges</h3>
-            </div>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-              {badgeCatalog.filter((b) => b.unlocked).length} / {badgeCatalog.length} unlocked
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+        {/* Milestone Badges */}
+        <Card className="lg:col-span-5">
+          <SectionHeader
+            title="Milestone Badges"
+            description={`${unlockedCount} of ${badgeCatalog.length} badges unlocked`}
+          />
+          <div className="divide-y divide-slate-100">
             {badgeCatalog.map((b) => (
               <div
                 key={b.badgeKey}
-                className={`rounded-2xl border p-3.5 transition ${
-                  b.unlocked
-                    ? TIER_STYLES[b.tier] || TIER_STYLES.bronze
-                    : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-80"
+                className={`flex items-start justify-between gap-3 px-5 py-3.5 ${
+                  b.unlocked ? "bg-white" : "bg-slate-50/50"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {b.unlocked ? (
-                      <Award className="h-5 w-5 shrink-0 text-amber-600" />
-                    ) : (
-                      <Lock className="h-4 w-4 shrink-0 text-slate-400" />
-                    )}
-                    <span className="text-xs font-extrabold">{b.name}</span>
+                <div className="flex items-start gap-3 min-w-0">
+                  <div
+                    className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                      b.unlocked
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-white text-slate-400"
+                    }`}
+                  >
+                    {b.unlocked ? <Award className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                   </div>
-                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-extrabold">
-                    +{b.points} XP
-                  </span>
+                  <div className="min-w-0">
+                    <p
+                      className={`text-sm font-bold ${
+                        b.unlocked ? "text-slate-900" : "text-slate-500"
+                      }`}
+                    >
+                      {b.name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {b.unlocked ? b.description : b.hint}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1.5 text-[11px] leading-snug">
-                  {b.unlocked ? b.description : b.hint}
-                </p>
+                <span
+                  className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
+                    b.unlocked
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  +{b.points} XP
+                </span>
               </div>
             ))}
           </div>

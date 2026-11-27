@@ -18,6 +18,7 @@ import GateOperatorsScreen from "../screens/Manager/GateOperatorsScreen";
 
 // Coach Screens
 import CoachDashboardScreen from "../screens/Coach/CoachDashboardScreen";
+import CoachGoalsScreen from "../screens/Coach/CoachGoalsScreen";
 import RateAthleteScreen from "../screens/Coach/RateAthleteScreen";
 
 // Manager Screens
@@ -69,6 +70,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       case 2: // Coach
         return [
           { key: "home", label: "Dashboard", icon: "speedometer-outline" },
+          { key: "goals", label: "Goals", icon: "flag-outline" },
           { key: "achievements", label: "Awards", icon: "trophy-outline" },
           { key: "complaints", label: "Grievances", icon: "warning-outline" },
         ];
@@ -189,6 +191,9 @@ export const RoleNavigator = ({ user, onLogout }) => {
 
     // Role 2: Coach / Instructor
     if (role === 2) {
+      if (activeTab === "goals") {
+        return <CoachGoalsScreen onBack={() => setActiveTab("home")} />;
+      }
       if (activeTab === "achievements") {
         return <AchievementsScreen role="coach" onBack={() => setActiveTab("home")} onLogout={onLogout} />;
       }

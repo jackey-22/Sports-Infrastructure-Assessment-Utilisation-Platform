@@ -130,6 +130,89 @@ async function athleteDelete(req, res) {
   }
 }
 
+/** GET /api/coach/goals — all goals for athletes in this coach's scope */
+async function coachAllGoals(req, res) {
+  try {
+    const coach = await Instructor.findOne({ userId: req.user._id })
+      .populate("sports.sport", "SportName")
+      .lean();
+    if (!coach || !coach.SportComplexId) {
+      return res.json({ data: { athletes: [], goals: [], summary: { total: 0, active: 0, completed: 0, overdue: 0 } }, rcode: 200 });
+    }
+    const coachSports = (coach.sports || [])
+      .map((s) => ({ id: String(s.sport?._id || s.sport), name: s.sport?.SportName || "Sport" }))
+      .filter((s) => s.id);
+    const coachSportIds = coachSports.map((s) => s.id);
+
+    const [complexAthletes, guestUsers] = await Promise.all([
+      Athlete.find({ SportComplexId: coach.SportComplexId }).populate("userId", "Name Email").lean(),
+      Guest.find({
+        coach: coach._id,
+        SportComplexId: coach.SportComplexId,
+        bookingStatus: "Confirmed",
+        paymentStatus: "Paid",
+      }).distinct("citizenUser"),
+    ]);
+
+    const unlinkedAthletes = guestUsers.length
+      ? await Athlete.find({ userId: { $in: guestUsers }, SportComplexId: null }).populate("userId", "Name Email").lean()
+      : [];
+
+    const byId = new Map();
+    [...complexAthletes, ...unlinkedAthletes].forEach((a) => byId.set(String(a._id), a));
+    const scopedAthletes = [...byId.values()];
+
+    const goals = [];
+    const athletesList = [];
+
+    for (const ath of scopedAthletes) {
+      const synced = await syncAthleteGoalsAndBadges(ath._id);
+      const athName = ath.userId?.Name || "Athlete";
+      athletesList.push({
+        id: String(ath._id),
+        name: athName,
+        email: ath.userId?.Email || "",
+        xpPoints: synced?.xpPoints || 0,
+        rank: synced?.rank?.current?.name || "Bronze Athlete",
+        sports: coachSports,
+      });
+      (synced?.goals || []).forEach((g) => {
+        const gSportId = g.sport ? String(g.sport?._id || g.sport) : "";
+        if (gSportId && coachSportIds.length && !coachSportIds.includes(gSportId)) return;
+        goals.push({
+          _id: String(g._id),
+          athleteId: String(ath._id),
+          athleteName: athName,
+          sportId: gSportId,
+          sportName: g.sport?.SportName || "All sports",
+          title: g.title,
+          description: g.description || "",
+          goalType: g.goalType || "custom",
+          targetValue: g.targetValue || 1,
+          currentValue: g.currentValue || 0,
+          unit: g.unit || "",
+          status: g.status || "Active",
+          assignedByRole: g.assignedByRole || "athlete",
+          targetdate: g.targetdate || null,
+          startdate: g.startdate || null,
+        });
+      });
+    }
+
+    const summary = {
+      total: goals.length,
+      active: goals.filter((g) => g.status === "Active").length,
+      completed: goals.filter((g) => g.status === "Completed").length,
+      overdue: goals.filter((g) => g.status === "Overdue").length,
+    };
+
+    return res.json({ data: { athletes: athletesList, goals, summary }, rcode: 200 });
+  } catch (error) {
+    console.error("coachAllGoals error:", error);
+    return fail(res, 500, "Could not load coach goals");
+  }
+}
+
 /** GET /api/coach/athletes/:athleteId/goals */
 async function coachListGoals(req, res) {
   try {
@@ -189,6 +272,7 @@ module.exports = {
   athleteCreate,
   athleteUpdate,
   athleteDelete,
+  coachAllGoals,
   coachListGoals,
   coachAssignGoal,
 };

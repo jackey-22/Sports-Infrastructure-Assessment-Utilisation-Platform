@@ -54,6 +54,7 @@ import ManagerAssessmentDetail from "./Components/Manager/Assessment/ManagerAsse
 import CoachLayout from "./Components/Coach/Layout";
 import CoachDashboard from "./Components/Coach/Dashboard/CoachDashboard";
 import CoachAthletes from "./Components/Coach/Athletes/CoachAthletes";
+import CoachGoalsPage from "./Components/Coach/Athletes/CoachGoalsPage";
 
 // Phase 2C.4 Citizen modules
 import CitizenLayout from "./Components/Citizen/Layout";
@@ -250,6 +251,11 @@ const routes = createBrowserRouter([
       {
         path: "athletes",
         element: <CoachAthletes />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "goals",
+        element: <CoachGoalsPage />,
         errorElement: <ErrorPage />,
       },
       {

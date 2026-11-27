@@ -960,6 +960,7 @@ app.get("/api/athlete/goals", requireRole(ROLE.ATHLETE), GoalBadgeController.ath
 app.post("/api/athlete/goals", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteCreate);
 app.patch("/api/athlete/goals/:goalId", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteUpdate);
 app.delete("/api/athlete/goals/:goalId", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteDelete);
+app.get("/api/coach/goals", requireRole(ROLE.COACH), GoalBadgeController.coachAllGoals);
 app.get("/api/coach/athletes/:athleteId/goals", requireRole(ROLE.COACH), GoalBadgeController.coachListGoals);
 app.post("/api/coach/athletes/:athleteId/goals", requireRole(ROLE.COACH), GoalBadgeController.coachAssignGoal);
 
