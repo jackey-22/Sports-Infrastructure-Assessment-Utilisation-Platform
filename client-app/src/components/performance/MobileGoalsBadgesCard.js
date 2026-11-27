@@ -1,8 +1,10 @@
-import React, { useState } from "react";
-import { Linking, Modal, Share, View, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useRef, useState } from "react";
+import { Modal, Share, View, StyleSheet, TouchableOpacity } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
+import { captureRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import { Text } from "../AppText";
 import { Action, Field, performanceStyles as s } from "./PerformanceUI";
 
@@ -29,7 +31,26 @@ export default function MobileGoalsBadgesCard({
   const [goalType, setGoalType] = useState("attendance");
   const [targetValue, setTargetValue] = useState("10");
   const [shareBadge, setShareBadge] = useState(null);
+  const badgeCardRef = useRef(null);
   const athleteName = useSelector((state) => state.user?.User?.Name || state.user?.user?.Name || "");
+
+  const shareCapturedBadgeImage = async () => {
+    if (!shareBadge) return;
+    const msg = `🏆 ${athleteName ? `${athleteName} unlocked` : "Unlocked"} "${shareBadge.name}" (+${shareBadge.points} XP) on KhelGujarat! Rank: ${rank?.current?.name || "Bronze Athlete"} (${xpPoints} XP)`;
+    try {
+      if (badgeCardRef.current && (await Sharing.isAvailableAsync())) {
+        const uri = await captureRef(badgeCardRef, { format: "png", quality: 1 });
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: `${shareBadge.name} — KhelGujarat`,
+        });
+        return;
+      }
+    } catch {
+      // fallback to text share below
+    }
+    await Share.share({ title: `${shareBadge.name} — KhelGujarat`, message: msg });
+  };
 
   const goals = goalData?.goals || [];
   const badgeCatalog = goalData?.badgeCatalog || [];
@@ -240,17 +261,17 @@ export default function MobileGoalsBadgesCard({
 
             {shareBadge ? (
               <>
-                <View style={styles.postPreview}>
+                <View ref={badgeCardRef} collapsable={false} style={styles.postPreview}>
                   <Text style={styles.postOrg}>SPORTS AUTHORITY OF GUJARAT · KHELGUJARAT</Text>
-                  <View style={styles.postBadgeRow}>
-                    <View style={styles.postIconBox}>
-                      <Ionicons name="medal" size={26} color="#b45309" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.postPill}>BADGE ACHIEVED · +{shareBadge.points} XP</Text>
-                      <Text style={styles.postBadgeName}>{shareBadge.name}</Text>
+                  <View style={styles.hexOuter}>
+                    <View style={styles.hexInner}>
+                      <Ionicons name="star" size={30} color="#fde047" />
                     </View>
                   </View>
+                  <Text style={styles.postPill}>
+                    {String(shareBadge.tier || "gold").toUpperCase()} BADGE · +{shareBadge.points} XP
+                  </Text>
+                  <Text style={styles.postBadgeName}>{shareBadge.name}</Text>
                   <Text style={styles.postDesc}>{shareBadge.description}</Text>
                   <View style={styles.postFooter}>
                     <Text style={styles.postAthlete}>{athleteName || "KhelGujarat Athlete"}</Text>
@@ -261,33 +282,9 @@ export default function MobileGoalsBadgesCard({
                 </View>
 
                 <View style={styles.shareActions}>
-                  <TouchableOpacity
-                    style={styles.waBtn}
-                    onPress={async () => {
-                      const msg = `🏅 ${athleteName ? `${athleteName} just unlocked` : "I just unlocked"} the "${shareBadge.name}" badge (+${shareBadge.points} XP) on KhelGujarat! | Rank: ${rank?.current?.name || "Bronze Athlete"} (${xpPoints} XP)\n\n${shareBadge.description}\n\n#KhelGujarat #SportsAuthorityOfGujarat`;
-                      const waUrl = `whatsapp://send?text=${encodeURIComponent(msg)}`;
-                      const webUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-                      try {
-                        const supported = await Linking.canOpenURL(waUrl);
-                        await Linking.openURL(supported ? waUrl : webUrl);
-                      } catch {
-                        await Linking.openURL(webUrl);
-                      }
-                    }}
-                  >
-                    <Ionicons name="logo-whatsapp" size={18} color="#fff" />
-                    <Text style={styles.shareBtnText}>WhatsApp</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.socialBtn}
-                    onPress={async () => {
-                      const msg = `🏅 ${athleteName ? `${athleteName} just unlocked` : "I just unlocked"} the "${shareBadge.name}" badge (+${shareBadge.points} XP) on KhelGujarat! | Rank: ${rank?.current?.name || "Bronze Athlete"} (${xpPoints} XP)\n\n${shareBadge.description}\n\n#KhelGujarat #SportsAuthorityOfGujarat`;
-                      await Share.share({ title: `${shareBadge.name} — KhelGujarat`, message: msg });
-                    }}
-                  >
-                    <Ionicons name="share-social" size={18} color="#fff" />
-                    <Text style={styles.shareBtnText}>Social Media / More</Text>
+                  <TouchableOpacity style={styles.waBtn} onPress={shareCapturedBadgeImage}>
+                    <Ionicons name="image-outline" size={18} color="#fff" />
+                    <Text style={styles.shareBtnText}>Share Badge Image (WhatsApp / Social)</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -413,30 +410,47 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 16, fontWeight: "800", color: "#0f172a" },
   postPreview: {
-    backgroundColor: "#065f46",
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: "#0f172a",
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#10b981",
   },
-  postOrg: { fontSize: 10, fontWeight: "800", color: "#a7f3d0", letterSpacing: 0.6 },
-  postBadgeRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 10 },
-  postIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#fef3c7",
+  postOrg: { fontSize: 10, fontWeight: "800", color: "#6ee7b7", letterSpacing: 0.6, textAlign: "center" },
+  hexOuter: {
+    width: 74,
+    height: 74,
+    borderRadius: 22,
+    transform: [{ rotate: "45deg" }],
+    backgroundColor: "#f59e0b",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "#fff",
   },
-  postPill: { fontSize: 10, fontWeight: "800", color: "#d1fae5" },
-  postBadgeName: { fontSize: 17, fontWeight: "900", color: "#fff", marginTop: 2 },
-  postDesc: { fontSize: 12, color: "#ecfdf5", marginTop: 10, lineHeight: 17 },
+  hexInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#0f172a",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-45deg" }],
+  },
+  postPill: { fontSize: 10, fontWeight: "800", color: "#6ee7b7", textAlign: "center" },
+  postBadgeName: { fontSize: 18, fontWeight: "900", color: "#fff", marginTop: 4, textAlign: "center" },
+  postDesc: { fontSize: 12, color: "#cbd5e1", marginTop: 6, lineHeight: 17, textAlign: "center" },
   postFooter: {
+    width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.18)",
-    marginTop: 12,
+    marginTop: 14,
     paddingTop: 10,
   },
   postAthlete: { fontSize: 12, fontWeight: "800", color: "#fff" },
