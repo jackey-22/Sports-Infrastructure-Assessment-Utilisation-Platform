@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   FileCheck2,
   IndianRupee,
   Loader2,
   MessageCircleQuestion,
   Plus,
+  ScanSearch,
   X,
 } from "lucide-react";
 import { api, API_BASE_URL } from "../../API/client";
@@ -67,6 +69,7 @@ export default function GrantWorkspace({ role }) {
   });
   const [progress, setProgress] = useState({});
   const [submittingProgress, setSubmittingProgress] = useState({});
+  const [scanningProofs, setScanningProofs] = useState({});
   const [queries, setQueries] = useState({});
 
   const load = useCallback(async () => {
@@ -152,6 +155,19 @@ export default function GrantWorkspace({ role }) {
       await load();
     } catch (error) {
       setNotice({ tone: "error", text: error.message });
+    }
+  };
+
+  const scanProof = async (grantId, progressId) => {
+    setScanningProofs((old) => ({ ...old, [progressId]: true }));
+    try {
+      await api.post(`/api/admin/grants/${grantId}/progress/${progressId}/scan`, {});
+      setNotice({ tone: "success", text: "AI proof scan finished." });
+      await load();
+    } catch (error) {
+      setNotice({ tone: "error", text: error.message });
+    } finally {
+      setScanningProofs((old) => ({ ...old, [progressId]: false }));
     }
   };
 
@@ -289,6 +305,8 @@ export default function GrantWorkspace({ role }) {
                 setProgress,
                 submitProgress,
                 submittingProgress,
+                scanProof,
+                scanningProofs,
                 queries,
                 setQueries,
                 review,
@@ -315,6 +333,8 @@ function GrantCard({
   setProgress,
   submitProgress,
   submittingProgress,
+  scanProof,
+  scanningProofs,
   queries,
   setQueries,
   review,
@@ -451,7 +471,10 @@ function GrantCard({
           {updates.map((item, index) => (
             <Milestone
               key={item._id}
-              {...{ item, index, updates, pending, grant, role, queries, setQueries, review }}
+              {...{
+                item, index, updates, pending, grant, role, queries, setQueries, review,
+                scanProof, scanningProofs,
+              }}
             />
           ))}
         </div>
@@ -460,7 +483,10 @@ function GrantCard({
   );
 }
 
-function Milestone({ item, index, updates, pending, grant, role, queries, setQueries, review }) {
+function Milestone({
+  item, index, updates, pending, grant, role, queries, setQueries, review,
+  scanProof, scanningProofs,
+}) {
   const itemError = milestoneError(
     grant,
     Number(item.amountUsed),
@@ -499,6 +525,14 @@ function Milestone({ item, index, updates, pending, grant, role, queries, setQue
           View {item.proofName || "proof"}
         </a>
       ) : null}
+      {role === "admin" && item.proofUrl ? (
+        <ProofExtraction
+          extraction={item.proofExtraction}
+          claimedAmount={item.amountUsed}
+          scanning={Boolean(scanningProofs[item._id])}
+          onScan={() => scanProof(grant._id, item._id)}
+        />
+      ) : null}
       {item.adminNote ? (
         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-800">
           Admin note: {item.adminNote}
@@ -531,6 +565,91 @@ function Milestone({ item, index, updates, pending, grant, role, queries, setQue
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ProofExtraction({ extraction, claimedAmount, scanning, onScan }) {
+  const status = extraction?.status || "Not Scanned";
+  const completed = status === "Completed";
+  const total = extraction?.totalAmount;
+  const hasTotal = total !== null && total !== undefined && Number.isFinite(Number(total));
+  const difference = hasTotal ? Math.round((Number(total) - Number(claimedAmount || 0)) * 100) / 100 : null;
+  const matches = difference !== null && Math.abs(difference) <= 1;
+  const confidence = Math.round(Number(extraction?.confidence || 0) * 100);
+
+  return (
+    <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-indigo-800">
+            <ScanSearch className="h-4 w-4" /> AI proof scan
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500">
+            OCR-assisted via {extraction?.provider || "the configured AI provider"}. Admin must verify before approval.
+          </p>
+        </div>
+        <Button type="button" size="sm" variant="secondary" disabled={scanning} onClick={onScan}>
+          {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+          {scanning ? "Scanning..." : completed ? "Re-scan" : "Scan proof"}
+        </Button>
+      </div>
+
+      {status === "Pending" || scanning ? (
+        <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-indigo-700">
+          <Loader2 className="h-4 w-4 animate-spin" /> Reading proof details…
+        </p>
+      ) : completed ? (
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <ExtractedField label="Detected total" value={hasTotal ? rupees(total) : "Not detected"} />
+            <ExtractedField label="Vendor / payee" value={extraction.vendorName || "Not detected"} />
+            <ExtractedField label="Invoice / reference" value={extraction.invoiceNumber || extraction.paymentReference || "Not detected"} />
+            <ExtractedField label="Document date" value={extraction.documentDate || "Not detected"} />
+            <ExtractedField label="Document type" value={extraction.documentType || "Proof"} />
+            <ExtractedField label="Subtotal" value={extraction.subtotal != null ? rupees(extraction.subtotal) : "Not detected"} />
+            <ExtractedField label="Tax" value={extraction.taxAmount != null ? rupees(extraction.taxAmount) : "Not detected"} />
+            <ExtractedField label="OCR confidence" value={`${confidence}%`} />
+          </div>
+          <div className={`mt-3 rounded-lg border px-3 py-2 text-xs font-bold ${
+            !hasTotal
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : matches
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-rose-200 bg-rose-50 text-rose-800"
+          }`}>
+            {!hasTotal
+              ? "The document total could not be detected. Check the proof manually."
+              : matches
+                ? `Detected total matches the claimed ${rupees(claimedAmount)}.`
+                : `Amount mismatch: claimed ${rupees(claimedAmount)}, detected ${rupees(total)} (${difference > 0 ? "+" : ""}${rupees(difference)} difference).`}
+          </div>
+          {extraction.summary ? <p className="mt-2 text-xs text-slate-700">{extraction.summary}</p> : null}
+          {extraction.warnings?.length ? (
+            <ul className="mt-2 space-y-1 text-xs font-semibold text-amber-800">
+              {extraction.warnings.map((warning, index) => (
+                <li key={`${warning}-${index}`} className="flex gap-1.5">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {warning}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {extraction?.error || "This proof has not been scanned yet."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ExtractedField({ label, value }) {
+  return (
+    <div className="rounded-lg border border-indigo-100 bg-white px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-0.5 break-words text-xs font-bold text-slate-800">{value}</p>
     </div>
   );
 }
