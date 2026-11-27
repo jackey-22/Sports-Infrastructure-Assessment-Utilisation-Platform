@@ -12,9 +12,11 @@ const Review = require("../Model/ReviewModel");
 const AthleteRating = require("../Model/athleteRatingModel");
 const PerformanceEvaluation = require("../Model/PerformanceEvaluationModel");
 const InstitutionEventBooking = require("../Model/InstitutionEventBookingModel");
+const BookingAttendance = require("../Model/BookingAttendanceModel");
 const { ROLE } = require("../Utils/roles");
 const { verifiedGrantTotals } = require("../Utils/grantProgress");
 const { summariseUtilisation } = require("../Utils/utilisation");
+const { computeSchedules } = require("./MaintenanceCycleController");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const monthKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -50,7 +52,7 @@ function grantStats(grants) {
   return { count: grants.length, allocated, utilised, pendingProofs, queries };
 }
 
-async function buildDashboard({ facility = null }) {
+async function buildDashboard({ facility = null, days = 30 }) {
   const facilityFilter = facility ? { facility: facility._id } : {};
   const bookingFacilityFilter = facility ? { SportComplexId: facility._id } : {};
   const complaintFilter = facility ? { sportsComplex: facility._id } : {};
@@ -60,21 +62,23 @@ async function buildDashboard({ facility = null }) {
   const months = recentMonths();
   const trendStart = new Date(`${months[0].key}-01T00:00:00.000Z`);
   const today = indiaDate();
+  const windowStart = new Date(new Date(`${today}T00:00:00.000Z`) - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, institutionalBookings, trendBookings, payments, complaints, grants, assessmentCount, reviews] = await Promise.all([
+  const [facilities, sportsCount, coachesCount, citizensCount, configs, bookings, institutionalBookings, trendBookings, payments, complaints, grants, assessmentCount, reviews, attendances] = await Promise.all([
     facility ? [facility] : SportsComplex.find().populate("district", "District").lean(),
     facility ? FacilitySportConfig.distinct("sport", { facility: facility._id, status: "Active" }).then((ids) => ids.length) : Sport.countDocuments({ status: "Active" }),
     Instructor.countDocuments({ ...coachFilter, status: "Active" }),
-    facility ? Guest.distinct("citizenUser", { ...bookingFacilityFilter, citizenUser: { $ne: null } }).then((ids) => ids.length) : User.countDocuments({ Role: ROLE.ATHLETE, IsActive: { $ne: 0 } }),
+    facility ? Guest.distinct("citizenUser", { ...bookingFacilityFilter, bookingStatus: "Confirmed", paymentStatus: "Paid", citizenUser: { $ne: null } }).then((ids) => ids.length) : User.countDocuments({ Role: ROLE.ATHLETE, IsActive: { $ne: 0 } }),
     FacilitySportConfig.find({ ...facilityFilter, status: "Active" }).populate("sport", "SportName").lean(),
-    Guest.find(bookingFacilityFilter).select("Startdate bookingStatus paymentStatus memberCount reservedUnits slotId facilitySportConfig sport SportComplexId").lean(),
+    Guest.find({ ...bookingFacilityFilter, bookingStatus: "Confirmed", paymentStatus: "Paid" }).select("Startdate bookingStatus paymentStatus memberCount reservedUnits slotId facilitySportConfig sport SportComplexId").lean(),
     InstitutionEventBooking.find(facility ? { facility: facility._id } : {}).select("facility status selections").lean(),
-    Guest.find({ ...bookingFacilityFilter, createdAt: { $gte: trendStart } }).select("createdAt").lean(),
+    Guest.find({ ...bookingFacilityFilter, bookingStatus: "Confirmed", paymentStatus: "Paid", createdAt: { $gte: trendStart } }).select("createdAt").lean(),
     BookingPayment.find(facilityFilter).populate("sport", "SportName").populate("facility", "name").sort({ createdAt: -1 }).lean(),
     Complaint.find(complaintFilter).select("workflowStatus status dueAt createdAt subject sportsComplex").sort({ createdAt: -1 }).lean(),
     Grant.find(grantFilter).select("allocatedAmount status progressUpdates facility title").lean(),
     FacilityAssessment.countDocuments(assessmentFilter),
     Review.find(facilityFilter).select("targetType rating facility").lean(),
+    BookingAttendance.find({ ...(facility ? { facility: facility._id } : {}), date: { $gte: windowStart, $lte: today } }).select("booking facility date members").lean(),
   ]);
 
   const monthMap = new Map(months.map((item) => [item.key, item]));
@@ -84,11 +88,12 @@ async function buildDashboard({ facility = null }) {
   const paidPayments = payments.filter((payment) => payment.status === "Paid");
   const revenue = paidPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
   const sportMap = new Map();
-  payments.forEach((payment) => {
+  paidPayments.forEach((payment) => {
     const key = String(payment.sport?._id || payment.sport || "unknown");
     const current = sportMap.get(key) || { sport: payment.sport?.SportName || "Sport", bookings: 0, paidBookings: 0, revenue: 0 };
     current.bookings += 1;
-    if (payment.status === "Paid") { current.paidBookings += 1; current.revenue += Number(payment.amount) || 0; }
+    current.paidBookings += 1;
+    current.revenue += Number(payment.amount) || 0;
     sportMap.set(key, current);
   });
 
@@ -110,7 +115,7 @@ async function buildDashboard({ facility = null }) {
     byType: Object.fromEntries(Object.entries(ratingSummary.byType).map(([key, value]) => [key, { count: value.count, average: value.count ? value.total / value.count : 0 }])),
   };
   const configuredFacilityIds = new Set(configs.map((config) => String(config.facility)));
-  const recent = await Guest.find(bookingFacilityFilter)
+  const recent = await Guest.find({ ...bookingFacilityFilter, bookingStatus: "Confirmed", paymentStatus: "Paid" })
     .populate("SportComplexId", "name")
     .populate("sport", "SportName")
     .sort({ createdAt: -1 })
@@ -128,9 +133,13 @@ async function buildDashboard({ facility = null }) {
     institutionalBookings,
     payments,
     facilities,
+    attendances,
     endDate: today,
-    days: 30,
+    days,
   });
+
+  const maintenanceSchedules = await computeSchedules({ facilityId: facility ? facility._id : null });
+  const maintenanceDue = maintenanceSchedules.filter((item) => item.needsAction);
 
   return {
     generatedAt: new Date(),
@@ -147,8 +156,9 @@ async function buildDashboard({ facility = null }) {
       upcomingBookings: bookings.filter((item) => item.Startdate >= today && item.bookingStatus !== "Cancelled").length,
       revenue,
       paidPayments: paidPayments.length,
-      pendingPayments: bookings.filter((item) => item.paymentStatus === "Pending").length,
+      pendingPayments: 0,
       openGrievances: openComplaints.length,
+      resolvedGrievances: complaints.length - openComplaints.length,
       escalatedGrievances: escalated,
       overdueGrievances: overdue,
       grants: grantSummary,
@@ -171,12 +181,16 @@ async function buildDashboard({ facility = null }) {
       overdueGrievances: overdue,
       pendingGrantProofs: grantSummary.pendingProofs,
       grantQueries: grantSummary.queries,
+      maintenanceDueCount: maintenanceDue.length,
     },
   };
 }
 
 async function admin(req, res) {
-  try { return res.json({ data: await buildDashboard({}), rcode: 200 }); }
+  try {
+    const days = Math.min(90, Math.max(7, Number(req.query.days) || 30));
+    return res.json({ data: await buildDashboard({ days }), rcode: 200 });
+  }
   catch (error) { console.error("Admin dashboard failed:", error); return fail(res, 500, "Could not load admin dashboard"); }
 }
 
@@ -184,7 +198,8 @@ async function manager(req, res) {
   try {
     const facility = await managerFacility(req.user);
     if (!facility) return fail(res, 403, "No facility is assigned to this manager");
-    return res.json({ data: await buildDashboard({ facility }), rcode: 200 });
+    const days = Math.min(90, Math.max(7, Number(req.query.days) || 30));
+    return res.json({ data: await buildDashboard({ facility, days }), rcode: 200 });
   } catch (error) { console.error("Manager dashboard failed:", error); return fail(res, 500, "Could not load facility dashboard"); }
 }
 

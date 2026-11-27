@@ -16,7 +16,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { api } from "../../API/client";
-import { BarChart } from "../Admin/Common/AdminCharts";
+import { BarChart, DonutChart, TrendChart } from "../Admin/Common/AdminCharts";
 import { KpiCard, PageHeader, PageShell } from "../Admin/Common/AdminUI";
 
 const money = new Intl.NumberFormat("en-IN", {
@@ -65,17 +65,124 @@ function Status({ value }) {
   );
 }
 
-function UtilisationRows({ rows, labelKey }) {
+function UtilisationBarChart({ rows, labelKey }) {
   if (!rows?.length) return <Empty>No configured capacity for this period.</Empty>;
-  return <div className="divide-y divide-slate-100">{rows.slice(0, 8).map((row) => (
-    <div key={row.sportId || row.facilityId} className="px-5 py-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <div><p className="text-sm font-bold text-slate-800">{row[labelKey]}</p><p className="text-xs text-slate-400">{number.format(row.used)} used of {number.format(row.capacity)} capacity · {row.bookings} bookings</p></div>
-        <span className={`text-sm font-extrabold ${row.utilisationPct >= 80 ? "text-amber-700" : row.utilisationPct < 25 ? "text-slate-500" : "text-emerald-700"}`}>{row.utilisationPct}%</span>
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${row.utilisationPct >= 80 ? "bg-amber-500" : "bg-emerald-600"}`} style={{ width: `${Math.min(100, row.utilisationPct)}%` }} /></div>
+  const slice = rows.slice(0, 8);
+  const categories = slice.map((row) => row[labelKey]);
+  return (
+    <div className="p-3 sm:p-4">
+      <BarChart
+        series={[
+          { name: "Booked", data: slice.map((row) => row.used || 0) },
+          { name: "Capacity", data: slice.map((row) => row.capacity || 0) },
+        ]}
+        categories={categories}
+        colors={["#007D40", "#CBD5E1"]}
+        height={250}
+        formatValue={(val) => number.format(Math.round(val))}
+      />
     </div>
-  ))}</div>;
+  );
+}
+
+function UtilisationTrendChart({ rows }) {
+  const [mode, setMode] = useState("pct");
+  if (!rows?.length) return <Empty>No utilization trend data for this period.</Empty>;
+  const categories = rows.map((row) => row.label);
+  return (
+    <div className="p-3 sm:p-4">
+      <div className="mb-2 flex items-center justify-end gap-1.5 px-2">
+        {[
+          { id: "pct", label: "Utilization %" },
+          { id: "spots", label: "Booked vs Capacity" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setMode(tab.id)}
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+              mode === tab.id
+                ? "bg-brand-primary text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <TrendChart
+        area
+        categories={categories}
+        series={
+          mode === "pct"
+            ? [{ name: "Utilization %", data: rows.map((row) => row.utilisationPct || 0) }]
+            : [
+                { name: "Booked", data: rows.map((row) => row.used || 0) },
+                { name: "Capacity", data: rows.map((row) => row.capacity || 0) },
+              ]
+        }
+        colors={mode === "pct" ? ["#007D40"] : ["#007D40", "#94A3B8"]}
+        height={250}
+        formatValue={(val) =>
+          mode === "pct" ? `${val}%` : number.format(Math.round(val))
+        }
+      />
+    </div>
+  );
+}
+
+function BookingAttendanceChart({ bySport, trend }) {
+  const [view, setView] = useState("sport");
+  const slice = (bySport || []).slice(0, 8);
+  const hasTrend = (trend || []).length > 0;
+  if (!slice.length && !hasTrend) return <Empty>No booking or attendance data for this period.</Empty>;
+  return (
+    <div className="p-3 sm:p-4">
+      <div className="mb-2 flex items-center justify-end gap-1.5 px-2">
+        {[
+          { id: "sport", label: "By sport" },
+          { id: "trend", label: "Daily trend" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setView(tab.id)}
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+              view === tab.id
+                ? "bg-brand-primary text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {view === "sport" ? (
+        <BarChart
+          categories={slice.map((row) => row.sport)}
+          series={[
+            { name: "Booked", data: slice.map((row) => row.used || 0) },
+            { name: "Attended", data: slice.map((row) => row.attended || 0) },
+          ]}
+          colors={["#007D40", "#3B82F6"]}
+          height={240}
+          formatValue={(val) => number.format(Math.round(val))}
+        />
+      ) : (
+        <TrendChart
+          area
+          categories={(trend || []).map((row) => row.label)}
+          series={[
+            { name: "Booked", data: (trend || []).map((row) => row.used || 0) },
+            { name: "Attended", data: (trend || []).map((row) => row.attended || 0) },
+          ]}
+          colors={["#007D40", "#3B82F6"]}
+          height={240}
+          formatValue={(val) => number.format(Math.round(val))}
+        />
+      )}
+    </div>
+  );
 }
 
 function Trend({ rows }) {
@@ -122,17 +229,45 @@ function Trend({ rows }) {
   );
 }
 
+const DAY_OPTIONS = [
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+];
+
+function DayRangeSelector({ value, onChange }) {
+  return (
+    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+      {DAY_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+            value === opt.value
+              ? "bg-brand-primary text-white shadow-sm"
+              : "text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function OperationalDashboard({ role }) {
   const isAdmin = role === "admin";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [days, setDays] = useState(30);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (windowDays = 30) => {
     setLoading(true);
     setError("");
     try {
-      const response = await api.get(`/api/dashboard/${role}`);
+      const response = await api.get(`/api/dashboard/${role}?days=${windowDays}`);
       setData(response.data);
     } catch (requestError) {
       setError(requestError.message || "Could not load dashboard data.");
@@ -141,18 +276,22 @@ export default function OperationalDashboard({ role }) {
     }
   }, [role]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(days); }, [load, days]);
 
   const links = useMemo(() => isAdmin ? {
     bookings: "/admin/insights/bookings",
     grievances: "/admin/insights/grievances",
     grants: "/admin/insights/grants",
     configuration: "/admin",
+    athletes: "/admin/insights/leaderboard",
+    assessments: "/admin/insights/assessments",
   } : {
     bookings: "/manager/transactions",
     grievances: "/manager/allcomplaint",
     grants: "/manager/grants",
     configuration: "/manager/sports-configuration",
+    athletes: "/manager/leaderboard",
+    assessments: "/manager/assessment",
   }, [isAdmin]);
 
   if (loading && !data) {
@@ -172,7 +311,7 @@ export default function OperationalDashboard({ role }) {
           <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
           <h1 className="mt-3 text-xl font-extrabold text-slate-900">Dashboard unavailable</h1>
           <p className="mt-2 text-sm text-slate-500">{error}</p>
-          <button type="button" onClick={load} className="mt-5 rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white">Try again</button>
+          <button type="button" onClick={() => load(days)} className="mt-5 rounded-xl bg-brand-primary px-4 py-2 text-sm font-bold text-white">Try again</button>
         </div>
       </PageShell>
     );
@@ -181,33 +320,46 @@ export default function OperationalDashboard({ role }) {
   const { kpis, alerts } = data;
   const utilisation = data.utilisation || { overall: { utilisationPct: 0, used: 0, capacity: 0 }, bySport: [], byFacility: [], insights: [], period: {} };
   const rating = kpis.ratings;
+
+  const slotTooltip = [
+    `📊 How this is calculated:`,
+    ``,
+    `Spots booked (${number.format(utilisation.overall.used)}): Total member/court-spots from confirmed bookings in the last 30 days. Each booking counts its member count (or 1 for whole-court).`,
+    ``,
+    `Total capacity (${number.format(utilisation.overall.capacity)}): Each active slot's daily capacity × number of days it has been configured in the 30-day window. A slot configured 10 days ago with 40 places = 400 capacity spots.`,
+    ``,
+    `Usage % = Spots booked ÷ Total capacity × 100.`,
+    ``,
+    `A low % is normal when slots are newly configured — capacity accumulates every day even without bookings.`,
+  ].join("\n");
+
   const cards = isAdmin ? [
-    { label: "Facilities", value: number.format(kpis.facilities), caption: `${kpis.bookingReadyFacilities} ready for online booking`, icon: Building2 },
-    { label: "Active sports", value: number.format(kpis.activeSports), caption: "Available in the global directory", icon: Dumbbell },
-    { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Across all facilities", icon: Users, tone: "violet" },
-    { label: "Citizen accounts", value: number.format(kpis.citizens), caption: "Registered athletes and citizens", icon: Users },
-    { label: "Total bookings", value: number.format(kpis.bookings), caption: `${kpis.confirmedBookings} confirmed`, icon: CalendarCheck },
-    { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} successful payments`, icon: IndianRupee, tone: "amber" },
-    { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.escalatedGrievances ? "amber" : "slate" },
-    { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet" },
-    { label: "Overall utilisation", value: `${utilisation.overall.utilisationPct}%`, caption: `Last 30 days · ${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} capacity`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green" },
+    { label: "Facilities", value: number.format(kpis.facilities), caption: `${kpis.bookingReadyFacilities} ready for online booking`, icon: Building2, to: links.configuration },
+    { label: "Active sports", value: number.format(kpis.activeSports), caption: "Available in master directory", icon: Dumbbell, to: links.configuration },
+    { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Across all facilities", icon: Users, tone: "violet", to: links.configuration },
+    { label: "Athletes", value: number.format(kpis.citizens), caption: "Registered athletes", icon: Users, to: links.athletes },
+    { label: "Confirmed bookings", value: number.format(kpis.bookings), caption: `${kpis.todayBookings} today · ${kpis.upcomingBookings} upcoming`, icon: CalendarCheck, to: links.bookings },
+    { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} paid transactions`, icon: IndianRupee, tone: "amber", to: links.bookings },
+    { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.escalatedGrievances ? "amber" : "slate", to: links.grievances },
+    { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet", to: links.grants },
+    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.assessments, tooltip: slotTooltip },
   ] : [
-    { label: "Total bookings", value: number.format(kpis.bookings), caption: `${kpis.confirmedBookings} confirmed`, icon: CalendarCheck },
-    { label: "Upcoming", value: number.format(kpis.upcomingBookings), caption: `${kpis.todayBookings} bookings today`, icon: Clock3 },
-    { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} successful payments`, icon: IndianRupee, tone: "amber" },
-    { label: "Configured sports", value: number.format(kpis.activeSports), caption: `${data.configuration.reduce((sum, row) => sum + row.slots, 0)} bookable slots`, icon: Dumbbell },
-    { label: "Unique citizens", value: number.format(kpis.citizens), caption: "Citizens with bookings here", icon: Users, tone: "violet" },
-    { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Assigned to this facility", icon: Users },
-    { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.overdueGrievances ? "amber" : "slate" },
-    { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet" },
-    { label: "Facility utilisation", value: `${utilisation.overall.utilisationPct}%`, caption: `Last 30 days · ${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} capacity`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green" },
+    { label: "Confirmed bookings", value: number.format(kpis.bookings), caption: `${kpis.todayBookings} today`, icon: CalendarCheck, to: links.bookings },
+    { label: "Upcoming", value: number.format(kpis.upcomingBookings), caption: `${kpis.todayBookings} bookings today`, icon: Clock3, to: links.bookings },
+    { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} paid transactions`, icon: IndianRupee, tone: "amber", to: links.bookings },
+    { label: "Configured sports", value: number.format(kpis.activeSports), caption: `${data.configuration.reduce((sum, row) => sum + row.slots, 0)} bookable slots`, icon: Dumbbell, to: links.configuration },
+    { label: "Athletes", value: number.format(kpis.citizens), caption: "Athletes with bookings here", icon: Users, tone: "violet", to: links.athletes },
+    { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Assigned to this facility", icon: Users, to: links.configuration },
+    { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.overdueGrievances ? "amber" : "slate", to: links.grievances },
+    { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet", to: links.grants },
+    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.assessments, tooltip: slotTooltip },
   ];
 
   const alertItems = [
     isAdmin && alerts.facilitiesNotReady > 0 && { value: alerts.facilitiesNotReady, label: "facilities need booking configuration", to: links.configuration },
+    alerts.maintenanceDueCount > 0 && { value: alerts.maintenanceDueCount, label: isAdmin ? "facility-sport condition assessments due" : "sport condition assessments due for maintenance review", to: links.assessments },
     alerts.escalatedGrievances > 0 && { value: alerts.escalatedGrievances, label: "grievances are escalated", to: links.grievances },
     alerts.overdueGrievances > 0 && { value: alerts.overdueGrievances, label: "grievances are past their response deadline", to: links.grievances },
-    kpis.pendingPayments > 0 && { value: kpis.pendingPayments, label: "bookings still have pending payment", to: links.bookings },
     alerts.pendingGrantProofs > 0 && { value: alerts.pendingGrantProofs, label: "grant proofs await verification", to: links.grants },
     alerts.grantQueries > 0 && { value: alerts.grantQueries, label: "grant submissions have open queries", to: links.grants },
     !isAdmin && !data.configuration.length && { value: "!", label: "Online booking is not configured", to: links.configuration },
@@ -227,7 +379,7 @@ export default function OperationalDashboard({ role }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={load}
+              onClick={() => load(days)}
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-60"
             >
@@ -248,38 +400,97 @@ export default function OperationalDashboard({ role }) {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map((card) => <KpiCard key={card.label} {...card} />)}</div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Panel title="Bookings and collections" description="Actual activity for the latest six calendar months." className="xl:col-span-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel title="Bookings and collections" description="Actual activity for the latest six calendar months.">
           <Trend rows={data.trend} />
         </Panel>
-        <Panel title="Needs attention" description="Operational items that may require action.">
-          {alertItems.length ? (
-            <div className="divide-y divide-slate-100">
-              {alertItems.map((item, index) => (
-                <Link key={`${item.label}-${index}`} to={item.to} className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50">
-                  <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-amber-50 px-2 text-sm font-extrabold text-amber-700">{item.value}</span>
-                  <span className="flex-1 text-sm font-semibold text-slate-700">{item.label}</span>
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
-                </Link>
-              ))}
-            </div>
-          ) : <Empty>Nothing needs immediate attention.</Empty>}
+        <Panel
+          title={`Booking & attendance utilization · last ${days} days`}
+          description="Booked spots vs verified gate check-in attendance."
+          action={<DayRangeSelector value={days} onChange={setDays} />}
+        >
+          <BookingAttendanceChart bySport={utilisation.bySport} trend={utilisation.trend} />
         </Panel>
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Panel title="Sports utilisation" description={`Confirmed usage against configured bookable capacity · ${formatDate(utilisation.period.startDate)} to ${formatDate(utilisation.period.endDate)}`}>
-          <UtilisationRows rows={utilisation.bySport} labelKey="sport" />
+        <Panel title="Sport-wise revenue &amp; bookings" description="Confirmed paid bookings and revenue collected per sport.">
+          {data.topSports?.length ? (
+            <div className="p-3 sm:p-4">
+              <BarChart
+                categories={data.topSports.slice(0, 6).map((row) => row.sport)}
+                series={[
+                  { name: "Revenue (₹)", data: data.topSports.slice(0, 6).map((row) => row.revenue || 0) },
+                ]}
+                colors={["#007D40"]}
+                height={230}
+                formatValue={(val) => money.format(val)}
+              />
+            </div>
+          ) : <Empty>No paid bookings recorded yet.</Empty>}
         </Panel>
 
-        <Panel title={isAdmin ? "Utilisation insights" : "Facility insights"} description="Operational observations calculated from the latest 30 days.">
+        <Panel
+          title={isAdmin ? "Facility booking readiness" : "Grievance resolution status"}
+          description={isAdmin ? "Share of facilities configured for online bookings vs setup pending." : "Open vs resolved grievances for your facility."}
+        >
+          <div className="p-3 sm:p-4">
+            {isAdmin ? (
+              <DonutChart
+                labels={["Booking Ready", "Setup Needed"]}
+                series={[kpis.bookingReadyFacilities || 0, Math.max(0, (kpis.facilities || 0) - (kpis.bookingReadyFacilities || 0))]}
+                colors={["#007D40", "#F59E0B"]}
+                height={230}
+                formatValue={(val) => `${Math.round(val)}`}
+              />
+            ) : (
+              <DonutChart
+                labels={["Open", "Resolved"]}
+                series={[kpis.openGrievances || 0, kpis.resolvedGrievances || 0]}
+                colors={["#F59E0B", "#007D40"]}
+                height={230}
+                formatValue={(val) => `${Math.round(val)}`}
+              />
+            )}
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel
+          title={`Slot utilization trend · last ${days} days`}
+          description={`Daily booked vs capacity · ${formatDate(utilisation.period.startDate)} to ${formatDate(utilisation.period.endDate)}`}
+          action={<DayRangeSelector value={days} onChange={setDays} />}
+        >
+          <UtilisationTrendChart rows={utilisation.trend} />
+        </Panel>
+
+        <Panel
+          title={`Sports slot usage · last ${days} days`}
+          description={`Booked vs total capacity per sport · ${formatDate(utilisation.period.startDate)} to ${formatDate(utilisation.period.endDate)}`}
+          action={<DayRangeSelector value={days} onChange={setDays} />}
+        >
+          <UtilisationBarChart rows={utilisation.bySport} labelKey="sport" />
+        </Panel>
+      </div>
+
+      <div className={`grid grid-cols-1 gap-5 ${isAdmin ? "xl:grid-cols-2" : ""}`}>
+        {isAdmin && (
+          <Panel
+            title={`Facility-wise slot usage · last ${days} days`}
+            description="Booked vs total slot capacity across facilities."
+            action={<DayRangeSelector value={days} onChange={setDays} />}
+          >
+            <UtilisationBarChart rows={utilisation.byFacility} labelKey="facility" />
+          </Panel>
+        )}
+
+        <Panel title={isAdmin ? "Operational insights" : "Facility insights"} description={`Summary observations calculated from the latest ${days} days.`}>
           <div className="space-y-3 p-5">
             {utilisation.insights?.length ? utilisation.insights.map((insight, index) => <div key={`${insight}-${index}`} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"><Gauge className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><p className="text-sm text-slate-700">{insight}</p></div>) : <p className="text-sm text-slate-400">More booking data is needed for insights.</p>}
           </div>
         </Panel>
       </div>
-
-      {isAdmin && <Panel title="Facility-wise utilisation" description="Compare confirmed usage with available capacity at each configured facility."><UtilisationRows rows={utilisation.byFacility} labelKey="facility" /></Panel>}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="Popular sports" description="Ranked using real booking payments and collected revenue." action={<Link to={links.bookings} className="text-xs font-bold text-emerald-700">View bookings</Link>}>
@@ -288,7 +499,7 @@ export default function OperationalDashboard({ role }) {
               {data.topSports.slice(0, 6).map((row, index) => (
                 <div key={`${row.sport}-${index}`} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 px-5 py-3.5">
                   <span className="text-sm font-extrabold text-slate-300">{String(index + 1).padStart(2, "0")}</span>
-                  <div><p className="text-sm font-bold text-slate-800">{row.sport}</p><p className="text-xs text-slate-400">{row.bookings} payment attempts · {row.paidBookings} paid</p></div>
+                  <div><p className="text-sm font-bold text-slate-800">{row.sport}</p><p className="text-xs text-slate-400">{row.paidBookings} confirmed booking{row.paidBookings === 1 ? "" : "s"}</p></div>
                   <span className="text-sm font-extrabold text-slate-700">{money.format(row.revenue)}</span>
                 </div>
               ))}

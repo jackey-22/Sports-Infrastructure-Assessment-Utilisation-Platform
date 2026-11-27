@@ -14,9 +14,17 @@ const MODULES = [
   { id: "evaluationTemplates", label: "Evaluation Templates", icon: ClipboardList },
 ];
 const FACILITY_TYPES = ["Sports Complex", "Stadium", "Indoor Hall", "Training Centre", "Playground"];
+const DEFAULT_MAINTENANCE = {
+  enabled: false,
+  frequencyDays: 30,
+  notifyDaysBefore: 3,
+  priority: "Medium",
+  checklistTitle: "",
+  checklistNotes: "",
+};
 const EMPTY = {
   facilities: { name: "", facilityType: "Sports Complex", district: "", city: "", location: "", latitude: "", longitude: "", contactPhone: "", contactEmail: "", operationalSince: "", status: "Active", picture: "", managerName: "", managerEmail: "", managerContact: "", managerPassword: "" },
-  sports: { name: "", category: "", description: "", image: "", status: "Active" },
+  sports: { name: "", category: "", description: "", image: "", status: "Active", maintenanceCycle: { ...DEFAULT_MAINTENANCE } },
   coaches: { name: "", email: "", contact: "", password: "", facilityId: "", sportIds: [], qualification: "", experience: 0, status: "Active" },
   evaluationTemplates: { sportId: "", parameters: [{ name: "", weightage: 20, evaluationType: "qualitative", maxScore: 5, scoringMethod: "higher_is_better", instructions: "" }], recognitionLevels: [{ minScore: 90, label: "Outstanding", badge: "gold" }] },
 };
@@ -25,7 +33,7 @@ const idOf = (row) => row._id || row.id;
 
 function normalize(module, row) {
   if (module === "facilities") return { ...row, facilityType: row.facilityType || "Sports Complex", district: row.district?._id || row.district || "", managerName: row.manager?.Name || "", managerEmail: row.manager?.Email || "", managerContact: row.manager?.ContactNum || "", managerPassword: "" };
-  if (module === "sports") return { ...row, name: row.SportName, category: row.Category, image: row.baseUrl || "" };
+  if (module === "sports") return { ...row, name: row.SportName, category: row.Category, image: row.baseUrl || "", maintenanceCycle: { ...DEFAULT_MAINTENANCE, ...(row.maintenanceCycle || {}) } };
   if (module === "evaluationTemplates") return { ...row, sportId: row.sport?._id || row.sport || "", parameters: (row.parameters || []).map((item) => ({ ...item, benchmark: item.benchmark || {} })) };
   return { ...row, name: row.userId?.Name || "", email: row.userId?.Email || "", contact: row.userId?.ContactNum || "", password: "", facilityId: row.SportComplexId?._id || "", sportIds: (row.sports || []).map((item) => item.sport?._id || item.sport), experience: row.sports?.[0]?.experience || 0 };
 }
@@ -66,7 +74,7 @@ export default function AdminPanel() {
     const term = query.trim().toLowerCase();
     return term ? rows.filter((row) => JSON.stringify(row).toLowerCase().includes(term)) : rows;
   }, [active, data, query]);
-  const current = MODULES.find((item) => item.id === active);
+  const current = MODULES.find((item) => item.id === active) || MODULES[0];
 
   if (requested === "achievements") {
     return <Navigate to="/admin/insights/achievements" replace />;
@@ -140,7 +148,9 @@ export default function AdminPanel() {
           <button onClick={() => setModal({ ...EMPTY[active] })} className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add {{ facilities: "facility", sports: "sport", coaches: "coach", evaluationTemplates: "template" }[active]}</button>
         </div>
         {notice ? <div className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.type === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{notice.text}</div> : null}
-        <div className="mb-5 grid grid-cols-3 gap-4"><Metric label="Facilities" value={data.facilities.length} /><Metric label="Global sports" value={data.sports.length} /><Metric label="Coaches" value={data.coaches.length} /></div>
+        <p className="mb-4 text-sm font-bold text-slate-700">
+          {current.label}: <span className="text-brand-primary tabular-nums">{records.length}</span>
+        </p>
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${active}...`} className="w-full rounded-xl bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none" /></div><span className="text-xs font-semibold text-slate-400">{records.length} records</span>
         </div>
@@ -163,19 +173,22 @@ export default function AdminPanel() {
   </div>;
 }
 
-function Metric({ label, value }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-[13px] font-bold text-slate-700">{label}</p><p className="mt-1.5 font-display text-2xl font-extrabold text-slate-900 tabular-nums">{value}</p></div>;
-}
-
 function RecordTable({ module, records, onEdit, onDelete, onPublish }) {
   if (module === "evaluationTemplates") {
     return <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-5 py-4">Sport</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Parameters</th><th className="px-5 py-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{records.length ? records.map((record) => <tr key={record._id}><td className="px-5 py-4 font-bold">{record.sport?.SportName || "—"}</td><td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold">{record.status}</span></td><td className="px-5 py-4 text-sm text-slate-500">{record.parameters?.map((item) => item.name).join(", ")}</td><td className="px-5 py-4"><div className="flex justify-end gap-2">{record.status === "Draft" ? <button onClick={() => onPublish(record)} className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">Publish</button> : null}<button onClick={() => onEdit(record)} className="rounded-lg p-2 text-slate-400 hover:text-brand-primary"><Edit3 className="h-4 w-4" /></button></div></td></tr>) : <tr><td colSpan={4} className="px-5 py-16 text-center text-sm text-slate-400">No evaluation templates found.</td></tr>}</tbody></table></div></div>;
   }
-  const headers = module === "facilities" ? ["Facility", "Type", "District", "Manager", "Status"] : module === "sports" ? ["Sport", "Category", "Description", "Status"] : ["Coach", "Facility", "Sports", "Qualification", "Status"];
+  const headers = module === "facilities" ? ["Facility", "Type", "District", "Manager", "Status"] : module === "sports" ? ["Sport", "Category", "Maintenance Cycle", "Status"] : ["Coach", "Facility", "Sports", "Qualification", "Status"];
   const values = (row) => module === "facilities"
     ? [row.name, row.facilityType || "Sports Complex", row.district?.District || "—", row.manager?.Name || "Unassigned", row.status]
     : module === "sports"
-      ? [row.SportName, row.Category, row.description || "—", row.status]
+      ? [
+          row.SportName,
+          row.Category,
+          row.maintenanceCycle?.enabled
+            ? `Every ${row.maintenanceCycle.frequencyDays} days (${row.maintenanceCycle.priority || "Medium"})`
+            : "Not configured",
+          row.status,
+        ]
       : [row.userId?.Name || "—", row.SportComplexId?.name || "—", (row.sports || []).map((item) => item.sport?.SportName).filter(Boolean).join(", "), row.qualification || "—", row.status];
   return <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{headers.map((header) => <th key={header} className="px-5 py-4">{header}</th>)}<th className="px-5 py-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{records.length ? records.map((record) => <tr key={idOf(record)} className="hover:bg-slate-50">{values(record).map((value, cell) => <td key={cell} className={`px-5 py-4 text-sm ${cell === 0 ? "font-bold text-slate-800" : "text-slate-500"}`}>{String(value || "—")}</td>)}<td className="px-5 py-4"><div className="flex justify-end gap-1"><button onClick={() => onEdit(record)} className="rounded-lg p-2 text-slate-400 hover:text-brand-primary"><Edit3 className="h-4 w-4" /></button><button onClick={() => onDelete(record)} className="rounded-lg p-2 text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></td></tr>) : <tr><td colSpan={headers.length + 1} className="px-5 py-16 text-center text-sm text-slate-400">No records found.</td></tr>}</tbody></table></div></div>;
 }
@@ -321,10 +334,58 @@ function FacilityLocationMap({ latitude, longitude, onChange }) {
   </div>;
 }
 function SportFields({ record, update }) {
-  return <div className="grid gap-4 sm:grid-cols-2">
-    <Field label="Sport name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field><Field label="Category"><input required className={input} placeholder="Aquatics, Racquet, Team..." value={record.category} onChange={(e) => update("category", e.target.value)} /></Field>
-    <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}><option>Active</option><option>Inactive</option></select></Field><UploadImageField label="Sport image" value={record.image || ""} onChange={(value) => update("image", value)} />
-    <Field label="Description" full><textarea rows={4} className={input} value={record.description} onChange={(e) => update("description", e.target.value)} /></Field>
+  const mc = record.maintenanceCycle || DEFAULT_MAINTENANCE;
+  const setMc = (patch) => update("maintenanceCycle", { ...mc, ...patch });
+  return <div className="space-y-6">
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Sport name"><input required className={input} value={record.name} onChange={(e) => update("name", e.target.value)} /></Field><Field label="Category"><input required className={input} placeholder="Aquatics, Racquet, Team..." value={record.category} onChange={(e) => update("category", e.target.value)} /></Field>
+      <Field label="Status"><select className={input} value={record.status} onChange={(e) => update("status", e.target.value)}><option>Active</option><option>Inactive</option></select></Field><UploadImageField label="Sport image" value={record.image || ""} onChange={(value) => update("image", value)} />
+      <Field label="Description" full><textarea rows={3} className={input} value={record.description} onChange={(e) => update("description", e.target.value)} /></Field>
+    </div>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-display text-base font-extrabold text-brand-dark">Periodic Maintenance &amp; Condition Assessment Cycle</h4>
+          <p className="text-xs text-slate-500">Applies uniformly to every facility offering this sport. Managers are notified automatically when a review is due.</p>
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+          <input type="checkbox" checked={Boolean(mc.enabled)} onChange={(e) => setMc({ enabled: e.target.checked })} />
+          Enable cycle
+        </label>
+      </div>
+      {mc.enabled ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Assessment frequency">
+            <select className={input} value={mc.frequencyDays || 30} onChange={(e) => setMc({ frequencyDays: Number(e.target.value) })}>
+              <option value={7}>Weekly (every 7 days)</option>
+              <option value={14}>Fortnightly (every 14 days)</option>
+              <option value={30}>Monthly (every 30 days)</option>
+              <option value={60}>Every 2 months (60 days)</option>
+              <option value={90}>Quarterly (every 90 days)</option>
+              <option value={180}>Half-yearly (every 180 days)</option>
+              <option value={365}>Yearly (every 365 days)</option>
+            </select>
+          </Field>
+          <Field label="Notify manager before due date (days)">
+            <input type="number" min={0} max={30} className={input} value={mc.notifyDaysBefore ?? 3} onChange={(e) => setMc({ notifyDaysBefore: Number(e.target.value) })} />
+          </Field>
+          <Field label="Priority level">
+            <select className={input} value={mc.priority || "Medium"} onChange={(e) => setMc({ priority: e.target.value })}>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </Field>
+          <Field label="Assessment checklist title">
+            <input className={input} placeholder="e.g. Court Surface & Lighting Check" value={mc.checklistTitle || ""} onChange={(e) => setMc({ checklistTitle: e.target.value })} />
+          </Field>
+          <Field label="Inspection instructions for facility manager" full>
+            <textarea rows={2} className={input} placeholder="Describe key parameters to inspect during the periodic condition review..." value={mc.checklistNotes || ""} onChange={(e) => setMc({ checklistNotes: e.target.value })} />
+          </Field>
+        </div>
+      ) : null}
+    </div>
   </div>;
 }
 function CoachFields({ record, update, facilities, sports, isNew }) {

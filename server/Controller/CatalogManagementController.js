@@ -190,6 +190,21 @@ async function deleteFacility(req, res) {
   return res.json({ data: { id: req.params.id }, rcode: 200 });
 }
 
+function maintenanceCyclePayload(raw) {
+  const mc = raw && typeof raw === "object" ? raw : {};
+  const frequencyDays = Math.min(365, Math.max(1, Number(mc.frequencyDays) || 30));
+  const notifyDaysBefore = Math.min(30, Math.max(0, Number(mc.notifyDaysBefore ?? 3)));
+  const priority = ["Low", "Medium", "High", "Critical"].includes(mc.priority) ? mc.priority : "Medium";
+  return {
+    enabled: Boolean(mc.enabled),
+    frequencyDays,
+    notifyDaysBefore,
+    priority,
+    checklistTitle: text(mc.checklistTitle, 160),
+    checklistNotes: text(mc.checklistNotes, 1000),
+  };
+}
+
 function sportPayload(body) {
   return {
     SportName: text(body.name || body.SportName, 120),
@@ -197,13 +212,14 @@ function sportPayload(body) {
     baseUrl: text(body.image || body.baseUrl, 1500),
     description: text(body.description, 2000),
     status: body.status || "Active",
+    maintenanceCycle: maintenanceCyclePayload(body.maintenanceCycle),
     metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
   };
 }
 
 async function listSports(req, res) {
   const sports = await Sport.find()
-    .select("SportName Category baseUrl description status metadata createdAt updatedAt")
+    .select("SportName Category baseUrl description status maintenanceCycle metadata createdAt updatedAt")
     .sort({ SportName: 1 })
     .lean();
   return res.json({ data: sports, rcode: 200 });

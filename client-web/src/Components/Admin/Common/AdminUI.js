@@ -1,9 +1,10 @@
-import React, { useEffect, useId, useRef } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  HelpCircle,
   Inbox,
   Info,
   Loader2,
@@ -82,6 +83,29 @@ const KPI_TONES = {
   slate: "border-slate-200 bg-slate-50 text-slate-600",
 };
 
+function KpiTooltip({ text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex" onClick={(e) => e.preventDefault()}>
+      <button
+        type="button"
+        aria-label="Explain this metric"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+        onBlur={() => setOpen(false)}
+        className="ml-1 inline-flex items-center text-slate-400 hover:text-brand-primary focus:outline-none"
+      >
+        <HelpCircle className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <span className="absolute bottom-6 left-1/2 z-50 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] font-medium leading-relaxed text-slate-700 shadow-xl">
+          {text}
+          <span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-slate-200 bg-white" />
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function KpiCard({
   label,
   value,
@@ -90,12 +114,14 @@ export function KpiCard({
   tone = "green",
   to,
   onClick,
+  tooltip,
 }) {
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px] font-bold leading-snug text-slate-700">
+        <p className="flex items-center text-[13px] font-bold leading-snug text-slate-700">
           {label}
+          {tooltip ? <KpiTooltip text={tooltip} /> : null}
         </p>
         {Icon ? (
           <span

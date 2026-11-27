@@ -18,7 +18,7 @@ function runsOn(slot, date) {
   return !days.length || days.includes(DAY_NAMES[new Date(`${date}T00:00:00.000Z`).getUTCDay()]);
 }
 
-function summariseUtilisation({ configs, bookings, institutionalBookings = [], payments, facilities, endDate, days = 30 }) {
+function summariseUtilisation({ configs, bookings, institutionalBookings = [], payments, facilities, attendances = [], endDate, days = 30 }) {
   const dates = dateRange(endDate, days);
   const startDate = dates[0];
   const facilityNames = new Map((facilities || []).map((item) => [String(item._id), item.name || "Facility"]));
@@ -26,16 +26,17 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
   const configByFacilitySport = new Map();
   const sports = new Map();
   const facilityRows = new Map();
+  const daily = new Map(dates.map((date) => [date, { date, capacity: 0, used: 0, attended: 0 }]));
 
   const rowFor = (config) => {
     const sportId = String(config.sport?._id || config.sport || "unknown");
     const key = sportId;
-    if (!sports.has(key)) sports.set(key, { sportId, sport: config.sport?.SportName || "Sport", capacity: 0, used: 0, bookings: 0, revenue: 0 });
+    if (!sports.has(key)) sports.set(key, { sportId, sport: config.sport?.SportName || "Sport", capacity: 0, used: 0, attended: 0, bookings: 0, revenue: 0 });
     return sports.get(key);
   };
   const facilityRowFor = (facilityId) => {
     const key = String(facilityId || "unknown");
-    if (!facilityRows.has(key)) facilityRows.set(key, { facilityId: key, facility: facilityNames.get(key) || "Facility", capacity: 0, used: 0, bookings: 0, revenue: 0 });
+    if (!facilityRows.has(key)) facilityRows.set(key, { facilityId: key, facility: facilityNames.get(key) || "Facility", capacity: 0, used: 0, attended: 0, bookings: 0, revenue: 0 });
     return facilityRows.get(key);
   };
 
@@ -57,9 +58,14 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
         const capacity = Math.max(0, Number(exclusive ? config.unitCount : slot.capacity) || 0);
         sportRow.capacity += capacity;
         facilityRow.capacity += capacity;
+        const dayRow = daily.get(date);
+        if (dayRow) dayRow.capacity += capacity;
       });
     });
   });
+
+  // Build set of attended booking IDs for quick lookup
+  const attendedBookingIds = new Map((attendances || []).map((a) => [String(a.booking), Math.max(1, Number(a.members) || 1)]));
 
   (bookings || []).filter((booking) => (
     booking.bookingStatus === "Confirmed" && booking.Startdate >= startDate && booking.Startdate <= endDate
@@ -71,12 +77,20 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     const slot = (config.slots || []).find((item) => String(item._id) === String(booking.slotId));
     const exclusive = config.bookingPolicy?.inventoryMode === "exclusive-unit" && slot?.purpose !== "coaching";
     const used = Math.max(1, Number(exclusive ? booking.reservedUnits : booking.memberCount) || 1);
+    const attended = attendedBookingIds.get(String(booking._id)) || 0;
     const sportRow = rowFor(config);
     const facilityRow = facilityRowFor(facilityId);
     sportRow.used += used;
+    sportRow.attended += attended;
     sportRow.bookings += 1;
     facilityRow.used += used;
+    facilityRow.attended += attended;
     facilityRow.bookings += 1;
+    const dayRow = daily.get(booking.Startdate);
+    if (dayRow) {
+      dayRow.used += used;
+      dayRow.attended += attended;
+    }
   });
 
   (institutionalBookings || []).filter((booking) => booking.status === "Confirmed").forEach((booking) => {
@@ -95,6 +109,8 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
       sportRow.bookings += 1;
       facilityRow.used += used;
       facilityRow.bookings += 1;
+      const dayRow = daily.get(selection.date);
+      if (dayRow) dayRow.used += used;
     });
   });
 
@@ -111,7 +127,7 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     facilityRowFor(facilityId).revenue += Number(payment.amount) || 0;
   });
 
-  const finish = (row) => ({ ...row, utilisationPct: percentage(row.used, row.capacity) });
+  const finish = (row) => ({ ...row, utilisationPct: percentage(row.used, row.capacity), attendancePct: percentage(row.attended || 0, row.capacity) });
   const bySport = [...sports.values()].map(finish).sort((a, b) => b.utilisationPct - a.utilisationPct || b.used - a.used);
   const byFacility = [...facilityRows.values()].map(finish).sort((a, b) => b.utilisationPct - a.utilisationPct || b.used - a.used);
   const capacity = bySport.reduce((sum, row) => sum + row.capacity, 0);
@@ -126,7 +142,17 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
   if (overall.utilisationPct >= 80) insights.push("Overall demand is high; consider adding capacity or additional slots.");
   else if (capacity && overall.utilisationPct < 25) insights.push("Overall utilisation is below 25%; review slot timing and citizen demand.");
 
-  return { period: { startDate, endDate, days }, overall, bySport, byFacility, insights };
+  const trend = [...daily.values()].map((row) => ({
+    date: row.date,
+    label: new Date(`${row.date}T00:00:00.000Z`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }),
+    capacity: row.capacity,
+    used: row.used,
+    attended: row.attended,
+    utilisationPct: percentage(row.used, row.capacity),
+    attendancePct: percentage(row.attended, row.used),
+  }));
+
+  return { period: { startDate, endDate, days }, overall, bySport, byFacility, trend, insights };
 }
 
 module.exports = { dateRange, runsOn, summariseUtilisation };

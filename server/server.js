@@ -59,6 +59,8 @@ const FileUploadController = require("./Controller/FileUploadController");
 const DashboardController = require("./Controller/DashboardController");
 const PerformanceController = require("./Controller/PerformanceController");
 const InstitutionBookingController = require("./Controller/InstitutionBookingController");
+const MaintenanceCycleController = require("./Controller/MaintenanceCycleController");
+const { startMaintenanceCycleScheduler } = require("./Utils/maintenanceCycleScheduler");
 
 const {
   filtersportsforcomplex,
@@ -1052,6 +1054,10 @@ app.post("/api/manager/sport-configs", requireRole(ROLE.MANAGER), FacilitySportC
 app.patch("/api/manager/sport-configs/:id", requireRole(ROLE.MANAGER), FacilitySportConfigController.update);
 app.delete("/api/manager/sport-configs/:id", requireRole(ROLE.MANAGER), FacilitySportConfigController.remove);
 
+// ── Maintenance Cycle (sport-level periodic assessment reminders) ─────────
+app.get("/api/admin/maintenance-due", requireRole(ROLE.ADMIN), MaintenanceCycleController.adminDueList);
+app.get("/api/manager/maintenance-due", requireRole(ROLE.MANAGER), MaintenanceCycleController.managerDueList);
+
 // Exposed for tests and operational inspection.
 app.locals.loginRateLimiter = UserRoute.loginRateLimiter;
 app.locals.uploadRateLimiter = UserRoute.uploadRateLimiter;
@@ -1059,7 +1065,11 @@ app.locals.uploadRateLimiter = UserRoute.uploadRateLimiter;
 if (require.main === module) {
   require("./config/dbconfig").getDbConnetion();
   const port = Number(process.env.PORT) || 9999;
-  app.listen(port, () => console.log(`server started at ${port}`));
+  app.listen(port, () => {
+    console.log(`server started at ${port}`);
+    // Start the maintenance cycle notification scheduler after server is up
+    startMaintenanceCycleScheduler();
+  });
 }
 
 module.exports = app;

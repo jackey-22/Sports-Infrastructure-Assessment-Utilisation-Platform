@@ -1,12 +1,16 @@
 import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+  AlertTriangle,
+  Bell,
   Building2,
+  CalendarClock,
   Clock3,
   RotateCcw,
   Search,
   ShieldCheck,
 } from "lucide-react";
+import { api } from "../../../API/client";
 import { managerService } from "../../../services/manager/managerService";
 import { formatDate, formatNumber } from "../../../utils/manager/managerUtils";
 import { useAdminQuery, useTableState } from "../../../hooks/manager/useManagerQuery";
@@ -42,6 +46,14 @@ export default function ManagerAssessmentList() {
 
   const { data, loading, error, reload } = useAdminQuery(
     () => managerService.listAssessments(),
+    []
+  );
+
+  const { data: maintenanceSchedules } = useAdminQuery(
+    async () => {
+      const res = await api.get("/api/manager/maintenance-due");
+      return res.data || [];
+    },
     []
   );
 
@@ -111,6 +123,62 @@ export default function ManagerAssessmentList() {
           tone="green"
         />
       </div>
+
+      {maintenanceSchedules?.length ? (
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-brand-primary" />
+              <h2 className="font-display text-sm font-extrabold text-slate-900">
+                Scheduled Maintenance &amp; Condition Assessment Cycles
+              </h2>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">
+              Configured per sport by Admin · {maintenanceSchedules.filter((s) => s.needsAction).length} due/overdue
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {maintenanceSchedules.map((item) => (
+              <div
+                key={item.configId}
+                className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 ${
+                  item.isOverdue ? "bg-rose-50/40" : item.isDueSoon ? "bg-amber-50/40" : ""
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-extrabold text-slate-900">{item.sportName}</span>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
+                      Every {item.frequencyDays} days · {item.priority}
+                    </span>
+                    {item.isOverdue ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-extrabold text-rose-700">
+                        <AlertTriangle className="h-3 w-3" /> Overdue by {Math.abs(item.daysUntilDue)}d
+                      </span>
+                    ) : item.isDueSoon ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-800">
+                        <Bell className="h-3 w-3" /> Due in {item.daysUntilDue}d
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                        On track
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs font-semibold text-slate-700">{item.title}</p>
+                  {item.notes ? <p className="mt-0.5 text-xs text-slate-500">{item.notes}</p> : null}
+                </div>
+                <div className="text-right text-xs">
+                  <p className="font-bold text-slate-800">Next due: {formatDate(item.nextDueDate)}</p>
+                  <p className="mt-0.5 text-slate-500">
+                    Last review: {item.lastAssessmentDate ? formatDate(item.lastAssessmentDate) : "None yet"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="mb-4">
         <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4 sm:px-5">

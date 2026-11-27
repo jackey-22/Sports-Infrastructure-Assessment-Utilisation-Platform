@@ -22,7 +22,7 @@ export default function BookingPaymentReport({ role }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [status, setStatus] = useState("");
+  const [scheduleScope, setScheduleScope] = useState("all");
   const [coachScope, setCoachScope] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -30,8 +30,7 @@ export default function BookingPaymentReport({ role }) {
     setLoading(true);
     setError(null);
     try {
-      const query = !isCoach && status ? `?status=${encodeURIComponent(status)}` : "";
-      const response = await api.get(`/api/booking-payments/report${query}`);
+      const response = await api.get("/api/booking-payments/report");
       setData(response.data);
     } catch (loadError) {
       setError(loadError);
@@ -40,12 +39,18 @@ export default function BookingPaymentReport({ role }) {
     }
   };
 
-  useEffect(() => { load(); }, [status, isCoach]);
+  useEffect(() => { load(); }, [isCoach]);
 
   const rows = useMemo(() => {
     const today = todayStr();
     const list = (data?.rows || []).filter((row) => {
       if (isCoach && coachScope === "upcoming") {
+        return String(row.date || "") >= today;
+      }
+      if (!isCoach && scheduleScope === "today") {
+        return String(row.date || "") === today;
+      }
+      if (!isCoach && scheduleScope === "upcoming") {
         return String(row.date || "") >= today;
       }
       return true;
@@ -96,10 +101,9 @@ export default function BookingPaymentReport({ role }) {
         />
       </div>
     ) : (
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Bookings" value={summary.bookings} caption={`${summary.pendingBookings} awaiting payment`} icon={CalendarCheck} tone="blue" />
-        <KpiCard label="Paid bookings" value={summary.paidBookings} caption="Server-verified Razorpay payments" icon={Receipt} tone="green" />
-        <KpiCard label="Collected" value={money(summary.totalCollected)} caption={role === "admin" ? `Across ${summary.facilities} facilities` : "Attributed to this scope"} icon={IndianRupee} tone="green" />
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        <KpiCard label="Bookings" value={summary.bookings} caption="Server-verified bookings" icon={CalendarCheck} tone="blue" />
+        <KpiCard label="Collected" value={money(summary.totalCollected)} caption={role === "admin" ? `Across ${summary.facilities} ${summary.facilities === 1 ? "facility" : "facilities"}` : "Attributed to this scope"} icon={IndianRupee} tone="green" />
         <KpiCard label="Athletes" value={summary.athletes} caption="Unique booking contacts" icon={Users} tone="violet" />
       </div>
     )) : null}
@@ -113,10 +117,14 @@ export default function BookingPaymentReport({ role }) {
             <option value="upcoming">Upcoming sessions only</option>
           </select>
         ) : (
-          <select className={`${inputClass} sm:w-48`} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All payment statuses</option><option value="Paid">Paid</option><option value="Created">Pending payment</option><option value="Failed">Failed</option><option value="Refunded">Refunded</option></select>
+          <select aria-label="Filter bookings by schedule" className={`${inputClass} sm:w-48`} value={scheduleScope} onChange={(event) => setScheduleScope(event.target.value)}>
+            <option value="all">All bookings</option>
+            <option value="today">Today's sessions</option>
+            <option value="upcoming">Upcoming sessions</option>
+          </select>
         )}
       </div>
-      {loading && !data ? <div className="p-5"><TableSkeleton rows={6} columns={isCoach ? 5 : 7} /></div> : error ? <div className="p-5"><ErrorState message={error.message} onRetry={load} /></div> : rows.length === 0 ? <EmptyState title="No coaching bookings found" description={isCoach ? "Confirmed coaching bookings assigned to your slots will appear here." : "Completed and pending Razorpay bookings will appear here."} /> : <div className="overflow-x-auto">
+      {loading && !data ? <div className="p-5"><TableSkeleton rows={6} columns={isCoach ? 5 : 7} /></div> : error ? <div className="p-5"><ErrorState message={error.message} onRetry={load} /></div> : rows.length === 0 ? <EmptyState title="No bookings found" description={isCoach ? "Confirmed coaching bookings assigned to your slots will appear here." : "Confirmed and paid bookings will appear here."} /> : <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>

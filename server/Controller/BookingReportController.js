@@ -91,8 +91,10 @@ async function report(req, res) {
       return fail(res, 403, "You cannot access booking payments");
     }
 
-    if (req.query.status && ["Created", "Paid", "Failed", "Refunded"].includes(req.query.status)) {
+    if (req.query.status && ["Paid", "Refunded"].includes(req.query.status)) {
       query.status = req.query.status;
+    } else {
+      query.status = "Paid";
     }
     if (req.query.from || req.query.to) {
       query.createdAt = {};
@@ -121,12 +123,12 @@ async function report(req, res) {
       data: {
         scope: req.user.Role === ROLE.ADMIN ? "Platform" : req.user.Role === ROLE.MANAGER ? "Facility" : "Coach",
         summary: {
-          bookings: records.length,
+          bookings: paid.length,
           paidBookings: paid.length,
-          pendingBookings: records.filter((row) => row.status === "Created").length,
+          pendingBookings: 0,
           totalCollected: paid.reduce((sum, row) => sum + Number(row.amount || 0), 0),
           facilities: facilities.size,
-          athletes: new Set(records.map((row) => row.payer?.email || row.payer?.phone).filter(Boolean)).size,
+          athletes: new Set(paid.map((row) => row.payer?.email || row.payer?.phone).filter(Boolean)).size,
         },
         rows: records.map((row) => ({
           id: row._id,

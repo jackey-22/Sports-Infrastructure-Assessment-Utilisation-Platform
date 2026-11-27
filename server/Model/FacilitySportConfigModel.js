@@ -92,6 +92,7 @@ const facilitySportConfigSchema = new mongoose.Schema(
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     notes: { type: String, default: "" },
     configuredBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users" },
+    lastMaintenanceNotifiedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

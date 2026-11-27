@@ -338,7 +338,7 @@ export default function GrievanceWorkspace({ role }) {
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
-              Assigned Queue
+              {role === "admin" || role === "authority" ? "All Complaints" : "Assigned to Me"}
             </button>
           ) : null}
         </div>
