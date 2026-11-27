@@ -441,11 +441,27 @@ async function listAchievements(req, res) {
         query.athlete = { $in: athletes.map((a) => a._id) };
       } else if (req.user.Role === ROLE.COACH) {
         const coach = await Instructor.findOne({ userId: req.user._id }).select("_id SportComplexId sports").lean();
-        const complexAthletes = coach?.SportComplexId ? await Athlete.find({ SportComplexId: coach.SportComplexId }).select("_id").lean() : [];
-        const guestUsers = coach ? await Guest.find({ coach: coach._id, bookingStatus: "Confirmed" }).distinct("citizenUser") : [];
-        const guestAthletes = guestUsers.length ? await Athlete.find({ userId: { $in: guestUsers } }).select("_id").lean() : [];
+        const coachSportIds = (coach?.sports || []).map((item) => item.sport?._id || item.sport).filter(Boolean);
+        if (!coach || !coach.SportComplexId || !coachSportIds.length) {
+          return res.json({ data: [], rcode: 200 });
+        }
+        const complexAthletes = await Athlete.find({ SportComplexId: coach.SportComplexId }).select("_id").lean();
+        const guestUsers = await Guest.find({
+          coach: coach._id,
+          SportComplexId: coach.SportComplexId,
+          sport: { $in: coachSportIds },
+          bookingStatus: "Confirmed",
+          paymentStatus: "Paid",
+        }).distinct("citizenUser");
+        const guestAthletes = guestUsers.length
+          ? await Athlete.find({ userId: { $in: guestUsers }, SportComplexId: null }).select("_id").lean()
+          : [];
         const athleteIds = [...new Set([...complexAthletes.map((a) => String(a._id)), ...guestAthletes.map((a) => String(a._id))])];
+        if (!athleteIds.length) {
+          return res.json({ data: [], rcode: 200 });
+        }
         query.athlete = { $in: athleteIds };
+        query.sport = { $in: coachSportIds };
       } else if (req.user.Role === ROLE.AUTHORITY) {
         const cIds = await districtComplexIds(req.user.DistrictId);
         const athletes = await Athlete.find({ SportComplexId: { $in: cIds } }).select("_id").lean();
@@ -453,7 +469,13 @@ async function listAchievements(req, res) {
       }
     }
 
-    if (validId(req.query.sportId)) query.sport = req.query.sportId;
+    if (validId(req.query.sportId)) {
+      if (query.sport && query.sport.$in) {
+        const allowed = query.sport.$in.some((id) => String(id) === String(req.query.sportId));
+        if (!allowed) return res.json({ data: [], rcode: 200 });
+      }
+      query.sport = req.query.sportId;
+    }
     if (req.query.verificationStatus && ["Pending", "Verified", "Rejected"].includes(req.query.verificationStatus)) {
       query.verificationStatus = req.query.verificationStatus;
     }
