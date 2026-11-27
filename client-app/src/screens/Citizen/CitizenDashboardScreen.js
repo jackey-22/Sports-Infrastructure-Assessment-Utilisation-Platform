@@ -32,6 +32,9 @@ export const CitizenDashboardScreen = ({
     const load = () => {
       setPassLoading(true);
       setPassError("");
+      api.get("/api/athlete/announcements").then(res => {
+        if (active) setAnnouncements(res.data || []);
+      }).catch(() => {});
       api.get("/api/citizen/bookings").then(result => {
         if (active) {
           const confirmedOnly = (result.data || []).filter(
@@ -88,9 +91,6 @@ export const CitizenDashboardScreen = ({
     }).catch(error => {
       if (active) setIdentityError(error.message || "Could not load athlete profile.");
     });
-    api.get("/api/athlete/announcements").then(res => {
-      if (active) setAnnouncements(res.data || []);
-    }).catch(() => {});
     return () => {
       active = false;
     };

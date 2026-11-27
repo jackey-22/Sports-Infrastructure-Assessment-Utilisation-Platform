@@ -8,6 +8,7 @@ const Updates = require("../Model/UpdatesModel");
 const { ROLE } = require("../Utils/roles");
 const { canAccessAthlete } = require("../Utils/scope");
 const { syncAthleteGoalsAndBadges } = require("../Services/goalBadgeService");
+const { notifyPreferredAthletes } = require("../Services/sportPreferenceNotificationService");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const validId = (value) => mongoose.isValidObjectId(value);
@@ -333,7 +334,7 @@ async function athleteAnnouncements(req, res) {
     const prefSet = new Set((athlete?.preferredSports || []).map(String));
     const facilityId = athlete?.SportComplexId ? String(athlete.SportComplexId) : null;
 
-    const rows = await Updates.find({ active: { $in: ["1", 1] } })
+    const rows = await Updates.find({ active: { $in: ["1", 1] }, level: 0 })
       .populate("sportComplexId", "name")
       .populate("sportId", "SportName")
       .sort({ createdAt: -1 })
@@ -341,7 +342,6 @@ async function athleteAnnouncements(req, res) {
       .lean();
 
     const filtered = rows
-      .filter((u) => u.level === 0 || (u.level === 2 && (!facilityId || String(u.sportComplexId?._id || u.sportComplexId) === facilityId)))
       .map((u) => {
         const sId = u.sportId ? String(u.sportId?._id || u.sportId) : "";
         return {
@@ -366,6 +366,157 @@ async function athleteAnnouncements(req, res) {
   }
 }
 
+const VALID_ANNOUNCEMENT_CATEGORIES = new Set(["general", "slot", "camp", "maintenance"]);
+
+function formatAnnouncement(u, user) {
+  const facilityId = u.sportComplexId?._id ? String(u.sportComplexId._id) : u.sportComplexId ? String(u.sportComplexId) : null;
+  const canManage =
+    user.role === ROLE.ADMIN ||
+    (user.role === ROLE.MANAGER && Boolean(facilityId) && String(facilityId) === String(user.SportComplexId || ""));
+  return {
+    _id: String(u._id),
+    title: u.title,
+    description: u.description,
+    category: u.category || "general",
+    active: String(u.active) === "1" ? "1" : "0",
+    facilityName: u.sportComplexId?.name || "",
+    facilityId,
+    sportName: u.sportId?.SportName || "",
+    sportId: u.sportId?._id ? String(u.sportId._id) : u.sportId ? String(u.sportId) : null,
+    canManage,
+    createdAt: u.createdAt,
+  };
+}
+
+/** GET /api/announcements */
+async function listAnnouncements(req, res) {
+  try {
+    const query = { level: 0 };
+    if (req.user.role === ROLE.MANAGER) {
+      if (req.user.SportComplexId) {
+        query.$or = [
+          { sportComplexId: req.user.SportComplexId },
+          { sportComplexId: null },
+          { sportComplexId: { $exists: false } },
+        ];
+      } else {
+        query.$or = [{ sportComplexId: null }, { sportComplexId: { $exists: false } }];
+      }
+    }
+
+    const rows = await Updates.find(query)
+      .populate("sportComplexId", "name")
+      .populate("sportId", "SportName")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.json({ data: rows.map((u) => formatAnnouncement(u, req.user)), rcode: 200 });
+  } catch (error) {
+    console.error("listAnnouncements error:", error);
+    return fail(res, 500, "Could not load announcements");
+  }
+}
+
+/** POST /api/announcements */
+async function createAnnouncement(req, res) {
+  try {
+    const title = String(req.body?.title || "").trim();
+    const description = String(req.body?.description || "").trim();
+    if (!title || !description) {
+      return fail(res, 400, "Title and description are required");
+    }
+
+    const rawCategory = String(req.body?.category || "general").trim().toLowerCase();
+    const category = VALID_ANNOUNCEMENT_CATEGORIES.has(rawCategory) ? rawCategory : "general";
+    const sportId = req.body?.sportId && validId(req.body.sportId) ? req.body.sportId : null;
+    const facilityId =
+      req.user.role === ROLE.MANAGER
+        ? req.user.SportComplexId || null
+        : req.body?.facilityId && validId(req.body.facilityId)
+          ? req.body.facilityId
+          : null;
+
+    const doc = await Updates.create({
+      title,
+      description,
+      level: 0,
+      category,
+      active: "1",
+      ...(facilityId ? { sportComplexId: facilityId } : {}),
+      ...(sportId ? { sportId } : {}),
+    });
+
+    let notifiedCount = 0;
+    if (sportId) {
+      try {
+        const result = await notifyPreferredAthletes({
+          sportId,
+          facilityId,
+          title,
+          message: description,
+          category,
+          createAnnouncement: false,
+        });
+        notifiedCount = Number(result?.notified || 0);
+      } catch (notifyErr) {
+        console.warn("announcement notifyPreferredAthletes failed:", notifyErr.message);
+      }
+    }
+
+    const populated = await Updates.findById(doc._id)
+      .populate("sportComplexId", "name")
+      .populate("sportId", "SportName")
+      .lean();
+
+    return res.status(201).json({
+      data: formatAnnouncement(populated || doc, req.user),
+      notifiedCount,
+      rcode: 200,
+    });
+  } catch (error) {
+    console.error("createAnnouncement error:", error);
+    return fail(res, 500, "Could not publish announcement");
+  }
+}
+
+/** PATCH /api/announcements/:id */
+async function toggleAnnouncement(req, res) {
+  try {
+    if (!validId(req.params.id)) return fail(res, 400, "Invalid announcement id");
+    const doc = await Updates.findById(req.params.id);
+    if (!doc) return fail(res, 404, "Announcement not found");
+
+    if (req.user.role === ROLE.MANAGER) {
+      const ownComplex = String(req.user.SportComplexId || "");
+      if (!doc.sportComplexId || String(doc.sportComplexId) !== ownComplex) {
+        return fail(res, 403, "You can only manage announcements for your assigned facility");
+      }
+    }
+
+    const nextActive =
+      req.body?.active !== undefined
+        ? String(req.body.active) === "1"
+          ? "1"
+          : "0"
+        : String(doc.active) === "1"
+          ? "0"
+          : "1";
+    doc.active = nextActive;
+    await doc.save();
+
+    const populated = await Updates.findById(doc._id)
+      .populate("sportComplexId", "name")
+      .populate("sportId", "SportName")
+      .lean();
+
+    return res.json({ data: formatAnnouncement(populated || doc, req.user), rcode: 200 });
+  } catch (error) {
+    console.error("toggleAnnouncement error:", error);
+    return fail(res, 500, "Could not update announcement");
+  }
+}
+
 module.exports = {
   athleteList,
   athleteCreate,
@@ -374,6 +525,9 @@ module.exports = {
   getPreferences,
   updatePreferences,
   athleteAnnouncements,
+  listAnnouncements,
+  createAnnouncement,
+  toggleAnnouncement,
   coachAllGoals,
   coachListGoals,
   coachAssignGoal,

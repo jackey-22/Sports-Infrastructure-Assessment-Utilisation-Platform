@@ -193,13 +193,17 @@ async function review(req, res) {
       if (sId && !distinctSports.has(sId)) distinctSports.set(sId, sel.sport?.SportName || "Sport");
     });
     for (const [sId, sName] of distinctSports.entries()) {
-      notifyPreferredAthletes({
-        sportId: sId,
-        facilityId: event.facility,
-        category: "camp",
-        title: `New ${event.eventType || "Camp"}: ${event.eventName}`,
-        message: `${populated?.facility?.name || "A facility"} scheduled ${event.eventName} (${sName}) starting ${event.startDate}.`,
-      }).catch(() => {});
+      try {
+        await notifyPreferredAthletes({
+          sportId: sId,
+          facilityId: event.facility,
+          category: "camp",
+          title: `New ${event.eventType || "Camp"}: ${event.eventName}`,
+          message: `${populated?.facility?.name || "A facility"} scheduled ${event.eventName} (${sName}) starting ${event.startDate}.`,
+        });
+      } catch (notifyErr) {
+        console.error("Camp announcement error:", notifyErr.message);
+      }
     }
     return res.json({ data: publicEvent(populated), msg: "Request approved and sent for payment", rcode: 200 });
   } catch (error) { console.error("Institution review failed:", error.message); return fail(res, error.status || 500, error.status ? error.message : "Could not review the event request"); }

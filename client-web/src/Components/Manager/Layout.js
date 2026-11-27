@@ -7,6 +7,7 @@ import {
   FileText,
   ListChecks,
   Medal,
+  Megaphone,
   School,
   ShieldCheck,
   Trophy,
@@ -34,6 +35,7 @@ const SECTIONS = [
     label: "Access & Programs",
     items: [
       { to: "/manager/institution-events", label: "Institution Events", icon: School },
+      { to: "/manager/announcements", label: "Announcements", icon: Megaphone },
       { to: "/manager/achievements", label: "Athlete Achievements", icon: Trophy },
       { to: "/manager/leaderboard", label: "Top Athletes", icon: Medal },
       { to: "/manager/gate-operators", label: "Gate Operators", icon: Users },

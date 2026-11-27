@@ -75,6 +75,7 @@ import GrantDetail from "./Components/Admin/Grant/GrantDetail";
 import BookingPaymentReport from "./Components/Booking/BookingPaymentReport";
 import SlotUtilisationReport from "./Components/Dashboard/SlotUtilisationReport";
 import GrievanceWorkspace from "./Components/Workflow/GrievanceWorkspace";
+import AnnouncementsWorkspace from "./Components/Workflow/AnnouncementsWorkspace";
 import RatingWorkspace from "./Components/Workflow/RatingWorkspace";
 import GrantWorkspace from "./Components/Workflow/GrantWorkspace";
 
@@ -145,6 +146,7 @@ const routes = createBrowserRouter([
       { path: "grants/:grantId", element: <GrantWorkspace role="admin" /> },
       { path: "assessments", element: <AdminAssessmentList /> },
       { path: "institution-events", element: <InstitutionEventManagement admin /> },
+      { path: "announcements", element: <AnnouncementsWorkspace role="admin" /> },
     ],
   },
   {
@@ -232,6 +234,7 @@ const routes = createBrowserRouter([
       { path: "achievements", element: <AchievementsWorkspace role="manager" />, errorElement: <ErrorPage /> },
       { path: "leaderboard", element: <Leaderboard />, errorElement: <ErrorPage /> },
       { path: "institution-events", element: <InstitutionEventManagement />, errorElement: <ErrorPage /> },
+      { path: "announcements", element: <AnnouncementsWorkspace role="manager" />, errorElement: <ErrorPage /> },
     ],
   },
   {

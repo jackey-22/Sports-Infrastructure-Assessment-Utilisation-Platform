@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Medal,
+  Megaphone,
   MessageSquareWarning,
   Receipt,
   ClipboardCheck,
@@ -40,6 +41,7 @@ const PLATFORM = [
   { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },
   { to: "/admin/insights/utilisation", label: "Slot utilisation", icon: BarChart3 },
   { to: "/admin/insights/institution-events", label: "Institution events", icon: School },
+  { to: "/admin/insights/announcements", label: "Announcements", icon: Megaphone },
   { to: "/admin/insights/grants", label: "Grants", icon: Wallet },
   { to: "/admin/insights/assessments", label: "Facility assessments", icon: ClipboardCheck },
 ];
