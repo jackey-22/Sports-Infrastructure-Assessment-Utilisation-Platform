@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+  BarChart3,
   Building2,
   Gauge,
   LayoutDashboard,
@@ -37,6 +38,7 @@ const PLATFORM = [
   { to: "/admin/insights/achievements", label: "Athlete achievements", icon: Trophy },
   { to: "/admin/insights/grievances", label: "Grievances", icon: MessageSquareWarning },
   { to: "/admin/insights/bookings", label: "Bookings & payments", icon: Receipt },
+  { to: "/admin/insights/utilisation", label: "Slot utilisation", icon: BarChart3 },
   { to: "/admin/insights/institution-events", label: "Institution events", icon: School },
   { to: "/admin/insights/grants", label: "Grants", icon: Wallet },
   { to: "/admin/insights/assessments", label: "Facility assessments", icon: ClipboardCheck },

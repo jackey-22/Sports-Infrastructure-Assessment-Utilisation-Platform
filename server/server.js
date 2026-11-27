@@ -93,6 +93,7 @@ if (process.env.TRUST_PROXY) {
 
 //middleware
 app.use(express.static(path.resolve(__dirname, "public")));
+app.use("/images", express.static(path.resolve(__dirname, "../images")));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 

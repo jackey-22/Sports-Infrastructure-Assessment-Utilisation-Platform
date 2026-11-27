@@ -94,18 +94,66 @@ export default function PublicExplore({ embedded = false }) {
     setRatingFacility(facility);
   }, [navigate, showToast]);
 
+  const nearMeAutoRanRef = useRef(false);
+
+  const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const applyNearMeLocation = useCallback((rows, silent = false) => {
+    if (!navigator.geolocation) {
+      if (!silent) showToast("Geolocation not supported on this device.", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const withDistance = rows.map((item) => {
+          const lat = Number(item.latitude);
+          const lng = Number(item.longitude);
+          const distanceKm =
+            Number.isFinite(lat) && Number.isFinite(lng)
+              ? haversineKm(latitude, longitude, lat, lng)
+              : Infinity;
+          return { ...item, distanceKm };
+        });
+        const sorted = withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
+        setFacilities(sorted);
+        setNearMeActive(true);
+        setSortBy("nearest");
+        setActiveFacility(sorted[0] || null);
+        setViewMode("map");
+        showToast("Location on — sorted nearest first.", "ok");
+      },
+      () => {
+        if (!silent) showToast("Couldn't get location — try again or pick a district.", "error");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [showToast]);
+
   const loadFacilities = useCallback(async (signal) => {
     setFacilitiesLoading(true);
     setFacilitiesError("");
     try {
       const rows = await getPublicFacilities({ signal, bookableOnly: true });
       setFacilities(rows);
+      if (!nearMeAutoRanRef.current && rows.length) {
+        nearMeAutoRanRef.current = true;
+        applyNearMeLocation(rows, true);
+      }
     } catch (error) {
       if (error.name !== "AbortError") setFacilitiesError(error.message);
     } finally {
       if (!signal?.aborted) setFacilitiesLoading(false);
     }
-  }, []);
+  }, [applyNearMeLocation]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -265,29 +313,7 @@ export default function PublicExplore({ embedded = false }) {
   };
 
   const handleNearMe = () => {
-    if (!navigator.geolocation) {
-      showToast("Geolocation not supported on this device.", "error");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const sorted = [...facilities].sort((a, b) => {
-          const distA = Math.hypot(a.latitude - latitude, a.longitude - longitude);
-          const distB = Math.hypot(b.latitude - latitude, b.longitude - longitude);
-          return distA - distB;
-        });
-        setFacilities(sorted);
-        setNearMeActive(true);
-        setActiveFacility(sorted[0] || null);
-        setViewMode("map");
-        showToast("Location on — sorted nearest first.", "ok");
-      },
-      () => {
-        showToast("Couldn't get location — try again or pick a district.", "error");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    applyNearMeLocation(facilities, false);
   };
 
   const filterProps = {
@@ -579,7 +605,7 @@ export default function PublicExplore({ embedded = false }) {
           }`}
         >
           {/* Desktop filters sidebar */}
-          <div className="hidden lg:block lg:sticky lg:top-36 lg:self-start lg:max-h-[calc(100vh-10rem)]">
+          <div className="hidden lg:block lg:sticky lg:top-36 lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto pr-0.5">
             <ExploreFilters {...filterProps} variant="sidebar" />
           </div>
 
@@ -596,7 +622,7 @@ export default function PublicExplore({ embedded = false }) {
           {viewMode === "map" && (
             <>
               {/* Desktop list column */}
-              <div className="hidden lg:flex lg:max-h-[calc(100vh-10rem)] lg:overflow-hidden flex-col">
+              <div className="hidden lg:flex lg:h-[calc(100vh-10rem)] lg:sticky lg:top-36 lg:overflow-hidden flex-col">
                 {renderList({ compact: false })}
               </div>
 

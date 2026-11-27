@@ -285,6 +285,7 @@ export default function OperationalDashboard({ role }) {
     configuration: "/admin",
     athletes: "/admin/insights/leaderboard",
     assessments: "/admin/insights/assessments",
+    utilisation: "/admin/insights/utilisation",
   } : {
     bookings: "/manager/transactions",
     grievances: "/manager/allcomplaint",
@@ -292,6 +293,7 @@ export default function OperationalDashboard({ role }) {
     configuration: "/manager/sports-configuration",
     athletes: "/manager/leaderboard",
     assessments: "/manager/assessment",
+    utilisation: "/manager/utilisation",
   }, [isAdmin]);
 
   if (loading && !data) {
@@ -342,7 +344,7 @@ export default function OperationalDashboard({ role }) {
     { label: "Revenue collected", value: money.format(kpis.revenue), caption: `${kpis.paidPayments} paid transactions`, icon: IndianRupee, tone: "amber", to: links.bookings },
     { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.escalatedGrievances ? "amber" : "slate", to: links.grievances },
     { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet", to: links.grants },
-    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.assessments, tooltip: slotTooltip },
+    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.utilisation, tooltip: slotTooltip },
   ] : [
     { label: "Confirmed bookings", value: number.format(kpis.bookings), caption: `${kpis.todayBookings} today`, icon: CalendarCheck, to: links.bookings },
     { label: "Upcoming", value: number.format(kpis.upcomingBookings), caption: `${kpis.todayBookings} bookings today`, icon: Clock3, to: links.bookings },
@@ -352,7 +354,7 @@ export default function OperationalDashboard({ role }) {
     { label: "Active coaches", value: number.format(kpis.activeCoaches), caption: "Assigned to this facility", icon: Users, to: links.configuration },
     { label: "Open grievances", value: number.format(kpis.openGrievances), caption: `${kpis.escalatedGrievances} escalated · ${kpis.overdueGrievances} overdue`, icon: ClipboardList, tone: kpis.overdueGrievances ? "amber" : "slate", to: links.grievances },
     { label: "Grant allocation", value: money.format(kpis.grants.allocated), caption: `${money.format(kpis.grants.utilised)} verified usage`, icon: WalletCards, tone: "violet", to: links.grants },
-    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.assessments, tooltip: slotTooltip },
+    { label: `${days}-day slot usage`, value: `${utilisation.overall.utilisationPct}%`, caption: `${number.format(utilisation.overall.used)} of ${number.format(utilisation.overall.capacity)} spots booked`, icon: Gauge, tone: utilisation.overall.utilisationPct >= 80 ? "amber" : "green", to: links.utilisation, tooltip: slotTooltip },
   ];
 
   const alertItems = [

@@ -71,6 +71,7 @@ import AdminAssessmentList from "./Components/Admin/Assessment/AdminAssessmentLi
 import GrantAllocation from "./Components/Admin/Grant/GrantAllocation";
 import GrantDetail from "./Components/Admin/Grant/GrantDetail";
 import BookingPaymentReport from "./Components/Booking/BookingPaymentReport";
+import SlotUtilisationReport from "./Components/Dashboard/SlotUtilisationReport";
 import GrievanceWorkspace from "./Components/Workflow/GrievanceWorkspace";
 import RatingWorkspace from "./Components/Workflow/RatingWorkspace";
 import GrantWorkspace from "./Components/Workflow/GrantWorkspace";
@@ -136,6 +137,7 @@ const routes = createBrowserRouter([
       { path: "achievements", element: <AchievementsWorkspace role="admin" /> },
       { path: "grievances", element: <GrievanceWorkspace role="admin" /> },
       { path: "bookings", element: <BookingPaymentReport role="admin" /> },
+      { path: "utilisation", element: <SlotUtilisationReport role="admin" /> },
       { path: "grants", element: <GrantWorkspace role="admin" /> },
       { path: "grants/allocate", element: <GrantWorkspace role="admin" /> },
       { path: "grants/:grantId", element: <GrantWorkspace role="admin" /> },
@@ -188,6 +190,11 @@ const routes = createBrowserRouter([
       {
         path: "transactions",
         element: <BookingPaymentReport role="manager" />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "utilisation",
+        element: <SlotUtilisationReport role="manager" />,
         errorElement: <ErrorPage />,
       },
       {

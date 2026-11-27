@@ -46,6 +46,9 @@ export function countByFacilityType(facilities) {
 
 export function sortFacilities(list, sortBy) {
   const arr = [...list];
+  if (sortBy === "nearest") {
+    return arr.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  }
   if (sortBy === "rating") {
     return arr.sort(
       (a, b) => (getAverageRating(b).avg || 0) - (getAverageRating(a).avg || 0)

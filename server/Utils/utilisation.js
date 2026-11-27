@@ -26,6 +26,7 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
   const configByFacilitySport = new Map();
   const sports = new Map();
   const facilityRows = new Map();
+  const facilitySports = new Map();
   const daily = new Map(dates.map((date) => [date, { date, capacity: 0, used: 0, attended: 0 }]));
 
   const rowFor = (config) => {
@@ -39,6 +40,25 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     if (!facilityRows.has(key)) facilityRows.set(key, { facilityId: key, facility: facilityNames.get(key) || "Facility", capacity: 0, used: 0, attended: 0, bookings: 0, revenue: 0 });
     return facilityRows.get(key);
   };
+  const facilitySportRowFor = (facilityId, config) => {
+    const fId = String(facilityId || "unknown");
+    const sId = String(config.sport?._id || config.sport || "unknown");
+    const key = `${fId}:${sId}`;
+    if (!facilitySports.has(key)) {
+      facilitySports.set(key, {
+        facilityId: fId,
+        facility: facilityNames.get(fId) || "Facility",
+        sportId: sId,
+        sport: config.sport?.SportName || "Sport",
+        capacity: 0,
+        used: 0,
+        attended: 0,
+        bookings: 0,
+        revenue: 0,
+      });
+    }
+    return facilitySports.get(key);
+  };
 
   (configs || []).forEach((config) => {
     const configId = String(config._id);
@@ -48,6 +68,7 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     configByFacilitySport.set(`${facilityId}:${sportId}`, config);
     const sportRow = rowFor(config);
     const facilityRow = facilityRowFor(facilityId);
+    const fsRow = facilitySportRowFor(facilityId, config);
     const configuredFrom = config.createdAt && !Number.isNaN(new Date(config.createdAt).getTime())
       ? new Date(config.createdAt).toISOString().slice(0, 10)
       : null;
@@ -58,6 +79,7 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
         const capacity = Math.max(0, Number(exclusive ? config.unitCount : slot.capacity) || 0);
         sportRow.capacity += capacity;
         facilityRow.capacity += capacity;
+        fsRow.capacity += capacity;
         const dayRow = daily.get(date);
         if (dayRow) dayRow.capacity += capacity;
       });
@@ -80,12 +102,16 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     const attended = attendedBookingIds.get(String(booking._id)) || 0;
     const sportRow = rowFor(config);
     const facilityRow = facilityRowFor(facilityId);
+    const fsRow = facilitySportRowFor(facilityId, config);
     sportRow.used += used;
     sportRow.attended += attended;
     sportRow.bookings += 1;
     facilityRow.used += used;
     facilityRow.attended += attended;
     facilityRow.bookings += 1;
+    fsRow.used += used;
+    fsRow.attended += attended;
+    fsRow.bookings += 1;
     const dayRow = daily.get(booking.Startdate);
     if (dayRow) {
       dayRow.used += used;
@@ -105,10 +131,13 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
       const used = Math.max(1, Number(exclusive ? selection.reservedUnits : selection.participantCount) || 1);
       const sportRow = rowFor(config);
       const facilityRow = facilityRowFor(facilityId);
+      const fsRow = facilitySportRowFor(facilityId, config);
       sportRow.used += used;
       sportRow.bookings += 1;
       facilityRow.used += used;
       facilityRow.bookings += 1;
+      fsRow.used += used;
+      fsRow.bookings += 1;
       const dayRow = daily.get(selection.date);
       if (dayRow) dayRow.used += used;
     });
@@ -127,9 +156,18 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     facilityRowFor(facilityId).revenue += Number(payment.amount) || 0;
   });
 
-  const finish = (row) => ({ ...row, utilisationPct: percentage(row.used, row.capacity), attendancePct: percentage(row.attended || 0, row.capacity) });
+  const finish = (row) => {
+    const utilisationPct = percentage(row.used, row.capacity);
+    return {
+      ...row,
+      utilisationPct,
+      attendancePct: percentage(row.attended || 0, row.capacity),
+      status: utilisationPct >= 80 ? "over" : utilisationPct < 25 ? "under" : "optimal",
+    };
+  };
   const bySport = [...sports.values()].map(finish).sort((a, b) => b.utilisationPct - a.utilisationPct || b.used - a.used);
   const byFacility = [...facilityRows.values()].map(finish).sort((a, b) => b.utilisationPct - a.utilisationPct || b.used - a.used);
+  const byFacilitySport = [...facilitySports.values()].map(finish).sort((a, b) => b.utilisationPct - a.utilisationPct || b.used - a.used);
   const capacity = bySport.reduce((sum, row) => sum + row.capacity, 0);
   const used = bySport.reduce((sum, row) => sum + row.used, 0);
   const overall = { capacity, used, utilisationPct: percentage(used, capacity) };
@@ -152,7 +190,7 @@ function summariseUtilisation({ configs, bookings, institutionalBookings = [], p
     attendancePct: percentage(row.attended, row.used),
   }));
 
-  return { period: { startDate, endDate, days }, overall, bySport, byFacility, trend, insights };
+  return { period: { startDate, endDate, days }, overall, bySport, byFacility, byFacilitySport, trend, insights };
 }
 
 module.exports = { dateRange, runsOn, summariseUtilisation };

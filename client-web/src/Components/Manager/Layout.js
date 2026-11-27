@@ -25,6 +25,7 @@ const SECTIONS = [
       { to: "/manager", label: "Dashboard", icon: Activity, end: true },
       { to: "/manager/facilitydetails", label: "Facility Details", icon: Building2 },
       { to: "/manager/sports-configuration", label: "Sports & Slots", icon: ListChecks },
+      { to: "/manager/utilisation", label: "Slot Utilisation", icon: Activity },
       { to: "/manager/transactions", label: "Bookings & Payments", icon: Wallet },
       { to: "/manager/allcomplaint", label: "Grievances", icon: FileText },
     ],
