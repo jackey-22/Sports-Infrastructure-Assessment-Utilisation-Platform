@@ -275,6 +275,19 @@ export const CitizenDashboardScreen = ({
               <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("goals")} activeOpacity={0.7}>
+              <View style={[styles.actionIconBox, {
+              backgroundColor: "#fef3c7"
+            }]}>
+                <Ionicons name="trophy" size={17} color="#d97706" />
+              </View>
+              <View style={styles.actionTextBox}>
+                <Text style={styles.actionTitle}>Goals & Badges</Text>
+                <Text style={styles.actionDesc}>Targets, XP & rank badges</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.quickActionCard} onPress={() => onNavigateTab && onNavigateTab("complaints")} activeOpacity={0.7}>
               <View style={[styles.actionIconBox, {
               backgroundColor: "#dcfce7"

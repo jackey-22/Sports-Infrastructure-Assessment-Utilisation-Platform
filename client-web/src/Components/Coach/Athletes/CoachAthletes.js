@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardCheck, Loader2, Search, Trophy, UserRound } from "lucide-react";
+import { ClipboardCheck, Loader2, Search, Target, Trophy, UserRound, X } from "lucide-react";
 import { api } from "../../../API/client";
 import { Card, EmptyState, ErrorState, PageHeader, PageShell, TableSkeleton } from "../Common/CoachUI";
 import AchievementsWorkspace from "../../Common/AchievementsWorkspace";
@@ -23,6 +23,9 @@ export default function CoachAthletes() {
   const [saving, setSaving] = useState(null);
   const [notice, setNotice] = useState("");
   const [achievementsAthlete, setAchievementsAthlete] = useState(null);
+  const [goalAthlete, setGoalAthlete] = useState(null);
+  const [goalForm, setGoalForm] = useState({ title: "", sportId: "", goalType: "skill_score", targetValue: 85, targetdate: "", description: "" });
+  const [goalSaving, setGoalSaving] = useState(false);
   const [portfolioAthleteId, setPortfolioAthleteId] = useState("");
 
   const load = useCallback(async () => {
@@ -184,6 +187,24 @@ export default function CoachAthletes() {
                     <UserRound className="h-3.5 w-3.5" />
                     Portfolio
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGoalAthlete(row);
+                      setGoalForm({
+                        title: "",
+                        sportId: row.sports?.[0]?.id || "",
+                        goalType: "skill_score",
+                        targetValue: 85,
+                        targetdate: "",
+                        description: "",
+                      });
+                    }}
+                    className="col-span-2 inline-flex w-full items-center justify-center gap-1 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-800 hover:bg-indigo-100 transition"
+                  >
+                    <Target className="h-3.5 w-3.5 text-indigo-600" />
+                    Assign Goal
+                  </button>
                 </div>
               ) : (
                 <p className="text-center text-xs font-semibold text-slate-400">
@@ -250,6 +271,120 @@ export default function CoachAthletes() {
       athleteId={portfolioAthleteId}
       onClose={() => setPortfolioAthleteId("")}
     />
+
+    {goalAthlete ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Coach Goal Assignment</p>
+              <h3 className="text-xl font-extrabold text-slate-900">{goalAthlete.name}</h3>
+            </div>
+            <button type="button" onClick={() => setGoalAthlete(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setGoalSaving(true);
+              try {
+                await api.post(`/api/coach/athletes/${goalAthlete.athleteId}/goals`, goalForm);
+                setNotice(`Goal assigned to ${goalAthlete.name}.`);
+                setGoalAthlete(null);
+              } catch (err) {
+                setNotice(err.message);
+              } finally {
+                setGoalSaving(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-slate-600">Goal title *</span>
+              <input
+                required
+                placeholder="e.g. Reach 85/100 in Badminton evaluation"
+                className={input}
+                value={goalForm.title}
+                onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-slate-600">Sport *</span>
+                <select
+                  required
+                  className={input}
+                  value={goalForm.sportId}
+                  onChange={(e) => setGoalForm({ ...goalForm, sportId: e.target.value })}
+                >
+                  {(goalAthlete.sports || []).map((sp) => (
+                    <option key={sp.id} value={sp.id}>{sp.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-slate-600">Goal type</span>
+                <select
+                  className={input}
+                  value={goalForm.goalType}
+                  onChange={(e) => setGoalForm({
+                    ...goalForm,
+                    goalType: e.target.value,
+                    targetValue: e.target.value === "skill_score" ? 85 : e.target.value === "attendance" ? 8 : 1,
+                  })}
+                >
+                  <option value="skill_score">Evaluation Score (/100)</option>
+                  <option value="attendance">Attendance Sessions</option>
+                  <option value="custom">Custom Milestone</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-slate-600">Target value *</span>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={goalForm.goalType === "skill_score" ? 100 : 365}
+                  className={input}
+                  value={goalForm.targetValue}
+                  onChange={(e) => setGoalForm({ ...goalForm, targetValue: Number(e.target.value) })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-slate-600">Deadline</span>
+                <input
+                  type="date"
+                  className={input}
+                  value={goalForm.targetdate}
+                  onChange={(e) => setGoalForm({ ...goalForm, targetdate: e.target.value })}
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-slate-600">Training instructions</span>
+              <textarea
+                rows={2}
+                placeholder="Key drills or attendance expectations..."
+                className={input}
+                value={goalForm.description}
+                onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
+              />
+            </label>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setGoalAthlete(null)} className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button type="submit" disabled={goalSaving} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-60">
+                {goalSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />}
+                Assign Goal
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    ) : null}
   </PageShell>;
 }
 

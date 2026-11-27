@@ -1,7 +1,7 @@
 import React from "react";
 import { Outlet, useLoaderData } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { Activity, Award, CalendarCheck, Compass, FileText, Medal, Trophy, Users } from "lucide-react";
+import { Activity, Award, CalendarCheck, Compass, FileText, Medal, Target, Trophy, Users } from "lucide-react";
 import { UserActions } from "../../store/UserData";
 import { FetchDistrict } from "../../API/FetchDistrict";
 import { FetchComplaintType } from "../../API/FetchComplaintType";
@@ -16,6 +16,7 @@ const SECTIONS = [
       { to: "/citizen/bookings", label: "My Bookings", icon: CalendarCheck },
       { to: "/citizen/portfolio", label: "Athlete Portfolio", icon: Award },
       { to: "/citizen/performance", label: "Performance & Awards", icon: Trophy },
+      { to: "/citizen/goals", label: "Goals & Badges", icon: Target },
       { to: "/citizen/leaderboard", label: "Top Athletes", icon: Medal },
       { to: "/citizen/complaints", label: "Grievances", icon: FileText },
       { to: "/citizen/profile", label: "My Profile", icon: Users },

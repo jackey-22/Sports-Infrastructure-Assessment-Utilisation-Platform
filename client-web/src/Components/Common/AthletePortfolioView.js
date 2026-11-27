@@ -6,13 +6,17 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock,
+  Crown,
+  Flame,
   Loader2,
+  Lock,
   MapPin,
   Medal,
   Printer,
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Target,
   Trophy,
   UserRound,
   X,
@@ -281,6 +285,67 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
           tone="violet"
         />
       </div>
+
+      {data.goalSummary ? (
+        <Card className="p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
+                <Crown className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700">
+                  Rank Tier &amp; Badges
+                </p>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {data.goalSummary.rank?.current?.name || "Bronze Athlete"} ·{" "}
+                  <span className="inline-flex items-center gap-1 text-amber-700">
+                    <Flame className="h-4 w-4" /> {data.goalSummary.xpPoints || 0} XP
+                  </span>
+                </h3>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200/70">
+                {(data.goalSummary.goals || []).filter((g) => g.status === "Completed").length} /{" "}
+                {(data.goalSummary.goals || []).length} Goals Completed
+              </span>
+              {ownProfile ? (
+                <Link
+                  to="/citizen/goals"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-3.5 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+                >
+                  <Target className="h-3.5 w-3.5" /> Manage Goals
+                </Link>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {(data.goalSummary.badgeCatalog || []).map((b) => (
+              <div
+                key={b.badgeKey}
+                className={`rounded-2xl border p-3 ${
+                  b.unlocked
+                    ? "border-amber-200 bg-amber-50/70 text-slate-900"
+                    : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-75"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  {b.unlocked ? (
+                    <Award className="h-4 w-4 text-amber-600" />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5 text-slate-400" />
+                  )}
+                  <span className="text-[10px] font-extrabold text-amber-800">+{b.points} XP</span>
+                </div>
+                <p className="mt-1.5 text-xs font-extrabold leading-tight">{b.name}</p>
+                <p className="mt-0.5 text-[10px] leading-snug">{b.unlocked ? "Unlocked" : b.hint}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="space-y-5 lg:col-span-7">

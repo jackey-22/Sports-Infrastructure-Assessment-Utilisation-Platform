@@ -92,7 +92,7 @@ function buildSportInference(items) {
   };
 }
 
-export default function AthletePerformanceScreen({ onBack, onProfile }) {
+export default function AthletePerformanceScreen({ onBack, onProfile, onGoals }) {
   const evaluations = usePerformanceResource(performanceService.ownEvaluations);
   const achievements = usePerformanceResource(performanceService.achievements);
   const sports = usePerformanceResource(performanceService.sports);
@@ -256,6 +256,12 @@ export default function AthletePerformanceScreen({ onBack, onProfile }) {
             <Ionicons name="person-circle-outline" size={18} color={GREEN} />
             <Text style={localStyles.toolbarBtnText}>My Profile</Text>
           </TouchableOpacity>
+          {onGoals ? (
+            <TouchableOpacity style={localStyles.toolbarBtn} onPress={onGoals} activeOpacity={0.75}>
+              <Ionicons name="trophy-outline" size={17} color={GREEN} />
+              <Text style={localStyles.toolbarBtnText}>Goals & Badges</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={localStyles.toolbarBtn} onPress={refresh} activeOpacity={0.75}>
             <Ionicons name="refresh-outline" size={17} color={GREEN} />
             <Text style={localStyles.toolbarBtnText}>Refresh</Text>

@@ -24,9 +24,25 @@ const athleteSchema = new mongoose.Schema(
       {
         title: String,
         description: String,
+        sport: { type: mongoose.SchemaTypes.ObjectId, ref: "sports", default: null },
+        goalType: {
+          type: String,
+          enum: ["attendance", "skill_score", "custom"],
+          default: "custom",
+        },
+        targetValue: { type: Number, default: 1 },
+        currentValue: { type: Number, default: 0 },
+        unit: { type: String, default: "sessions" },
+        assignedBy: { type: mongoose.SchemaTypes.ObjectId, ref: "users", default: null },
+        assignedByRole: { type: String, enum: ["athlete", "coach"], default: "athlete" },
+        status: {
+          type: String,
+          enum: ["Active", "Completed", "Overdue"],
+          default: "Active",
+        },
         startdate: {
           type: Date,
-          default: Date.now(),
+          default: Date.now,
         },
         targetdate: Date, //useful for reminder
         actualdate: Date,
@@ -36,6 +52,18 @@ const athleteSchema = new mongoose.Schema(
         },
       },
     ],
+    badges: [
+      {
+        badgeKey: { type: String, required: true },
+        name: { type: String, required: true },
+        description: { type: String, default: "" },
+        category: { type: String, enum: ["milestone", "tier"], default: "milestone" },
+        tier: { type: String, default: "bronze" },
+        points: { type: Number, default: 0 },
+        awardedAt: { type: Date, default: Date.now },
+      },
+    ],
+    xpPoints: { type: Number, default: 0 },
     payments: [{ type: mongoose.SchemaTypes.ObjectId, ref: "payments" }],
   },
   { timestamps: true }

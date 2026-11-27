@@ -9,6 +9,7 @@ import CitizenDashboardScreen from "../screens/Citizen/CitizenDashboardScreen";
 import AttendanceHistoryScreen from "../screens/Citizen/AttendanceHistoryScreen";
 import ComplaintsScreen from "../screens/Citizen/ComplaintsScreen";
 import AthletePerformanceScreen from "../screens/Citizen/AthletePerformanceScreen";
+import AthleteGoalsScreen from "../screens/Citizen/AthleteGoalsScreen";
 import CitizenProfileScreen from "../screens/Citizen/CitizenProfileScreen";
 
 // Supervisor Screens
@@ -226,8 +227,17 @@ export const RoleNavigator = ({ user, onLogout }) => {
     if (activeTab === "profile") {
       return <CitizenProfileScreen user={user} onBack={() => setActiveTab("skills")} onLogout={onLogout} />;
     }
+    if (activeTab === "goals") {
+      return <AthleteGoalsScreen onBack={() => setActiveTab("skills")} />;
+    }
     if (activeTab === "skills" || activeTab === "performance") {
-      return <AthletePerformanceScreen onBack={() => setActiveTab("home")} onProfile={() => setActiveTab("profile")} />;
+      return (
+        <AthletePerformanceScreen
+          onBack={() => setActiveTab("home")}
+          onProfile={() => setActiveTab("profile")}
+          onGoals={() => setActiveTab("goals")}
+        />
+      );
     }
     if (activeTab === "explore" || activeTab === "events") {
       return <GujaratExploreMapScreen canRate onSelectFacility={(fac) => setTargetFacility(fac)} onBack={() => setActiveTab("home")} />;

@@ -60,6 +60,7 @@ const DashboardController = require("./Controller/DashboardController");
 const PerformanceController = require("./Controller/PerformanceController");
 const InstitutionBookingController = require("./Controller/InstitutionBookingController");
 const MaintenanceCycleController = require("./Controller/MaintenanceCycleController");
+const GoalBadgeController = require("./Controller/GoalBadgeController");
 const { startMaintenanceCycleScheduler } = require("./Utils/maintenanceCycleScheduler");
 
 const {
@@ -953,6 +954,14 @@ app.get("/api/athlete/achievements", requireRole(ROLE.ATHLETE), PerformanceContr
 app.post("/api/achievements", requireRole(ROLE.ADMIN, ROLE.MANAGER), PerformanceController.createAchievement);
 app.get("/api/achievements", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.listAchievements);
 app.patch("/api/achievements/:id/verification", requireRole(ROLE.ADMIN, ROLE.COACH, ROLE.MANAGER), PerformanceController.verifyAchievement);
+
+// Athlete & Coach Goals and Badges
+app.get("/api/athlete/goals", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteList);
+app.post("/api/athlete/goals", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteCreate);
+app.patch("/api/athlete/goals/:goalId", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteUpdate);
+app.delete("/api/athlete/goals/:goalId", requireRole(ROLE.ATHLETE), GoalBadgeController.athleteDelete);
+app.get("/api/coach/athletes/:athleteId/goals", requireRole(ROLE.COACH), GoalBadgeController.coachListGoals);
+app.post("/api/coach/athletes/:athleteId/goals", requireRole(ROLE.COACH), GoalBadgeController.coachAssignGoal);
 
 app.get("/api/grievances", requireRole(...SERVICE_ROLES), WorkflowController.grievanceList);
 app.get("/api/grievances/facilities", requireRole(...SERVICE_ROLES), require("./Controller/GrievanceController").facilities);

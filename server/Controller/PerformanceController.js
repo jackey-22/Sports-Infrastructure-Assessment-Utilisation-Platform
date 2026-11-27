@@ -11,6 +11,7 @@ const AthleteRating = require("../Model/athleteRatingModel");
 const Users = require("../Model/UsersModel");
 const { ROLE } = require("../Utils/roles");
 const { canAccessAthlete, districtComplexIds } = require("../Utils/scope");
+const { syncAthleteGoalsAndBadges } = require("../Services/goalBadgeService");
 
 const ACHIEVEMENT_WEIGHTS = {
   "Gold Medal": 15,
@@ -301,6 +302,10 @@ async function createEvaluation(req, res) {
       );
     }
 
+    if (mongoose.connection.readyState === 1) {
+      syncAthleteGoalsAndBadges(athlete._id).catch(() => {});
+    }
+
     return res.status(isUpdate ? 200 : 201).json({ data, rcode: 200 });
   } catch (error) {
     console.error("Could not submit athlete evaluation:", error.message);
@@ -524,6 +529,10 @@ async function verifyAchievement(req, res) {
     achievement.verificationRemarks = String(req.body.verificationRemarks || "");
     achievement.verifiedBy = req.user._id;
     await achievement.save();
+
+    if (mongoose.connection.readyState === 1 && achievement.athlete) {
+      syncAthleteGoalsAndBadges(achievement.athlete._id || achievement.athlete).catch(() => {});
+    }
 
     const populated = await Achievement.findById(achievement._id)
       .populate("sport", "SportName")
@@ -913,6 +922,11 @@ async function buildAthletePortfolio(athlete, userDoc) {
     ? Math.round(Math.max(...evaluations.map((e) => Number(e.totalScore || 0))) * 10) / 10
     : 0;
 
+  const goalSummary =
+    mongoose.connection.readyState === 1
+      ? await syncAthleteGoalsAndBadges(athlete._id).catch(() => null)
+      : null;
+
   return {
     exists: true,
     user: {
@@ -952,6 +966,7 @@ async function buildAthletePortfolio(athlete, userDoc) {
     sportBreakdown,
     evaluations,
     achievements,
+    goalSummary,
   };
 }
 

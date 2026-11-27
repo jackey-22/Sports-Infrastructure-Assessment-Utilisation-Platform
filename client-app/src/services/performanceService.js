@@ -58,4 +58,20 @@ export const performanceService = {
     const result = await api.get("/getAthletes");
     return result.data || [];
   },
+  async ownGoals() {
+    const result = await api.get("/api/athlete/goals");
+    return result.data || { goals: [], badges: [], badgeCatalog: [], xpPoints: 0, rank: null };
+  },
+  async createGoal(payload) {
+    const result = await api.post("/api/athlete/goals", payload);
+    return result.data;
+  },
+  async completeGoal(goalId) {
+    const result = await api.patch(`/api/athlete/goals/${encodeURIComponent(goalId)}`, { achieved: "1" });
+    return result.data;
+  },
+  async deleteGoal(goalId) {
+    const result = await api.del(`/api/athlete/goals/${encodeURIComponent(goalId)}`);
+    return result.data;
+  },
 };

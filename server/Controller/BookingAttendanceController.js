@@ -1,6 +1,8 @@
 const Attendance = require("../Model/BookingAttendanceModel");
+const Athlete = require("../Model/athleteModel");
 const { resolvePass } = require("./BookingPassController");
 const { ROLE } = require("../Utils/roles");
+const { syncAthleteGoalsAndBadges } = require("../Services/goalBadgeService");
 const indiaDate = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0,10);
 function row(value) {
   const b = value.booking || {};
@@ -21,6 +23,11 @@ async function record(req, res) {
       try { attendance = await Attendance.findOneAndUpdate({ booking: booking._id }, { $setOnInsert: values }, { upsert: true, new: true }); }
       catch (error) { if (error.code !== 11000) throw error; attendance = await Attendance.findOne({ booking: booking._id }); }
       if (attendance.exitAt) return res.status(409).json({ rcode: -9, msg: "This booking has already completed its visit" });
+      if (booking.citizenUser) {
+        Athlete.findOne({ userId: booking.citizenUser }).select("_id").lean()
+          .then((ath) => (ath ? syncAthleteGoalsAndBadges(ath._id) : null))
+          .catch(() => {});
+      }
     } else {
       attendance = await Attendance.findOneAndUpdate({ booking: booking._id, exitAt: null }, { $set: { exitAt: new Date(), exitBy: req.user._id } }, { new: true });
       if (!attendance) attendance = await Attendance.findOne({ booking: booking._id });
