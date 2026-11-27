@@ -14,6 +14,7 @@ import {
   Medal,
   Printer,
   RefreshCw,
+  Share2,
   ShieldCheck,
   Sparkles,
   Target,
@@ -23,6 +24,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "../../API/client";
+import BadgeShareModal from "../Citizen/Performance/BadgeShareModal";
 import {
   Button,
   Card,
@@ -77,6 +79,7 @@ function verificationBadge(status) {
 
 function PortfolioBody({ portfolio, isSelf, onRefresh }) {
   const [selectedSportId, setSelectedSportId] = useState("");
+  const [shareBadge, setShareBadge] = useState(null);
   const { exists, user, athlete, summary, sportBreakdown = [], evaluations = [], achievements = [] } = portfolio;
 
   useEffect(() => {
@@ -325,9 +328,10 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
             {(data.goalSummary.badgeCatalog || []).map((b) => (
               <div
                 key={b.badgeKey}
+                onClick={() => (b.unlocked && ownProfile ? setShareBadge(b) : null)}
                 className={`rounded-2xl border p-3 ${
                   b.unlocked
-                    ? "border-amber-200 bg-amber-50/70 text-slate-900"
+                    ? `border-amber-200 bg-amber-50/70 text-slate-900 ${ownProfile ? "cursor-pointer hover:border-emerald-400 transition" : ""}`
                     : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-75"
                 }`}
               >
@@ -341,9 +345,21 @@ function PortfolioBody({ portfolio, isSelf, onRefresh }) {
                 </div>
                 <p className="mt-1.5 text-xs font-extrabold leading-tight">{b.name}</p>
                 <p className="mt-0.5 text-[10px] leading-snug">{b.unlocked ? "Unlocked" : b.hint}</p>
+                {b.unlocked && ownProfile ? (
+                  <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                    <Share2 className="h-3 w-3" /> Share post
+                  </span>
+                ) : null}
               </div>
             ))}
           </div>
+          <BadgeShareModal
+            badge={shareBadge}
+            athleteName={data.user?.name}
+            rankName={data.goalSummary.rank?.current?.name}
+            xpPoints={data.goalSummary.xpPoints}
+            onClose={() => setShareBadge(null)}
+          />
         </Card>
       ) : null}
 

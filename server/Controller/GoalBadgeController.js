@@ -3,6 +3,8 @@ const Athlete = require("../Model/athleteModel");
 const Sport = require("../Model/SportModel");
 const Instructor = require("../Model/instructorModel");
 const Guest = require("../Model/GuestModel");
+const Reminder = require("../Model/Reminder");
+const Updates = require("../Model/UpdatesModel");
 const { ROLE } = require("../Utils/roles");
 const { canAccessAthlete } = require("../Utils/scope");
 const { syncAthleteGoalsAndBadges } = require("../Services/goalBadgeService");
@@ -267,11 +269,111 @@ async function coachAssignGoal(req, res) {
   }
 }
 
+/** GET /api/athlete/preferences */
+async function getPreferences(req, res) {
+  try {
+    const athlete = await Athlete.findOne({ userId: req.user._id })
+      .populate("preferredSports", "SportName Category")
+      .lean();
+    const preferredSports = (athlete?.preferredSports || []).map((s) => ({
+      _id: String(s._id),
+      SportName: s.SportName,
+      Category: s.Category || "",
+    }));
+    const notifications = await Reminder.find({ userIds: req.user._id })
+      .sort({ date: -1 })
+      .limit(10)
+      .lean();
+    return res.json({ data: { preferredSports, notifications }, rcode: 200 });
+  } catch (error) {
+    console.error("getPreferences error:", error);
+    return fail(res, 500, "Could not load sport preferences");
+  }
+}
+
+/** PUT /api/athlete/preferences */
+async function updatePreferences(req, res) {
+  try {
+    const rawIds = Array.isArray(req.body?.sportIds) ? req.body.sportIds : [];
+    const validIds = [...new Set(rawIds.filter(validId).map(String))];
+    const existingSports = validIds.length
+      ? await Sport.find({ _id: { $in: validIds } }).select("_id SportName Category").lean()
+      : [];
+
+    let athlete = await Athlete.findOne({ userId: req.user._id });
+    if (!athlete) {
+      athlete = await Athlete.create({ userId: req.user._id, isActive: 1 });
+    }
+    athlete.preferredSports = existingSports.map((s) => s._id);
+    await athlete.save();
+
+    return res.json({
+      data: {
+        preferredSports: existingSports.map((s) => ({
+          _id: String(s._id),
+          SportName: s.SportName,
+          Category: s.Category || "",
+        })),
+      },
+      rcode: 200,
+      msg: "Sport preferences saved",
+    });
+  } catch (error) {
+    console.error("updatePreferences error:", error);
+    return fail(res, 500, "Could not save sport preferences");
+  }
+}
+
+/** GET /api/athlete/announcements */
+async function athleteAnnouncements(req, res) {
+  try {
+    const athlete = await Athlete.findOne({ userId: req.user._id })
+      .select("preferredSports SportComplexId")
+      .lean();
+    const prefSet = new Set((athlete?.preferredSports || []).map(String));
+    const facilityId = athlete?.SportComplexId ? String(athlete.SportComplexId) : null;
+
+    const rows = await Updates.find({ active: { $in: ["1", 1] } })
+      .populate("sportComplexId", "name")
+      .populate("sportId", "SportName")
+      .sort({ createdAt: -1 })
+      .limit(12)
+      .lean();
+
+    const filtered = rows
+      .filter((u) => u.level === 0 || (u.level === 2 && (!facilityId || String(u.sportComplexId?._id || u.sportComplexId) === facilityId)))
+      .map((u) => {
+        const sId = u.sportId ? String(u.sportId?._id || u.sportId) : "";
+        return {
+          _id: String(u._id),
+          title: u.title,
+          description: u.description,
+          category: u.category || "general",
+          facilityName: u.sportComplexId?.name || "",
+          facilityId: u.sportComplexId?._id ? String(u.sportComplexId._id) : null,
+          sportName: u.sportId?.SportName || "",
+          sportId: sId || null,
+          isPreferred: Boolean(sId && prefSet.has(sId)),
+          createdAt: u.createdAt,
+        };
+      })
+      .sort((a, b) => Number(b.isPreferred) - Number(a.isPreferred) || new Date(b.createdAt) - new Date(a.createdAt));
+
+    return res.json({ data: filtered, rcode: 200 });
+  } catch (error) {
+    console.error("athleteAnnouncements error:", error);
+    return fail(res, 500, "Could not load announcements");
+  }
+}
+
 module.exports = {
   athleteList,
   athleteCreate,
   athleteUpdate,
   athleteDelete,
+  getPreferences,
+  updatePreferences,
+  athleteAnnouncements,
   coachAllGoals,
   coachListGoals,
   coachAssignGoal,

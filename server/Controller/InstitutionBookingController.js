@@ -5,6 +5,7 @@ const FacilitySportConfig = require("../Model/FacilitySportConfigModel");
 const SportsComplex = require("../Model/SportsComplexModel");
 const Guest = require("../Model/GuestModel");
 const { createOrder, fetchPayment, verifyPaymentSignature, checkoutKeyId } = require("../Services/razorpayService");
+const { notifyPreferredAthletes } = require("../Services/sportPreferenceNotificationService");
 
 const fail = (res, status, msg) => res.status(status).json({ data: "", msg, rcode: -9 });
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -185,7 +186,22 @@ async function review(req, res) {
     if (unavailable) return fail(res, 409, unavailable);
     event.selections.forEach((item, index) => { item.reservedUnits = normalized[index].reservedUnits; });
     event.status = "Approved"; event.quotedAmount = amount; event.paymentStatus = "Pending"; event.managerNote = note; event.reviewedBy = req.user._id; event.reviewedAt = new Date(); await event.save();
-    return res.json({ data: publicEvent(await populate(InstitutionBooking.findById(event._id))), msg: "Request approved and sent for payment", rcode: 200 });
+    const populated = await populate(InstitutionBooking.findById(event._id));
+    const distinctSports = new Map();
+    (populated?.selections || []).forEach((sel) => {
+      const sId = String(sel.sport?._id || sel.sport || "");
+      if (sId && !distinctSports.has(sId)) distinctSports.set(sId, sel.sport?.SportName || "Sport");
+    });
+    for (const [sId, sName] of distinctSports.entries()) {
+      notifyPreferredAthletes({
+        sportId: sId,
+        facilityId: event.facility,
+        category: "camp",
+        title: `New ${event.eventType || "Camp"}: ${event.eventName}`,
+        message: `${populated?.facility?.name || "A facility"} scheduled ${event.eventName} (${sName}) starting ${event.startDate}.`,
+      }).catch(() => {});
+    }
+    return res.json({ data: publicEvent(populated), msg: "Request approved and sent for payment", rcode: 200 });
   } catch (error) { console.error("Institution review failed:", error.message); return fail(res, error.status || 500, error.status ? error.message : "Could not review the event request"); }
 }
 

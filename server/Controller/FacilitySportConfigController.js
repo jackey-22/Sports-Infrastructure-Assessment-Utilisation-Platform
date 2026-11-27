@@ -4,6 +4,7 @@ const Sport = require("../Model/SportModel");
 const Instructor = require("../Model/instructorModel");
 const SportsComplex = require("../Model/SportsComplexModel");
 const { canAccessComplex } = require("../Utils/scope");
+const { notifyPreferredAthletes } = require("../Services/sportPreferenceNotificationService");
 
 const fail = (res, status, msg) =>
   res.status(status).json({ data: "", msg, rcode: status === 403 ? -10 : -9 });
@@ -215,6 +216,17 @@ async function create(req, res) {
       }
     );
     await config.populate("sport", "SportName Category baseUrl");
+    if (config.status === "Active" && (config.slots || []).some((s) => s.bookable !== false)) {
+      SportsComplex.findById(facility).select("name").lean().then((fac) => {
+        notifyPreferredAthletes({
+          sportId: config.sport?._id || config.sport,
+          facilityId: facility,
+          category: "slot",
+          title: `New ${config.sport?.SportName || "Sport"} Slots Open`,
+          message: `${fac?.name || "A facility"} just opened online booking slots for ${config.sport?.SportName || "your preferred sport"}.`,
+        });
+      }).catch(() => {});
+    }
     return res.status(201).json({ data: config, rcode: 200 });
   } catch (error) {
     if (error && error.code === 11000) {
@@ -278,6 +290,17 @@ async function update(req, res) {
       }
     );
     await existing.populate("sport", "SportName Category baseUrl");
+    if (existing.status === "Active" && (existing.slots || []).some((s) => s.bookable !== false)) {
+      SportsComplex.findById(facility).select("name").lean().then((fac) => {
+        notifyPreferredAthletes({
+          sportId: existing.sport?._id || existing.sport,
+          facilityId: facility,
+          category: "slot",
+          title: `${existing.sport?.SportName || "Sport"} Schedule Updated`,
+          message: `${fac?.name || "A facility"} updated bookable slots for ${existing.sport?.SportName || "your preferred sport"}.`,
+        });
+      }).catch(() => {});
+    }
     return res.json({ data: existing, rcode: 200 });
   } catch (error) {
     return fail(res, 500, error.message || "Could not update sport configuration");

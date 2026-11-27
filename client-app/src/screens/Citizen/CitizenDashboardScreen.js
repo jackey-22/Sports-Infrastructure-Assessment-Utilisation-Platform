@@ -80,6 +80,7 @@ export const CitizenDashboardScreen = ({
   };
   const [identity, setIdentity] = useState(null);
   const [identityError, setIdentityError] = useState("");
+  const [announcements, setAnnouncements] = useState([]);
   useEffect(() => {
     let active = true;
     citizenService.getIdentity().then(result => {
@@ -87,6 +88,9 @@ export const CitizenDashboardScreen = ({
     }).catch(error => {
       if (active) setIdentityError(error.message || "Could not load athlete profile.");
     });
+    api.get("/api/athlete/announcements").then(res => {
+      if (active) setAnnouncements(res.data || []);
+    }).catch(() => {});
     return () => {
       active = false;
     };
@@ -179,6 +183,37 @@ export const CitizenDashboardScreen = ({
             </View>
           </TouchableOpacity>
         </View>
+
+        {announcements.length ? (
+          <View style={styles.sectionContainer}>
+            <View style={styles.activityHeaderRow}>
+              <Text style={styles.sectionHeaderTitle}>ANNOUNCEMENTS · CAMPS &amp; SLOTS</Text>
+              <TouchableOpacity onPress={() => onNavigateTab && onNavigateTab("profile")}>
+                <Text style={styles.viewAllLink}>Preferences</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.annCard}>
+              {announcements.slice(0, 3).map((item, idx) => (
+                <TouchableOpacity
+                  key={item._id}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigateTab && onNavigateTab("explore")}
+                  style={[styles.annRow, idx > 0 && styles.annRowBorder]}
+                >
+                  <View style={styles.annBadgeRow}>
+                    <Text style={styles.annCatPill}>
+                      {item.category === "camp" ? "NEW CAMP" : item.category === "slot" ? "NEW SLOTS" : "UPDATE"}
+                    </Text>
+                    {item.sportName ? <Text style={styles.annSportPill}>{item.sportName}</Text> : null}
+                    {item.isPreferred ? <Text style={styles.annPrefPill}>★ For You</Text> : null}
+                  </View>
+                  <Text style={styles.annTitle}>{item.title}</Text>
+                  <Text style={styles.annDesc}>{item.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionHeaderTitle}>MY FACILITY BOOKINGS</Text>
@@ -639,6 +674,63 @@ const styles = StyleSheet.create({
   activitySub: {
     fontSize: 11,
     color: "#64748b",
+    marginTop: 2
+  },
+  annCard: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#86efac",
+    overflow: "hidden"
+  },
+  annRow: {
+    padding: 13
+  },
+  annRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: "#dcfce7"
+  },
+  annBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 5
+  },
+  annCatPill: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    backgroundColor: "#bbf7d0",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 99
+  },
+  annSportPill: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#334155",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 99
+  },
+  annPrefPill: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#92400e",
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 99
+  },
+  annTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0f172a"
+  },
+  annDesc: {
+    fontSize: 12,
+    color: "#475569",
     marginTop: 2
   }
 });

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { Linking, Modal, Share, View, StyleSheet, TouchableOpacity } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
+import { useSelector } from "react-redux";
 import { Text } from "../AppText";
 import { Action, Field, performanceStyles as s } from "./PerformanceUI";
 
@@ -27,6 +28,8 @@ export default function MobileGoalsBadgesCard({
   const [sportId, setSportId] = useState("");
   const [goalType, setGoalType] = useState("attendance");
   const [targetValue, setTargetValue] = useState("10");
+  const [shareBadge, setShareBadge] = useState(null);
+  const athleteName = useSelector((state) => state.user?.User?.Name || state.user?.user?.Name || "");
 
   const goals = goalData?.goals || [];
   const badgeCatalog = goalData?.badgeCatalog || [];
@@ -193,7 +196,12 @@ export default function MobileGoalsBadgesCard({
       </Text>
       <View style={styles.badgeGrid}>
         {badgeCatalog.map((b) => (
-          <View key={b.badgeKey} style={[styles.badgeCard, !b.unlocked && styles.badgeLocked]}>
+          <TouchableOpacity
+            key={b.badgeKey}
+            activeOpacity={b.unlocked ? 0.75 : 1}
+            onPress={() => (b.unlocked ? setShareBadge(b) : null)}
+            style={[styles.badgeCard, !b.unlocked && styles.badgeLocked]}
+          >
             <View style={styles.badgeTop}>
               <Ionicons
                 name={b.unlocked ? "medal" : "lock-closed"}
@@ -204,9 +212,89 @@ export default function MobileGoalsBadgesCard({
             </View>
             <Text style={styles.badgeName}>{b.name}</Text>
             <Text style={styles.badgeHint}>{b.unlocked ? b.description : b.hint}</Text>
-          </View>
+            {b.unlocked ? (
+              <View style={styles.sharePill}>
+                <Ionicons name="share-social-outline" size={12} color={GREEN} />
+                <Text style={styles.sharePillText}>Share Post</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
         ))}
       </View>
+
+      {/* Shareable Badge Post Modal */}
+      <Modal
+        visible={Boolean(shareBadge)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShareBadge(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Share Achievement Post</Text>
+              <TouchableOpacity onPress={() => setShareBadge(null)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {shareBadge ? (
+              <>
+                <View style={styles.postPreview}>
+                  <Text style={styles.postOrg}>SPORTS AUTHORITY OF GUJARAT · KHELGUJARAT</Text>
+                  <View style={styles.postBadgeRow}>
+                    <View style={styles.postIconBox}>
+                      <Ionicons name="medal" size={26} color="#b45309" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.postPill}>BADGE ACHIEVED · +{shareBadge.points} XP</Text>
+                      <Text style={styles.postBadgeName}>{shareBadge.name}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.postDesc}>{shareBadge.description}</Text>
+                  <View style={styles.postFooter}>
+                    <Text style={styles.postAthlete}>{athleteName || "KhelGujarat Athlete"}</Text>
+                    <Text style={styles.postRank}>
+                      {rank?.current?.name || "Bronze Athlete"} · {xpPoints} XP
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.shareActions}>
+                  <TouchableOpacity
+                    style={styles.waBtn}
+                    onPress={async () => {
+                      const msg = `🏅 ${athleteName ? `${athleteName} just unlocked` : "I just unlocked"} the "${shareBadge.name}" badge (+${shareBadge.points} XP) on KhelGujarat! | Rank: ${rank?.current?.name || "Bronze Athlete"} (${xpPoints} XP)\n\n${shareBadge.description}\n\n#KhelGujarat #SportsAuthorityOfGujarat`;
+                      const waUrl = `whatsapp://send?text=${encodeURIComponent(msg)}`;
+                      const webUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+                      try {
+                        const supported = await Linking.canOpenURL(waUrl);
+                        await Linking.openURL(supported ? waUrl : webUrl);
+                      } catch {
+                        await Linking.openURL(webUrl);
+                      }
+                    }}
+                  >
+                    <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                    <Text style={styles.shareBtnText}>WhatsApp</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.socialBtn}
+                    onPress={async () => {
+                      const msg = `🏅 ${athleteName ? `${athleteName} just unlocked` : "I just unlocked"} the "${shareBadge.name}" badge (+${shareBadge.points} XP) on KhelGujarat! | Rank: ${rank?.current?.name || "Bronze Athlete"} (${xpPoints} XP)\n\n${shareBadge.description}\n\n#KhelGujarat #SportsAuthorityOfGujarat`;
+                      await Share.share({ title: `${shareBadge.name} — KhelGujarat`, message: msg });
+                    }}
+                  >
+                    <Ionicons name="share-social" size={18} color="#fff" />
+                    <Text style={styles.shareBtnText}>Social Media / More</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -294,4 +382,85 @@ const styles = StyleSheet.create({
   badgeXp: { fontSize: 10, fontWeight: "800", color: "#92400e" },
   badgeName: { fontSize: 12, fontWeight: "800", color: "#0f172a" },
   badgeHint: { fontSize: 10, color: "#64748b", marginTop: 2 },
+  sharePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+    alignSelf: "flex-start",
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 99,
+  },
+  sharePillText: { fontSize: 10, fontWeight: "800", color: GREEN },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "flex-end",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 18,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  modalTitle: { fontSize: 16, fontWeight: "800", color: "#0f172a" },
+  postPreview: {
+    backgroundColor: "#065f46",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+  },
+  postOrg: { fontSize: 10, fontWeight: "800", color: "#a7f3d0", letterSpacing: 0.6 },
+  postBadgeRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 10 },
+  postIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#fef3c7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  postPill: { fontSize: 10, fontWeight: "800", color: "#d1fae5" },
+  postBadgeName: { fontSize: 17, fontWeight: "900", color: "#fff", marginTop: 2 },
+  postDesc: { fontSize: 12, color: "#ecfdf5", marginTop: 10, lineHeight: 17 },
+  postFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.18)",
+    marginTop: 12,
+    paddingTop: 10,
+  },
+  postAthlete: { fontSize: 12, fontWeight: "800", color: "#fff" },
+  postRank: { fontSize: 11, fontWeight: "600", color: "#a7f3d0" },
+  shareActions: { flexDirection: "row", gap: 10 },
+  waBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#25D366",
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  socialBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: GREEN,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  shareBtnText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 });

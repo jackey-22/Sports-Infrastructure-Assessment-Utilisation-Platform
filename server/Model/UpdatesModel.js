@@ -10,6 +10,16 @@ const UpdatesModel = new mongoose.Schema(
       type: mongoose.SchemaTypes.ObjectId,
       ref: "sportscomplexes",
     },
+    sportId: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: "sports",
+      default: null,
+    },
+    category: {
+      type: String,
+      enum: ["general", "slot", "camp", "maintenance"],
+      default: "general",
+    },
     active: { type: String, default: 1 },
   },
   { timestamps: true }

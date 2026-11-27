@@ -64,6 +64,7 @@ const athleteSchema = new mongoose.Schema(
       },
     ],
     xpPoints: { type: Number, default: 0 },
+    preferredSports: [{ type: mongoose.SchemaTypes.ObjectId, ref: "sports" }],
     payments: [{ type: mongoose.SchemaTypes.ObjectId, ref: "payments" }],
   },
   { timestamps: true }

@@ -6,11 +6,14 @@ import {
   Flame,
   Lock,
   Plus,
+  Share2,
   Target,
   Trash2,
   X,
 } from "lucide-react";
+import { useSelector } from "react-redux";
 import { api } from "../../../API/client";
+import BadgeShareModal from "./BadgeShareModal";
 import {
   Button,
   Card,
@@ -38,6 +41,8 @@ export default function GoalsBadgesSection({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [shareBadge, setShareBadge] = useState(null);
+  const userName = useSelector((state) => state.user?.user?.Name || "");
   const [form, setForm] = useState({
     title: "",
     sportId: "",
@@ -421,20 +426,40 @@ export default function GoalsBadgesSection({
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
-                    b.unlocked
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  +{b.points} XP
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
+                      b.unlocked
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    +{b.points} XP
+                  </span>
+                  {b.unlocked ? (
+                    <button
+                      type="button"
+                      onClick={() => setShareBadge(b)}
+                      title="Share badge post"
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition"
+                    >
+                      <Share2 className="h-3 w-3" /> Share
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
         </Card>
       </div>
+
+      <BadgeShareModal
+        badge={shareBadge}
+        athleteName={userName}
+        rankName={rank?.current?.name}
+        xpPoints={xpPoints}
+        onClose={() => setShareBadge(null)}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Award, CalendarCheck, Compass, FileText, Star } from "lucide-react";
+import { Award, Bell, CalendarCheck, Compass, FileText, Sparkles, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { api } from "../../../API/client";
@@ -15,15 +15,17 @@ export default function CitizenDashboard() {
       api.get("/api/citizen/bookings"),
       api.get("/api/citizen/reviews"),
       api.get("/api/grievances"),
+      api.get("/api/athlete/announcements").catch(() => ({ data: [] })),
     ])
-      .then(([bookings, reviews, grievances]) =>
+      .then(([bookings, reviews, grievances, announcements]) =>
         setData({
           bookings: bookings.data || [],
           reviews: reviews.data || [],
           grievances: grievances.data || [],
+          announcements: announcements.data || [],
         })
       )
-      .catch(() => setData({ bookings: [], reviews: [], grievances: [] }));
+      .catch(() => setData({ bookings: [], reviews: [], grievances: [], announcements: [] }));
   }, []);
 
   return (
@@ -41,6 +43,57 @@ export default function CitizenDashboard() {
       />
 
       <LatestBookingPass />
+
+      {data?.announcements?.length ? (
+        <Card className="mb-6 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-50/80 via-white to-amber-50/40 shadow-sm">
+          <SectionHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Bell className="h-4 w-4 text-emerald-700" /> Announcements · New Camps &amp; Slots
+              </span>
+            }
+            description="Highlights tailored to your preferred sports and facility updates."
+            action={
+              <Link to="/citizen/profile" className="text-xs font-bold text-emerald-700 hover:underline">
+                Manage Sport Preferences
+              </Link>
+            }
+          />
+          <div className="divide-y divide-slate-100">
+            {data.announcements.slice(0, 4).map((item) => (
+              <div key={item._id} className="flex flex-wrap items-start justify-between gap-3 px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800">
+                      {item.category === "camp" ? "New Camp" : item.category === "slot" ? "New Slots" : "Announcement"}
+                    </span>
+                    {item.sportName ? (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
+                        {item.sportName}
+                      </span>
+                    ) : null}
+                    {item.isPreferred ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+                        <Sparkles className="h-3 w-3" /> Matches your preference
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1.5 text-sm font-extrabold text-slate-900">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-600">{item.description}</p>
+                </div>
+                {item.facilityId ? (
+                  <Link
+                    to={`/citizen/book/${item.facilityId}`}
+                    className="shrink-0 rounded-xl bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-dark"
+                  >
+                    Book Now
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       {!data ? (
         <div className="grid gap-3 sm:grid-cols-3">
