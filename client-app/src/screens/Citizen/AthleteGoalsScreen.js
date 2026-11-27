@@ -8,7 +8,7 @@ import { performanceService } from "../../services/performanceService";
 
 const GREEN = "#007D40";
 
-export default function AthleteGoalsScreen({ onBack }) {
+export default function AthleteGoalsScreen({ user, onBack }) {
   const goalsRes = usePerformanceResource(performanceService.ownGoals);
   const sportsRes = usePerformanceResource(performanceService.sports);
 
@@ -47,6 +47,7 @@ export default function AthleteGoalsScreen({ onBack }) {
         <MobileGoalsBadgesCard
           goalData={goalsRes.data}
           sports={uniqueSports}
+          athleteName={user?.Name || user?.name || ""}
           onCreateGoal={async (payload) => {
             await performanceService.createGoal(payload);
             await goalsRes.reload();

@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import { Modal, Share, View, StyleSheet, TouchableOpacity } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
-import { useSelector } from "react-redux";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Text } from "../AppText";
@@ -19,6 +18,7 @@ const GOAL_TYPES = [
 export default function MobileGoalsBadgesCard({
   goalData,
   sports = [],
+  athleteName = "",
   onCreateGoal,
   onCompleteGoal,
   onDeleteGoal,
@@ -32,7 +32,6 @@ export default function MobileGoalsBadgesCard({
   const [targetValue, setTargetValue] = useState("10");
   const [shareBadge, setShareBadge] = useState(null);
   const badgeCardRef = useRef(null);
-  const athleteName = useSelector((state) => state.user?.User?.Name || state.user?.user?.Name || "");
 
   const shareCapturedBadgeImage = async () => {
     if (!shareBadge) return;

@@ -233,7 +233,7 @@ export const RoleNavigator = ({ user, onLogout }) => {
       return <CitizenProfileScreen user={user} onBack={() => setActiveTab("skills")} onLogout={onLogout} />;
     }
     if (activeTab === "goals") {
-      return <AthleteGoalsScreen onBack={() => setActiveTab("skills")} />;
+      return <AthleteGoalsScreen user={user} onBack={() => setActiveTab("skills")} />;
     }
     if (activeTab === "skills" || activeTab === "performance") {
       return (
